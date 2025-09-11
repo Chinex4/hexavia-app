@@ -80,7 +80,10 @@ export default function OtpVerification() {
   const resend = async () => {
     if (seconds > 0) return;
     // Mock resend (hook up to API later)
-    toast.show("OTP resent to your email.", { type: "success", placement: "top" });
+    toast.show("OTP resent to your email.", {
+      type: "success",
+      placement: "top",
+    });
     setSeconds(RESEND_SECS);
   };
 
@@ -99,10 +102,18 @@ export default function OtpVerification() {
       toast.show("Email verified ✅", { type: "success", placement: "top" });
 
       // Adjust this to your next route
-      const nextRoute = type === "login" ? "/(tabs)/" : "/(auth)/create-password";
+      const nextRoute =
+        type === "login"
+          ? "/(tabs)/"
+          : type === "forgetPassword"
+            ? "/(auth)/reset-password"
+            : "/(auth)/create-password";
       router.replace(nextRoute as any);
     } catch {
-      toast.show("Verification failed. Please try again.", { type: "danger", placement: "top" });
+      toast.show("Verification failed. Please try again.", {
+        type: "danger",
+        placement: "top",
+      });
     }
   };
 
@@ -112,7 +123,11 @@ export default function OtpVerification() {
         <StatusBar style="dark" />
 
         {/* Top blur */}
-        <BlurView intensity={100} tint="systemChromeMaterial" className="absolute top-0 left-0 right-0 h-12" />
+        <BlurView
+          intensity={100}
+          tint="systemChromeMaterial"
+          className="absolute top-0 left-0 right-0 h-12"
+        />
 
         <KeyboardAwareScrollView
           enableOnAndroid
@@ -120,17 +135,24 @@ export default function OtpVerification() {
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
         >
           {/* Progress (step 2 active) */}
-          <View className="mt-[70px] flex flex-row justify-between gap-2">
-            <View className="flex-1 h-1 bg-gray-200 rounded-xl" />
-            <View className="flex-1 h-1 bg-primary rounded-xl" />
-            <View className="flex-1 h-1 bg-gray-200 rounded-xl" />
-          </View>
+          {type === "signup" && (
+            <View className="mt-[70px] flex flex-row justify-between gap-2">
+              <View className="flex-1 h-1 bg-gray-200 rounded-xl" />
+              <View className="flex-1 h-1 bg-primary rounded-xl" />
+              <View className="flex-1 h-1 bg-gray-200 rounded-xl" />
+            </View>
+          )}
 
           {/* Title + subtitle */}
-          <View className="mt-6">
-            <Text className="text-3xl text-black font-kumbhBold">Verify Email</Text>
+          <View
+            className={`${type === "login" || type === "forgotPassword" ? "mt-28" : "mt-6"}`}
+          >
+            <Text className="text-3xl text-black font-kumbhBold">
+              Verify Email
+            </Text>
             <Text className="text-base text-gray-500 mt-2 font-kumbhLight">
-              We’ve sent you an OTP Code via Email. Please enter {DIGITS}-digit code sent to{" "}
+              We’ve sent you an OTP Code via Email. Please enter {DIGITS}-digit
+              code sent to{" "}
               <Text className="text-primary font-kumbh">{String(email)}</Text>
             </Text>
           </View>
@@ -148,8 +170,12 @@ export default function OtpVerification() {
                   bg-white`}
                 >
                   <TextInput
-                    ref={(ref) => { if (ref) inputs.current[i] = ref; }}
-                    keyboardType={Platform.OS === "ios" ? "number-pad" : "numeric"}
+                    ref={(ref) => {
+                      if (ref) inputs.current[i] = ref;
+                    }}
+                    keyboardType={
+                      Platform.OS === "ios" ? "number-pad" : "numeric"
+                    }
                     maxLength={1}
                     value={otp[i]}
                     onChangeText={(t) => handleChange(t, i)}
@@ -171,14 +197,19 @@ export default function OtpVerification() {
                 className={`font-kumbhBold ${seconds > 0 ? "text-gray-400" : "text-primary"}`}
                 onPress={resend}
               >
-                Resend {seconds > 0 ? `0:${String(seconds).padStart(2, "0")}` : ""}
+                Resend{" "}
+                {seconds > 0 ? `0:${String(seconds).padStart(2, "0")}` : ""}
               </Text>
             </Text>
           </View>
 
           {/* Verify button */}
           <View className="mt-12">
-            <HexButton title="Verify" onPress={onVerify} disabled={!canVerify} />
+            <HexButton
+              title="Verify"
+              onPress={onVerify}
+              disabled={!canVerify}
+            />
           </View>
         </KeyboardAwareScrollView>
       </View>

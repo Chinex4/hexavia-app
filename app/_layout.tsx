@@ -39,11 +39,8 @@ export default function RootLayout() {
         warningColor="#f59e0b"
         normalColor="#4C5FAB"
       >
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
+        <Stack screenOptions={{ headerShown: false }} />
+          
       </ToastProvider>
     </>
   );

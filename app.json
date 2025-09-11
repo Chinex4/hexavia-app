@@ -12,13 +12,13 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.heischinex.hexavia",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/logo-icon.png",
         "backgroundColor": "#4C5FAB"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/logo-icon.png",
         "backgroundColor": "#4C5FAB"
       },
       "edgeToEdgeEnabled": true,
@@ -27,11 +27,9 @@
     "web": {
       "bundler": "metro",
       "output": "static",
-      "favicon": "./assets/images/logo.png"
+      "favicon": "./assets/images/logo-icon.png"
     },
-    "plugins": [
-      "expo-router"
-    ],
+    "plugins": ["expo-router"],
     "experiments": {
       "typedRoutes": true
     },
