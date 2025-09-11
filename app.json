@@ -4,7 +4,7 @@
     "slug": "hexavia",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/logo-icon.png",
     "scheme": "hexavia",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,

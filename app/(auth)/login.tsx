@@ -19,6 +19,7 @@ import { useToast } from "react-native-toast-notifications";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react-native";
 import HexButton from "@/components/ui/HexButton";
 import { BlurView } from "expo-blur";
+import GoogleButton from "@/components/auth/GoogleButton";
 
 type FormValues = { identifier: string; password: string };
 
@@ -185,18 +186,11 @@ export default function LoginScreen() {
           </View>
 
           {/* Social login */}
-          <View className="mt-8">
-            <Pressable
-              className="w-full py-4 rounded-xl bg-gray-50 flex-row items-center justify-center px-4"
-              onPress={() => toast.show("Google sign-in coming soon", { placement: "top" })}
-            >
-              <Image
-                source={require("../../assets/images/google.png")}
-                className="w-5 h-5 mr-2"
-              />
-              <Text className="text-base text-gray-800 font-kumbh">Continue With Google</Text>
-            </Pressable>
-          </View>
+          <GoogleButton onToken={(t) => {
+            // POST { id_token: t } to Laravel
+            toast.show(`Google id_token: ${t.slice(0, 10)}...`, { placement: "top" });
+            console.log(t);
+          }} />
 
           <Text className="text-center text-gray-500 text-sm mt-4 font-kumbh">or</Text>
 
