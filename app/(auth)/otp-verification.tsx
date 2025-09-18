@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
 import { BlurView } from "expo-blur";
 import HexButton from "@/components/ui/HexButton";
+import { ArrowLeft } from "lucide-react-native";
 
 const DIGITS = 5;
 const RESEND_SECS = 30;
@@ -41,13 +42,12 @@ export default function OtpVerification() {
     return () => clearInterval(t);
   }, [seconds]);
 
-  // Focus first box on mount
   useEffect(() => {
     setTimeout(() => inputs.current[0]?.focus(), 100);
   }, []);
 
   const handleChange = (text: string, index: number) => {
-    const val = text.replace(/[^\d]/g, "").slice(-1); // last typed digit
+    const val = text.replace(/[^\d]/g, "").slice(-1);
     const next = [...otp];
     next[index] = val;
     setOtp(next);
@@ -61,7 +61,6 @@ export default function OtpVerification() {
   const handleKeyPress = (e: any, index: number) => {
     if (e.nativeEvent.key === "Backspace") {
       if (otp[index]) {
-        // clear current
         const next = [...otp];
         next[index] = "";
         setOtp(next);
@@ -99,15 +98,22 @@ export default function OtpVerification() {
         otpVerifiedAt: new Date().toISOString(),
       };
       await AsyncStorage.setItem(key, JSON.stringify(merged));
-      toast.show("Email verified ✅", { type: "success", placement: "top" });
+      const toastMsg =
+        type === "login"
+          ? "Login Success"
+          : type === "forgotPassword"
+            ? "Proceed to login"
+            : "Email Verified. Proceed to Login!";
+      toast.show(toastMsg, { type: "success", placement: "top" });
 
       // Adjust this to your next route
       const nextRoute =
         type === "login"
-          ? "/(tabs)/"
-          : type === "forgetPassword"
+          ? "/(staff)/(tabs)/"
+          : type === "forgotPassword"
             ? "/(auth)/reset-password"
             : "/(auth)/create-password";
+
       router.replace(nextRoute as any);
     } catch {
       toast.show("Verification failed. Please try again.", {
@@ -145,8 +151,16 @@ export default function OtpVerification() {
 
           {/* Title + subtitle */}
           <View
-            className={`${type === "login" || type === "forgotPassword" ? "mt-28" : "mt-6"}`}
+            className={`${type === "login" || type === "forgotPassword" ? "mt-24" : "mt-6"}`}
           >
+            {type === "signup" ? null : (
+              <View
+                className="mb-4 rounded-full w-10 h-10 items-center justify-center"
+                onTouchEnd={() => router.back()}
+              >
+                <ArrowLeft />
+              </View>
+            )}
             <Text className="text-3xl text-black font-kumbhBold">
               Verify Email
             </Text>

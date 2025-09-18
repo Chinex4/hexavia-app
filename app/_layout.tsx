@@ -1,10 +1,14 @@
 // app/_layout.tsx
-import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { Platform } from "react-native";
+import { Slot } from "expo-router"; // or use <Stack /> if you prefer
+import * as SplashScreen from "expo-splash-screen";
+import { useFonts } from "expo-font";
+import { Provider } from "react-redux";
 import { ToastProvider } from "react-native-toast-notifications";
+
+import { store } from "@/store";
+
 import "../global.css";
 
 SplashScreen.preventAutoHideAsync();
@@ -17,15 +21,13 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded) SplashScreen.hideAsync();
   }, [fontsLoaded]);
 
   if (!fontsLoaded) return null;
 
   return (
-    <>
+    <Provider store={store}>
       <ToastProvider
         placement="top"
         duration={2500}
@@ -39,9 +41,8 @@ export default function RootLayout() {
         warningColor="#f59e0b"
         normalColor="#4C5FAB"
       >
-        <Stack screenOptions={{ headerShown: false }} />
-          
+        <Slot />
       </ToastProvider>
-    </>
+    </Provider>
   );
 }

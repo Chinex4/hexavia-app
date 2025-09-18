@@ -68,7 +68,6 @@ export default function ForgotPasswordScreen() {
       });
 
       const masked = maskEmail(values.email);
-      // NOTE: this should go to OTP screen
       router.push({
         pathname: "/(auth)/otp-verification",
         params: { email: masked, type: "forgotPassword" },
