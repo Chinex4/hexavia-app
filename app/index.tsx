@@ -8,12 +8,12 @@ export default function Splash() {
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      // const token = await AsyncStorage.getItem("user");
-      const token = false;
+      const token = await AsyncStorage.getItem("user");
+      // const token = false;
 
       if (!token) {
-        // router.replace("/(auth)/login");
-        router.replace("/(staff)/(tabs)");
+        router.replace("/(auth)/login");
+        // router.replace("/(staff)/(tabs)");
       } else {
         router.replace("/(client)/(tabs)");
       }

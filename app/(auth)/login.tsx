@@ -66,8 +66,8 @@ export default function LoginScreen() {
         identifier: values.identifier,
         loginAt: new Date().toISOString(),
       };
-      await AsyncStorage.setItem("auth_user", JSON.stringify(userPayload));
-      // toast.show("Logged in", { type: "success", placement: "top" });
+      await AsyncStorage.setItem("user", JSON.stringify(userPayload));
+      toast.show("OTP verification code has been sent to your mail", { type: "success", placement: "top" });
       
 
       const masked = maskEmail(values.identifier);

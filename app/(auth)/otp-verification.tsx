@@ -78,7 +78,6 @@ export default function OtpVerification() {
 
   const resend = async () => {
     if (seconds > 0) return;
-    // Mock resend (hook up to API later)
     toast.show("OTP resent to your email.", {
       type: "success",
       placement: "top",
@@ -106,7 +105,6 @@ export default function OtpVerification() {
             : "Email Verified. Proceed to Login!";
       toast.show(toastMsg, { type: "success", placement: "top" });
 
-      // Adjust this to your next route
       const nextRoute =
         type === "login"
           ? "/(staff)/(tabs)/"
