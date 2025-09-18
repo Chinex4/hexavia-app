@@ -7,14 +7,12 @@
     "icon": "./assets/images/logo-icon.png",
     "scheme": "hexavia",
     "userInterfaceStyle": "automatic",
+    "jsEngine": "hermes",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.heischinex.hexavia",
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo-icon.png",
-        "backgroundColor": "#4C5FAB"
-      }
+      "icon": "./assets/images/logo-icon.png"
     },
     "android": {
       "adaptiveIcon": {
@@ -29,7 +27,19 @@
       "output": "static",
       "favicon": "./assets/images/logo-icon.png"
     },
-    "plugins": ["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "buildArchs": ["arm64-v8a", "armeabi-v7a"] 
+          }
+        }
+      ]
+    ],
     "experiments": {
       "typedRoutes": true
     },
