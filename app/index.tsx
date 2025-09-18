@@ -1,4 +1,3 @@
-// app/splash.tsx
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
@@ -13,11 +12,12 @@ export default function Splash() {
       const token = false;
 
       if (!token) {
-        router.replace("/(auth)/login");
+        // router.replace("/(auth)/login");
+        router.replace("/(staff)/(tabs)");
       } else {
-        router.replace("/(tabs)");
+        router.replace("/(client)/(tabs)");
       }
-    }, 2000); // 2s
+    }, 3000); // 2s
 
     return () => clearTimeout(timer);
   }, []);

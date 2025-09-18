@@ -6,7 +6,6 @@ import {
   Pressable,
   TouchableWithoutFeedback,
   Keyboard,
-  Image,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useForm, Controller } from "react-hook-form";
@@ -62,13 +61,11 @@ export default function SignupFinalScreen() {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      // Merge with what we saved earlier during steps 1/2
       const existing = await AsyncStorage.getItem("signup_user");
       const base = existing ? JSON.parse(existing) : {};
       const payload = {
         ...base,
         clientCode: values.clientCode.trim(),
-        // NOTE: Plain text for demo. Replace with hashing or secure storage in real app.
         password: values.password,
         completedAt: new Date().toISOString(),
       };
@@ -94,8 +91,6 @@ export default function SignupFinalScreen() {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
       <View className="flex-1 bg-white">
         <StatusBar style="dark" />
-
-        {/* Top blur strip */}
         <BlurView
           intensity={100}
           tint="systemChromeMaterial"
@@ -235,27 +230,6 @@ export default function SignupFinalScreen() {
             )}
           </View>
 
-          {/* Socials
-          <View className="mt-8">
-            <Pressable
-              className="w-full py-4 rounded-xl bg-gray-50 flex-row items-center justify-center px-4"
-              onPress={() => toast.show("Signup with Google coming soon", { placement: "top" })}
-            >
-              <Image source={require("../../assets/images/google.png")} className="w-5 h-5 mr-2" />
-              <Text className="text-base text-gray-800 font-kumbh">Signup With Google</Text>
-            </Pressable>
-
-            <Text className="text-center text-gray-500 text-sm mt-3 font-kumbh">Or</Text>
-
-            <Pressable
-              className="w-full py-4 rounded-xl bg-gray-50 flex-row items-center justify-center px-4 mt-3"
-              onPress={() => toast.show("Signup with LinkedIn coming soon", { placement: "top" })}
-            >
-              <Image source={require("../../assets/images/linkedin.png")} className="w-5 h-5 mr-2" />
-              <Text className="text-base text-gray-800 font-kumbh">Signup With LinkedIn</Text>
-            </Pressable>
-          </View> */}
-
           {/* Continue */}
           <View className="mt-72">
             <HexButton
@@ -264,16 +238,7 @@ export default function SignupFinalScreen() {
               disabled={!isValid || isSubmitting}
             />
           </View>
-
-          {/* Footer */}
-          {/* <View className="mt-4 items-center">
-            <Text className="text-gray-600 font-kumbh">
-              Already have an account?{" "}
-              <Text className="text-primary font-kumbhBold" onPress={() => router.push("/login")}>
-                Login
-              </Text>
-            </Text>
-          </View> */}
+          
         </KeyboardAwareScrollView>
       </View>
     </TouchableWithoutFeedback>

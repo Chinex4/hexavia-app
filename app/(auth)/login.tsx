@@ -67,7 +67,8 @@ export default function LoginScreen() {
         loginAt: new Date().toISOString(),
       };
       await AsyncStorage.setItem("auth_user", JSON.stringify(userPayload));
-      toast.show("Logged in", { type: "success", placement: "top" });
+      // toast.show("Logged in", { type: "success", placement: "top" });
+      
 
       const masked = maskEmail(values.identifier);
       // NOTE: this should go to OTP screen
@@ -187,7 +188,6 @@ export default function LoginScreen() {
 
           {/* Social login */}
           <GoogleButton onToken={(t) => {
-            // POST { id_token: t } to Laravel
             toast.show(`Google id_token: ${t.slice(0, 10)}...`, { placement: "top" });
             console.log(t);
           }} />
