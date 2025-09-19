@@ -1,25 +1,25 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  TouchableWithoutFeedback,
-  Keyboard,
-  Image,
-} from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { useForm, Controller } from "react-hook-form";
+import GoogleButton from "@/components/auth/GoogleButton";
+import HexButton from "@/components/ui/HexButton";
 import { yupResolver } from "@hookform/resolvers/yup";
-import * as yup from "yup";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
+import React, { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import {
+  Image,
+  Keyboard,
+  Pressable,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useToast } from "react-native-toast-notifications";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react-native";
-import HexButton from "@/components/ui/HexButton";
-import { BlurView } from "expo-blur";
-import GoogleButton from "@/components/auth/GoogleButton";
+import * as yup from "yup";
 
 type FormValues = { identifier: string; password: string };
 
@@ -162,7 +162,7 @@ export default function LoginScreen() {
             <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
               <Text className="text-[14px] font-kumbh">
                 <Text className="text-gray-600">Forgot Password? </Text>
-                <Text className="text-primary font-kumbhBold">Reset It</Text>
+                <Text className="text-primary font-kumbhBold">Reset Password</Text>
               </Text>
             </Pressable>
           </View>
