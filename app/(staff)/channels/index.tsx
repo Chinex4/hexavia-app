@@ -7,7 +7,7 @@ import SearchBar from "@/components/SearchBar";
 import ChannelCard from "@/components/staff/channels/ChannelCard";
 import FilterModal, { Filters } from "@/components/FIlterModal";
 import useDebounced from "@/hooks/useDebounced";
-import { CHANNELS } from "./channelsData";
+import { CHANNELS } from "../../../constants/channelsData";
 import { StatusBar } from "expo-status-bar";
 
 const INACTIVE = "#9CA3AF";
@@ -49,7 +49,10 @@ export default function AllChannelsScreen() {
     return list;
   }, [debouncedQuery, filters]);
 
-  const viewStyle = { flex: 1, marginTop: Platform.select({ ios: 60, android: 40 }) }; 
+  const viewStyle = {
+    flex: 1,
+    marginTop: Platform.select({ ios: 60, android: 40 }),
+  };
 
   return (
     <View className="flex-1 bg-white">
