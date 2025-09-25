@@ -1,20 +1,23 @@
-import React from "react";
+import { useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { Bell, ChevronRight } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
   FlatList,
-  Dimensions,
+  Pressable,
+  ScrollView,
+  Text,
+  View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, ChevronRight } from "lucide-react-native";
-import SanctionCard from "@/components/staff/SanctionCard";
+
 import AvatarPlaceholder from "@/components/staff/AvatarPlaceHolder";
 import ChannelCard from "@/components/staff/ChannelCard";
-import TaskCard from "@/components/staff/TaskCard";
-import { StatusBar } from "expo-status-bar";
-import { useRouter } from "expo-router";
+import SanctionCard from "@/components/staff/SanctionCard";
+import TaskOverview from "@/components/staff/TaskOverviewCard";
+import CreateChannelCard from "@/components/staff/channels/CreateChannelCard";
+import CreateChannelModal from "@/components/staff/channels/CreateChannelModal";
+import useChannelCardLayout from "@/hooks/useChannelCardLayout";
 
 type Channel = {
   id: string;
@@ -25,14 +28,17 @@ type Channel = {
   memberAvatars?: string[];
 };
 
-const channels: Channel[] = [
+type ListItem =
+  | ({ kind: "create" } & { id: "create" })
+  | ({ kind: "channel" } & Channel);
+
+const baseChannels: Channel[] = [
   {
     id: "1",
     title: "FinTeam",
     subtitle:
       "Horizontal swipeable carousel of channel cards PR/Marketing Channel",
     color: "#14D699",
-    logo: undefined,
     memberAvatars: [
       "https://i.pravatar.cc/100?img=1",
       "https://i.pravatar.cc/100?img=2",
@@ -46,8 +52,7 @@ const channels: Channel[] = [
     title: "ZEETeam",
     subtitle:
       "Horizontal swipeable carousel of channel cards PR/Marketing Channel",
-    color: "#60A5FA", // blue-400-ish
-    logo: undefined,
+    color: "#60A5FA",
     memberAvatars: [
       "https://i.pravatar.cc/100?img=1",
       "https://i.pravatar.cc/100?img=2",
@@ -58,15 +63,20 @@ const channels: Channel[] = [
   },
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const PAGE_PAD = 16;
-const GAP = 10;
-const PEEK = 20;
-const CARD_WIDTH = SCREEN_WIDTH - PAGE_PAD * 2 - PEEK;
-const SNAP = CARD_WIDTH + GAP;
-
 export default function StaffHome() {
   const router = useRouter();
+  const [showCreate, setShowCreate] = useState(false);
+  const { PAGE_PAD, GAP, CARD_WIDTH, SNAP } = useChannelCardLayout();
+
+  // Build list with the "create" card first
+  const listData: ListItem[] = useMemo(
+    () => [
+      { kind: "create", id: "create" },
+      ...baseChannels.map((c) => ({ ...c, kind: "channel" as const })),
+    ],
+    []
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
@@ -106,23 +116,28 @@ export default function StaffHome() {
 
         <View style={{ marginHorizontal: -PAGE_PAD, marginTop: 16 }}>
           <FlatList
-            data={channels}
+            data={listData}
             horizontal
             keyExtractor={(it) => it.id}
-            renderItem={({ item }) => (
-              <ChannelCard
-                width={CARD_WIDTH}
-                gap={GAP}
-                item={{
-                  ...item,
-                  memberAvatars: item.memberAvatars ?? [],
-                }}
-              />
-            )}
-            contentContainerStyle={{
-              paddingLeft: 12,
-              paddingRight: PAGE_PAD,
-            }}
+            renderItem={({ item }) =>
+              item.kind === "create" ? (
+                <CreateChannelCard
+                  width={CARD_WIDTH}
+                  gap={GAP}
+                  onPress={() => setShowCreate(true)}
+                />
+              ) : (
+                <ChannelCard
+                  width={CARD_WIDTH}
+                  gap={GAP}
+                  item={{
+                    ...item,
+                    memberAvatars: item.memberAvatars ?? [],
+                  }}
+                />
+              )
+            }
+            contentContainerStyle={{ paddingLeft: 12, paddingRight: PAGE_PAD }}
             showsHorizontalScrollIndicator={false}
             decelerationRate="fast"
             snapToInterval={SNAP}
@@ -131,11 +146,17 @@ export default function StaffHome() {
         </View>
 
         {/* Task */}
-        <TaskCard />
+        <TaskOverview />
 
         {/* Sanction */}
         <SanctionCard />
       </ScrollView>
+
+      {/* Modal */}
+      <CreateChannelModal
+        visible={showCreate}
+        onClose={() => setShowCreate(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -1,20 +1,20 @@
 // app/(staff)/(tabs)/index.tsx
-import React from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  FlatList,
-  Dimensions,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, ChevronRight } from "lucide-react-native";
-import SanctionCard from "@/components/staff/SanctionCard";
 import AvatarPlaceholder from "@/components/staff/AvatarPlaceHolder";
 import ChannelCard from "@/components/staff/ChannelCard";
-import TaskCard from "@/components/staff/TaskCard";
+import SanctionCard from "@/components/staff/SanctionCard";
+import TaskCard from "@/components/staff/TaskOverviewCard";
 import { StatusBar } from "expo-status-bar";
+import { Bell, ChevronRight } from "lucide-react-native";
+import React from "react";
+import {
+  Dimensions,
+  FlatList,
+  Pressable,
+  ScrollView,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type Channel = {
   id: string;

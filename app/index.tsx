@@ -15,7 +15,7 @@ export default function Splash() {
         router.replace("/(auth)/login");
         // router.replace("/(staff)/(tabs)");
       } else {
-        router.replace("/(client)/(tabs)");
+        router.replace("/(staff)/(tabs)");
       }
     }, 3000); // 2s
 
