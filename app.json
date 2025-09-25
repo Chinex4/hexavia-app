@@ -20,7 +20,8 @@
         "backgroundColor": "#4C5FAB"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.heischinex.hexavia"
+      "package": "com.heischinex.hexavia",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "bundler": "metro",
@@ -35,10 +36,14 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "buildArchs": ["arm64-v8a", "armeabi-v7a"] 
+            "buildArchs": [
+              "arm64-v8a",
+              "armeabi-v7a"
+            ]
           }
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
