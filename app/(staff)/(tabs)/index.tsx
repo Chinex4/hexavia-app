@@ -2,13 +2,7 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Bell, ChevronRight } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
-import {
-  FlatList,
-  Pressable,
-  ScrollView,
-  Text,
-  View
-} from "react-native";
+import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AvatarPlaceholder from "@/components/staff/AvatarPlaceHolder";
@@ -77,6 +71,11 @@ export default function StaffHome() {
     []
   );
 
+  const LEFT_PAD = 12; // keep your visual padding
+  const ITEM_GAP = GAP; // from useChannelCardLayout()
+  const ITEM_WIDTH = CARD_WIDTH;
+  const INTERVAL = ITEM_WIDTH + ITEM_GAP;
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
@@ -114,7 +113,7 @@ export default function StaffHome() {
           </Pressable>
         </View>
 
-        <View style={{ marginHorizontal: -PAGE_PAD, marginTop: 16 }}>
+        <View style={{ marginTop: 16 }}>
           <FlatList
             data={listData}
             horizontal
@@ -123,25 +122,25 @@ export default function StaffHome() {
               item.kind === "create" ? (
                 <CreateChannelCard
                   width={CARD_WIDTH}
-                  gap={GAP}
+                  gap={GAP} // spacing stays on each card
                   onPress={() => setShowCreate(true)}
                 />
               ) : (
                 <ChannelCard
                   width={CARD_WIDTH}
                   gap={GAP}
-                  item={{
-                    ...item,
-                    memberAvatars: item.memberAvatars ?? [],
-                  }}
+                  item={{ ...item, memberAvatars: item.memberAvatars ?? [] }}
                 />
               )
             }
-            contentContainerStyle={{ paddingLeft: 12, paddingRight: PAGE_PAD }}
             showsHorizontalScrollIndicator={false}
-            decelerationRate="fast"
-            snapToInterval={SNAP}
-            snapToAlignment="start"
+            // No snapping:
+            snapToAlignment={undefined as any}
+            snapToOffsets={undefined as any}
+            // Make scroll feel natural:
+            decelerationRate="normal"
+            pagingEnabled={false}
+            overScrollMode="auto"
           />
         </View>
 

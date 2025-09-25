@@ -5,11 +5,11 @@ export default function useChannelCardLayout() {
   const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
   return useMemo(() => {
-    const PAGE_PAD = 16;
-    const GAP = 10;
-    const PEEK = 20;
+    const PAGE_PAD = 20;
+    const GAP = 12;
+    const PEEK = 16;
 
-    const CARD_WIDTH = SCREEN_WIDTH - PAGE_PAD * 2 - PEEK;
+    const CARD_WIDTH = SCREEN_WIDTH - (PAGE_PAD * 2 - PEEK);
     const SNAP = CARD_WIDTH + GAP;
 
     return {

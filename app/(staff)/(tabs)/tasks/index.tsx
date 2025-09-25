@@ -11,6 +11,7 @@ import StatusTabs from "@/components/staff/tasks/StatusTabs";
 import TaskCard from "@/components/staff/tasks/TaskCard";
 import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import FilterModal, { FilterState } from "@/components/staff/tasks/modals/FIlterModal";
+import { StatusBar } from "expo-status-bar";
 
 export default function TaskScreen() {
   const [query, setQuery] = useState("");
@@ -64,6 +65,7 @@ export default function TaskScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
+      <StatusBar style="dark" />
       <FlatList
         contentContainerStyle={{ paddingBottom: 140 }}
         data={filtered}
