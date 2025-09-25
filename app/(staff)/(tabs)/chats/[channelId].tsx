@@ -14,8 +14,14 @@ import * as Clipboard from "expo-clipboard";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
-import { Audio } from "expo-av";
 import { InteractionManager } from "react-native";
+import {
+  useAudioRecorder,
+  useAudioRecorderState,
+  RecordingPresets,
+  setAudioModeAsync,
+  AudioModule,
+} from "expo-audio"; // SDK ≥ 52
 
 const ME = "me-001";
 
@@ -31,32 +37,40 @@ export default function ChatScreen() {
 
   const [isRecording, setIsRecording] = useState(false);
   const [recordDurationMs, setRecordDurationMs] = useState(0);
-  const recordRef = useRef<Audio.Recording | null>(null);
   const tickRef = useRef<number | null>(null);
+
+  // create the recorder once
+  const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  // poll status every 200ms (gives you durationMillis + isRecording)
+  const recorderState = useAudioRecorderState(audioRecorder, 200);
+
+  // if you still keep these in your component:
+  const recordRef = useRef<typeof audioRecorder | null>(null);
+  useEffect(() => {
+    // mirror expo-audio’s duration into your state
+    setRecordDurationMs(recorderState.durationMillis ?? 0);
+  }, [recorderState.durationMillis]);
 
   const startRecording = async () => {
     try {
-      const perm = await Audio.requestPermissionsAsync();
+      // ask mic permission (expo-audio)
+      const perm = await AudioModule.requestRecordingPermissionsAsync();
       if (!perm.granted) return;
 
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: false,
+      // configure session (expo-audio)
+      await setAudioModeAsync({
+        allowsRecording: true, // was allowsRecordingIOS
+        playsInSilentMode: true, // was playsInSilentModeIOS
+        shouldPlayInBackground: false,
       });
 
-      const rec = new Audio.Recording();
-      await rec.prepareToRecordAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY
-      );
-      await rec.startAsync();
-      recordRef.current = rec;
+      // prepare + start (expo-audio)
+      await audioRecorder.prepareToRecordAsync(); // uses HIGH_QUALITY preset above
+      audioRecorder.record();
+
+      recordRef.current = audioRecorder; // keep your ref pattern if you like
       setIsRecording(true);
-      setRecordDurationMs(0);
-      tickRef.current = setInterval(async () => {
-        const s = await rec.getStatusAsync();
-        if ("durationMillis" in s) setRecordDurationMs(s.durationMillis ?? 0);
-      }, 200);
+      setRecordDurationMs(0); // we keep this, but it’ll be driven by recorderState
     } catch (e) {
       console.warn(e);
     }
@@ -64,19 +78,18 @@ export default function ChatScreen() {
 
   const stopRecording = async (cancel = false) => {
     try {
-      const rec = recordRef.current;
-      if (!rec) return;
-      await rec.stopAndUnloadAsync();
-      const uri = rec.getURI() || undefined;
+      const rec = recordRef.current ?? audioRecorder;
+      if (!recorderState.isRecording) return;
+
+      await rec.stop(); // expo-audio
+      const uri = rec.uri ?? undefined; // final file path
+
       recordRef.current = null;
-      if (tickRef.current) clearInterval(tickRef.current);
       setIsRecording(false);
 
       if (!cancel && uri) {
-        const duration = recordDurationMs;
-        // send(`[Voice note ${Math.round(duration / 1000)}s]`);
-        send(``);
-        // attach prototype meta to the last message (mine)
+        const duration = recorderState.durationMillis ?? 0;
+        send(""); // create the message
         setMessages((prev) => {
           const copy = [...prev];
           for (let i = copy.length - 1; i >= 0; i--) {
@@ -102,7 +115,7 @@ export default function ChatScreen() {
   };
 
   const handleMicPress = async () => {
-    if (isRecording) {
+    if (recorderState.isRecording) {
       await stopRecording(false);
     } else {
       await startRecording();
