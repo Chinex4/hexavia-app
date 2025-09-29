@@ -238,7 +238,6 @@ export default function SignupFinalScreen() {
               disabled={!isValid || isSubmitting}
             />
           </View>
-          
         </KeyboardAwareScrollView>
       </View>
     </TouchableWithoutFeedback>
