@@ -31,24 +31,25 @@ import {
   Search,
   X,
 } from "lucide-react-native";
-import GoogleButton from "@/components/auth/GoogleButton";
+import { useAppDispatch } from "@/store/hooks";
+import { register as registerThunk } from "@/redux/auth/auth.thunks";
 
 type Country = {
   name: string;
-  code: string; // ISO2 (e.g., NG)
-  dialCode: string; // e.g., +234
-  flagPng: string; // png url
+  code: string;
+  dialCode: string;
+  flagPng: string;
 };
 
 type FormValues = {
-  fullName: string;
+  fullname: string;
   username: string;
   email: string;
-  phoneNumber: string; // local part only (without country code)
+  phoneNumber: string;
 };
 
 const schema = yup.object({
-  fullName: yup
+  fullname: yup
     .string()
     .trim()
     .min(2, "Full name is too short")
@@ -100,7 +101,7 @@ const FALLBACK_COUNTRIES: Country[] = [
 
 export default function SignupScreen() {
   const router = useRouter();
-  const toast = useToast();
+  const dispatch = useAppDispatch();
 
   const {
     control,
@@ -109,7 +110,7 @@ export default function SignupScreen() {
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
-    defaultValues: { fullName: "", username: "", email: "", phoneNumber: "" },
+    defaultValues: { fullname: "", username: "", email: "", phoneNumber: "" },
   });
 
   const [countries, setCountries] = useState<Country[]>([]);
@@ -118,7 +119,6 @@ export default function SignupScreen() {
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [search, setSearch] = useState("");
 
-  // Fetch countries (flags + codes)
   useEffect(() => {
     let isMounted = true;
     (async () => {
@@ -150,7 +150,6 @@ export default function SignupScreen() {
         const finalList = parsed.length ? parsed : FALLBACK_COUNTRIES;
         setCountries(finalList);
 
-        // Default: Nigeria if present, else first item
         const defaultC =
           finalList.find((c) => c.code === "NG") ??
           finalList[0] ??
@@ -159,10 +158,7 @@ export default function SignupScreen() {
       } catch (e) {
         setCountries(FALLBACK_COUNTRIES);
         setSelectedCountry(FALLBACK_COUNTRIES[0]);
-        toast.show("Using fallback country list (network error).", {
-          type: "warning",
-          placement: "top",
-        });
+        console.log("Using fallback country list (network error).");
       } finally {
         if (isMounted) setLoadingCountries(false);
       }
@@ -181,40 +177,27 @@ export default function SignupScreen() {
   }, [countries, search]);
 
   const onSubmit = async (values: FormValues) => {
-    console.log("first");
     try {
-      const payload = {
-        ...values,
-        dialCode: selectedCountry?.dialCode ?? "",
-        country: selectedCountry?.code ?? "",
-        fullPhone: `${selectedCountry?.dialCode ?? ""}${values.phoneNumber}`,
-        createdAt: new Date().toISOString(),
-      };
+      await dispatch(
+        registerThunk({
+          fullname: values.fullname,
+          username: values.username,
+          email: values.email,
+          role: "client",
+          // phoneNumber: `${selectedCountry?.dialCode ?? ""}${values.phoneNumber}`,
+        })
+      ).unwrap();
 
-      await AsyncStorage.setItem("signup_user", JSON.stringify(payload));
-
-      toast.show("Account details saved. Verify OTP.", {
-        type: "success",
-        placement: "top",
-      });
-
-      // If the country picker might still be open, close it
-      setPickerOpen(false);
-
-      // ✅ Correct navigation: no (auth) in the path, pass params not a string
       router.push({
         pathname: "/otp-verification",
-        params: { email: maskEmail(values.email), type: "signup" },
+        params: {
+          email: maskEmail(values.email),
+          type: "signup",
+          phoneNumber: `${selectedCountry?.dialCode ?? ""}${values.phoneNumber}`,
+        },
       });
-
-      // if you want to see values regardless of navigation unmounts, log BEFORE push
-      console.log("values →", values);
     } catch (err) {
-      console.error("submit error:", err);
-      toast.show("Could not save your details. Try again.", {
-        type: "danger",
-        placement: "top",
-      });
+      console.log("Register failed:", err);
     }
   };
 
@@ -250,7 +233,7 @@ export default function SignupScreen() {
             </Text>
             <Controller
               control={control}
-              name="fullName"
+              name="fullname"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View className="w-full h-14 px-4 rounded-xl bg-gray-100 flex-row items-center">
                   <User size={18} color="#6B7280" />
@@ -265,9 +248,9 @@ export default function SignupScreen() {
                 </View>
               )}
             />
-            {errors.fullName && (
+            {errors.fullname && (
               <Text className="text-red-500 text-xs mt-1 font-kumbh">
-                {errors.fullName.message}
+                {errors.fullname.message}
               </Text>
             )}
           </View>
@@ -333,7 +316,7 @@ export default function SignupScreen() {
             )}
           </View>
 
-          {/* Phone Number (with country picker) */}
+          {/* Phone Number */}
           <View className="mt-4">
             <Text className="text-sm text-gray-700 mb-2 font-kumbh">
               Phone Number
@@ -393,32 +376,6 @@ export default function SignupScreen() {
                 !isValid || isSubmitting || loadingCountries || !selectedCountry
               }
             />
-          </View>
-
-          {/* Socials (optional, like your login) */}
-          <View className="">
-            <GoogleButton
-              onToken={(token) => console.log("Google signup token:", token)}
-            />
-            <Text className="text-center text-gray-500 text-sm mt-2 font-kumbh">
-              Or
-            </Text>
-            <Pressable
-              className="w-full py-4 rounded-xl bg-gray-50 flex-row items-center justify-center px-4 mt-2"
-              onPress={() =>
-                toast.show("Signup with LinkedIn coming soon", {
-                  placement: "top",
-                })
-              }
-            >
-              <Image
-                source={require("../../assets/images/linkedin.png")}
-                className="w-5 h-5 mr-2"
-              />
-              <Text className="text-base text-gray-800 font-kumbh">
-                Signup With LinkedIn
-              </Text>
-            </Pressable>
           </View>
 
           <View className="mt-4 items-center">

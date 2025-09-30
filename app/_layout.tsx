@@ -1,7 +1,7 @@
 // app/_layout.tsx
 import React, { useEffect } from "react";
-import { Platform } from "react-native";
-import { Slot } from "expo-router"; // or use <Stack /> if you prefer
+import { Platform, View } from "react-native";
+import { Slot } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { Provider } from "react-redux";
@@ -11,8 +11,12 @@ import { store } from "@/store";
 
 import "../global.css";
 import { TasksProvider } from "@/features/staff/tasksStore";
+import { attachStore } from "@/api/axios";
+import Toast from "react-native-toast-message";
 
 SplashScreen.preventAutoHideAsync();
+
+attachStore(store);
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -30,21 +34,13 @@ export default function RootLayout() {
   return (
     <Provider store={store}>
       <TasksProvider>
-        <ToastProvider
-          placement="top"
-          duration={2500}
-          animationType="zoom-in"
-          swipeEnabled
-          offsetTop={Platform.select({ ios: 60, android: 40 })}
-          style={{ zIndex: 99999 }}
-          textStyle={{ fontFamily: "KumbhSans-Regular" }}
-          successColor="#16a34a"
-          dangerColor="#ef4444"
-          warningColor="#f59e0b"
-          normalColor="#4C5FAB"
-        >
+        <View style={{ flex: 1 }}>
           <Slot />
-        </ToastProvider>
+          <Toast
+            topOffset={Platform.select({ ios: 60, android: 40 })}
+            visibilityTime={2500}
+          />
+        </View>
       </TasksProvider>
     </Provider>
   );

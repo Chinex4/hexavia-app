@@ -1,7 +1,7 @@
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Bell, ChevronRight } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -12,6 +12,9 @@ import TaskOverview from "@/components/staff/TaskOverviewCard";
 import CreateChannelCard from "@/components/staff/channels/CreateChannelCard";
 import CreateChannelModal from "@/components/staff/channels/CreateChannelModal";
 import useChannelCardLayout from "@/hooks/useChannelCardLayout";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchProfile } from "@/redux/user/user.thunks";
+import { selectUser } from "@/redux/user/user.slice";
 
 type Channel = {
   id: string;
@@ -57,12 +60,27 @@ const baseChannels: Channel[] = [
   },
 ];
 
+function firstNameOf(fullname?: string | null) {
+  if (!fullname) return "User";
+  return fullname.trim().split(/\s+/)[0];
+}
+function prettyRole(role?: string | null) {
+  if (!role) return "Project Member";
+  return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function StaffHome() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector(selectUser);
   const [showCreate, setShowCreate] = useState(false);
   const { PAGE_PAD, GAP, CARD_WIDTH, SNAP } = useChannelCardLayout();
+  useEffect(() => {
+    dispatch(fetchProfile());
+  }, [dispatch]);
+  const greetingName = firstNameOf(user?.fullname);
+  const roleText = prettyRole(user?.role || "Hexavia Staff");
 
-  // Build list with the "create" card first
   const listData: ListItem[] = useMemo(
     () => [
       { kind: "create", id: "create" },
@@ -70,11 +88,6 @@ export default function StaffHome() {
     ],
     []
   );
-
-  const LEFT_PAD = 12; // keep your visual padding
-  const ITEM_GAP = GAP; // from useChannelCardLayout()
-  const ITEM_WIDTH = CARD_WIDTH;
-  const INTERVAL = ITEM_WIDTH + ITEM_GAP;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -88,12 +101,17 @@ export default function StaffHome() {
         <View className="flex-row items-center justify-between mt-8">
           <AvatarPlaceholder />
           <View className="flex-1 ml-3">
-            <Text className="text-3xl text-gray-900 font-kumbhBold">Hi Nj</Text>
-            <View className="self-start mt-2 rounded-full border border-emerald-300 px-3 py-1">
-              <Text className="text-emerald-600 text-[12px] font-kumbhBold">
-                Project Manager
-              </Text>
-            </View>
+            <Text className="text-3xl text-gray-900 font-kumbhBold">
+              {greetingName ? `Hi ${greetingName}` : "Hi there!"}
+            </Text>
+
+            {roleText ? (
+              <View className="self-start mt-2 rounded-full border border-emerald-300 px-3 py-1">
+                <Text className="text-emerald-600 text-[12px] font-kumbhBold">
+                  {roleText}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <Pressable className="h-11 w-11 items-center justify-center rounded-2xl bg-gray-100">
@@ -122,7 +140,7 @@ export default function StaffHome() {
               item.kind === "create" ? (
                 <CreateChannelCard
                   width={CARD_WIDTH}
-                  gap={GAP} // spacing stays on each card
+                  gap={GAP}
                   onPress={() => setShowCreate(true)}
                 />
               ) : (

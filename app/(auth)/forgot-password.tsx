@@ -19,6 +19,8 @@ import { useToast } from "react-native-toast-notifications";
 import { Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react-native";
 import HexButton from "@/components/ui/HexButton";
 import { BlurView } from "expo-blur";
+import { useAppDispatch } from "@/store/hooks";
+import { forgotPassword } from "@/redux/auth/auth.thunks";
 
 type FormValues = { email: string };
 
@@ -45,6 +47,7 @@ export default function ForgotPasswordScreen() {
   const router = useRouter();
   const toast = useToast();
   const [showPassword, setShowPassword] = useState(false);
+  const dispatch = useAppDispatch();
 
   const {
     control,
@@ -61,22 +64,15 @@ export default function ForgotPasswordScreen() {
       const userPayload = {
         email: values.email,
       };
-      await AsyncStorage.setItem("auth_user", JSON.stringify(userPayload));
-      toast.show("OTP codehas been sent to your email", {
-        type: "success",
-        placement: "top",
-      });
+      await dispatch(forgotPassword(userPayload)).unwrap();
 
       const masked = maskEmail(values.email);
       router.push({
         pathname: "/(auth)/otp-verification",
         params: { email: masked, type: "forgotPassword" },
       });
-    } catch {
-      toast.show("Something went wrong. Please try again.", {
-        type: "danger",
-        placement: "top",
-      });
+    } catch (err) {
+      console.log("Reset Password failed:", err);
     }
   };
 

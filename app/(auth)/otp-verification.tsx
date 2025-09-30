@@ -3,30 +3,43 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   TouchableWithoutFeedback,
   Keyboard,
   Platform,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { StatusBar } from "expo-status-bar";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useToast } from "react-native-toast-notifications";
 import { BlurView } from "expo-blur";
 import HexButton from "@/components/ui/HexButton";
 import { ArrowLeft } from "lucide-react-native";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  resendRegisterOtp,
+  verifyEmail as verifyThunk,
+} from "@/redux/auth/auth.thunks";
+import { RootState } from "@/store";
 
-const DIGITS = 5;
+const DIGITS = 6;
 const RESEND_SECS = 30;
 
 export default function OtpVerification() {
-  const { email = "", type = "signup" } = useLocalSearchParams<{
+  const dispatch = useAppDispatch();
+  const { lastEmailForOtp } = useAppSelector((s: RootState) => s.auth);
+  const {
+    email: maskedFromParams = "",
+    type = "signup",
+    phoneNumber,
+  } = useLocalSearchParams<{
     email?: string;
     type?: string;
+    phoneNumber?: string;
   }>();
   const router = useRouter();
   const toast = useToast();
+  const realEmail =
+    lastEmailForOtp || String(maskedFromParams).replace(/\*/g, "");
 
   const [otp, setOtp] = useState<string[]>(Array(DIGITS).fill(""));
   const [focusIdx, setFocusIdx] = useState<number>(0);
@@ -35,7 +48,6 @@ export default function OtpVerification() {
   const code = otp.join("");
   const canVerify = code.length === DIGITS;
 
-  // Countdown
   useEffect(() => {
     if (seconds <= 0) return;
     const t = setInterval(() => setSeconds((s) => s - 1), 1000);
@@ -78,32 +90,16 @@ export default function OtpVerification() {
 
   const resend = async () => {
     if (seconds > 0) return;
-    toast.show("OTP resent to your email.", {
-      type: "success",
-      placement: "top",
-    });
+    await dispatch(resendRegisterOtp(realEmail));
     setSeconds(RESEND_SECS);
   };
 
   const onVerify = async () => {
     if (!canVerify) return;
     try {
-      const key = type === "login" ? "auth_user" : "signup_user";
-      const raw = await AsyncStorage.getItem(key);
-      const data = raw ? JSON.parse(raw) : {};
-      const merged = {
-        ...data,
-        email,
-        otpVerifiedAt: new Date().toISOString(),
-      };
-      await AsyncStorage.setItem(key, JSON.stringify(merged));
-      const toastMsg =
-        type === "login"
-          ? "Login Success"
-          : type === "forgotPassword"
-            ? "Proceed to login"
-            : "Email Verified. Proceed to Login!";
-      toast.show(toastMsg, { type: "success", placement: "top" });
+      if (type === "signup" && phoneNumber) {
+        await dispatch(verifyThunk({ email: realEmail, otp: code })).unwrap();
+      }
 
       const nextRoute =
         type === "login"
@@ -111,13 +107,20 @@ export default function OtpVerification() {
           : type === "forgotPassword"
             ? "/(auth)/reset-password"
             : "/(auth)/create-password";
+      let nextRouteParams = {};
+      if (type === "signup" && phoneNumber) {
+        nextRouteParams = { phoneNumber };
+      }
+      if (type === "forgotPassword") {
+        nextRouteParams = { code, email: realEmail };
+      }
 
-      router.replace(nextRoute as any);
-    } catch {
-      toast.show("Verification failed. Please try again.", {
-        type: "danger",
-        placement: "top",
+      router.replace({
+        pathname: nextRoute as any,
+        params: nextRouteParams,
       });
+    } catch {
+      // Error handled in thunk
     }
   };
 
@@ -138,7 +141,6 @@ export default function OtpVerification() {
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 32 }}
         >
-          {/* Progress (step 2 active) */}
           {type === "signup" && (
             <View className="mt-[70px] flex flex-row justify-between gap-2">
               <View className="flex-1 h-1 bg-gray-200 rounded-xl" />
@@ -163,9 +165,11 @@ export default function OtpVerification() {
               Verify Email
             </Text>
             <Text className="text-base text-gray-500 mt-2 font-kumbhLight">
-              We’ve sent you an OTP Code via Email. Please enter {DIGITS}-digit
-              code sent to{" "}
-              <Text className="text-primary font-kumbh">{String(email)}</Text>
+              We’ve sent you an OTP Code via Email. Please enter the {DIGITS}
+              -digit code sent to{" "}
+              <Text className="text-primary font-kumbh">
+                {String(maskedFromParams)}
+              </Text>
             </Text>
           </View>
 
@@ -178,8 +182,8 @@ export default function OtpVerification() {
                 <View
                   key={i}
                   className={`w-14 h-16 rounded-2xl items-center justify-center border
-                  ${isActive ? "border-primary" : hasValue ? "border-gray-400" : "border-gray-300"}
-                  bg-white`}
+                    ${isActive ? "border-primary" : hasValue ? "border-gray-400" : "border-gray-300"}
+                    bg-white`}
                 >
                   <TextInput
                     ref={(ref) => {

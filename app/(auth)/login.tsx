@@ -1,5 +1,6 @@
-import GoogleButton from "@/components/auth/GoogleButton";
 import HexButton from "@/components/ui/HexButton";
+import { login } from "@/redux/auth/auth.thunks";
+import { useAppDispatch } from "@/store/hooks";
 import { yupResolver } from "@hookform/resolvers/yup";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
@@ -9,7 +10,6 @@ import { Eye, EyeOff, Lock, Mail } from "lucide-react-native";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
-  Image,
   Keyboard,
   Pressable,
   Text,
@@ -21,20 +21,22 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { useToast } from "react-native-toast-notifications";
 import * as yup from "yup";
 
-type FormValues = { identifier: string; password: string };
+type FormValues = { email: string; password: string };
 
 const schema = yup.object({
-  identifier: yup
+  email: yup
     .string()
     .trim()
-    .required("Email or username is required")
-    .test("email-or-username", "Enter a valid email or username", (val) => {
+    .required("Email is required")
+    .test("email", "Enter a valid email", (val) => {
       if (!val) return false;
       const looksLikeEmail = /\S+@\S+\.\S+/.test(val);
-      const looksLikeUsername = /^[a-zA-Z0-9_.-]{3,}$/.test(val);
-      return looksLikeEmail || looksLikeUsername;
+      return looksLikeEmail;
     }),
-  password: yup.string().min(6, "Minimum 6 characters").required("Password is required"),
+  password: yup
+    .string()
+    .min(6, "Minimum 6 characters")
+    .required("Password is required"),
 });
 
 const maskEmail = (v: string) => {
@@ -46,6 +48,7 @@ const maskEmail = (v: string) => {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const toast = useToast();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -56,25 +59,23 @@ export default function LoginScreen() {
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
-    defaultValues: { identifier: "", password: "" },
+    defaultValues: { email: "", password: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
     try {
       const userPayload = {
-        id: Date.now(),
-        identifier: values.identifier,
-        loginAt: new Date().toISOString(),
+        email: values.email,
+        password: values.password,
       };
-      await AsyncStorage.setItem("user", JSON.stringify(userPayload));
-      toast.show("OTP verification code has been sent to your mail", { type: "success", placement: "top" });
-      
+      await dispatch(login(userPayload)).unwrap();
 
-      const masked = maskEmail(values.identifier);
-      // NOTE: this should go to OTP screen
-      router.push({ pathname: "/(auth)/otp-verification", params: { email: masked, type: "login" } });
-    } catch {
-      toast.show("Something went wrong. Please try again.", { type: "danger", placement: "top" });
+      const masked = maskEmail(values.email);
+      router.push({
+        pathname: "/(staff)/(tabs)",
+      });
+    } catch (err) {
+      console.log("Login failed:", err);
     }
   };
 
@@ -93,23 +94,26 @@ export default function LoginScreen() {
               Good to see you again!
             </Text>
             <Text className="text-base text-gray-500 mt-2 font-kumbhLight">
-              Access your Hexavian account and stay on top of your projects, finances, and updates
+              Access your Hexavian account and stay on top of your projects,
+              finances, and updates
             </Text>
           </View>
 
-          {/* Email / Username */}
+          {/* Email */}
           <View className="mt-6">
-            <Text className="text-sm text-gray-700 mb-2 font-kumbh">Email Address or Username</Text>
+            <Text className="text-sm text-gray-700 mb-2 font-kumbh">
+              Email Address
+            </Text>
             <Controller
               control={control}
-              name="identifier"
+              name="email"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View className="w-full h-14 px-4 rounded-xl bg-gray-100 flex-row items-center">
                   <View className="mr-2">
                     <Mail size={18} color="#6B7280" />
                   </View>
                   <TextInput
-                    placeholder="Enter Username or Email Address"
+                    placeholder="Enter Email Address"
                     placeholderTextColor="#9CA3AF"
                     onBlur={onBlur}
                     onChangeText={onChange}
@@ -121,14 +125,18 @@ export default function LoginScreen() {
                 </View>
               )}
             />
-            {errors.identifier && (
-              <Text className="text-red-500 text-xs mt-1 font-kumbh">{errors.identifier.message}</Text>
+            {errors.email && (
+              <Text className="text-red-500 text-xs mt-1 font-kumbh">
+                {errors.email.message}
+              </Text>
             )}
           </View>
 
           {/* Password */}
           <View className="mt-4">
-            <Text className="text-sm text-gray-700 mb-2 font-kumbh">Password</Text>
+            <Text className="text-sm text-gray-700 mb-2 font-kumbh">
+              Password
+            </Text>
             <Controller
               control={control}
               name="password"
@@ -147,13 +155,19 @@ export default function LoginScreen() {
                     className="flex-1 text-black font-kumbh"
                   />
                   <Pressable onPress={() => setShowPassword((s) => !s)}>
-                    {showPassword ? <EyeOff size={20} color="#111827" /> : <Eye size={20} color="#111827" />}
+                    {showPassword ? (
+                      <EyeOff size={20} color="#111827" />
+                    ) : (
+                      <Eye size={20} color="#111827" />
+                    )}
                   </Pressable>
                 </View>
               )}
             />
             {errors.password && (
-              <Text className="text-red-500 text-xs mt-1 font-kumbh">{errors.password.message}</Text>
+              <Text className="text-red-500 text-xs mt-1 font-kumbh">
+                {errors.password.message}
+              </Text>
             )}
           </View>
 
@@ -162,7 +176,9 @@ export default function LoginScreen() {
             <Pressable onPress={() => router.push("/(auth)/forgot-password")}>
               <Text className="text-[14px] font-kumbh">
                 <Text className="text-gray-600">Forgot Password? </Text>
-                <Text className="text-primary font-kumbhBold">Reset Password</Text>
+                <Text className="text-primary font-kumbhBold">
+                  Reset Password
+                </Text>
               </Text>
             </Pressable>
           </View>
@@ -180,38 +196,20 @@ export default function LoginScreen() {
           <View className="mt-4 items-center">
             <Text className="text-gray-600 font-kumbh">
               Don’t have an account?{" "}
-              <Text className="text-primary font-kumbhBold" onPress={() => router.push("/(auth)/signup")}>
+              <Text
+                className="text-primary font-kumbhBold"
+                onPress={() => router.push("/(auth)/signup")}
+              >
                 Sign Up
               </Text>
             </Text>
           </View>
-
-          {/* Social login */}
-          <GoogleButton onToken={(t) => {
-            toast.show(`Google id_token: ${t.slice(0, 10)}...`, { placement: "top" });
-            console.log(t);
-          }} />
-
-          <Text className="text-center text-gray-500 text-sm mt-4 font-kumbh">or</Text>
-
-          <View className="mt-4">
-            <Pressable
-              className="w-full py-4 rounded-xl bg-gray-50 flex-row items-center justify-center px-4"
-              onPress={() => toast.show("LinkedIn sign-in coming soon", { placement: "top" })}
-            >
-              <Image
-                  source={require("../../assets/images/linkedin.png")}
-                  className="w-5 h-5 mr-2"
-                />
-              <Text className="text-base text-gray-800 font-kumbh">Continue With LinkedIn</Text>
-            </Pressable>
-          </View>
         </KeyboardAwareScrollView>
 
-        <BlurView 
-            intensity={100}
-            tint="systemChromeMaterial"
-            className="absolute top-0 left-0 right-0 h-12"
+        <BlurView
+          intensity={100}
+          tint="systemChromeMaterial"
+          className="absolute top-0 left-0 right-0 h-12"
         />
       </View>
     </TouchableWithoutFeedback>
