@@ -62,18 +62,38 @@ export default function LoginScreen() {
     defaultValues: { email: "", password: "" },
   });
 
+  type Role = "staff" | "client" | "admin";
+
+  const pathByRole: Record<Role, string> = {
+    staff: "/(staff)/(tabs)",
+    client: "/(client)/(tabs)",
+    admin: "/(admin)/(tabs)",
+  };
+
+  function redirectByRole(
+    router: ReturnType<typeof useRouter>,
+    role: string | null | undefined
+  ) {
+    const r = (role ?? "").toLowerCase() as Role;
+    if (r && r in pathByRole) {
+      router.replace(pathByRole[r] as any);
+    } else {
+      // fallback
+      router.replace("/(client)/(tabs)");
+    }
+  }
+
   const onSubmit = async (values: FormValues) => {
     try {
       const userPayload = {
         email: values.email,
         password: values.password,
       };
-      await dispatch(login(userPayload)).unwrap();
+      const response = await dispatch(login(userPayload)).unwrap();
+      const user: { role?: string } = response?.user || {};
 
       const masked = maskEmail(values.email);
-      router.push({
-        pathname: "/(staff)/(tabs)",
-      });
+      redirectByRole(router, user.role);
     } catch (err) {
       console.log("Login failed:", err);
     }

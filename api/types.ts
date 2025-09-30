@@ -14,5 +14,6 @@ export type User = {
   role?: string | null;
   username?: string | null;
   phoneNumber?: string | null;
+  profilePicture?: string | null;
   channelCode?: string | null;
 };

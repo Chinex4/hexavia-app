@@ -15,50 +15,27 @@ import useChannelCardLayout from "@/hooks/useChannelCardLayout";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { selectUser } from "@/redux/user/user.slice";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+import {
+  selectAllChannels,
+  selectStatus,
+} from "@/redux/channels/channels.selectors";
 
-type Channel = {
-  id: string;
-  title: string;
-  subtitle: string;
-  color: string;
-  logo?: string;
-  memberAvatars?: string[];
-};
-
-type ListItem =
-  | ({ kind: "create" } & { id: "create" })
-  | ({ kind: "channel" } & Channel);
-
-const baseChannels: Channel[] = [
-  {
-    id: "1",
-    title: "FinTeam",
-    subtitle:
-      "Horizontal swipeable carousel of channel cards PR/Marketing Channel",
-    color: "#14D699",
-    memberAvatars: [
-      "https://i.pravatar.cc/100?img=1",
-      "https://i.pravatar.cc/100?img=2",
-      "https://i.pravatar.cc/100?img=3",
-      "https://i.pravatar.cc/100?img=4",
-      "https://i.pravatar.cc/100?img=5",
-    ],
-  },
-  {
-    id: "2",
-    title: "ZEETeam",
-    subtitle:
-      "Horizontal swipeable carousel of channel cards PR/Marketing Channel",
-    color: "#60A5FA",
-    memberAvatars: [
-      "https://i.pravatar.cc/100?img=1",
-      "https://i.pravatar.cc/100?img=2",
-      "https://i.pravatar.cc/100?img=3",
-      "https://i.pravatar.cc/100?img=4",
-      "https://i.pravatar.cc/100?img=5",
-    ],
-  },
+// ---- stable “random” colors (same channel => same color) ----
+const PALETTE = [
+  "#14D699",
+  "#60A5FA",
+  "#F6A94A",
+  "#29C57A",
+  "#4C5FAB",
+  "#9B7BF3",
 ];
+const colorFor = (key: string) => {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++)
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return PALETTE[hash % PALETTE.length];
+};
 
 function firstNameOf(fullname?: string | null) {
   if (!fullname) return "User";
@@ -72,21 +49,48 @@ function prettyRole(role?: string | null) {
 export default function StaffHome() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+
+  // profile
   const user = useAppSelector(selectUser);
-  const [showCreate, setShowCreate] = useState(false);
-  const { PAGE_PAD, GAP, CARD_WIDTH, SNAP } = useChannelCardLayout();
   useEffect(() => {
     dispatch(fetchProfile());
   }, [dispatch]);
+
+  // channels (memoized selector)
+  const status = useAppSelector(selectStatus);
+  const channels = useAppSelector(selectAllChannels);
+
+  // fetch channels on mount (or if status was reset to idle)
+  useEffect(() => {
+    if (status === "idle") dispatch(fetchChannels());
+  }, [status, dispatch]);
+
+  const [showCreate, setShowCreate] = useState(false);
+
+  // make cards narrower than default
+  const { GAP, CARD_WIDTH } = useChannelCardLayout();
+  const CARD_WIDTH_NARROW = Math.max(220, CARD_WIDTH - 40);
+  const SNAP = CARD_WIDTH_NARROW + GAP;
+
   const greetingName = firstNameOf(user?.fullname);
   const roleText = prettyRole(user?.role || "Hexavia Staff");
 
-  const listData: ListItem[] = useMemo(
-    () => [
-      { kind: "create", id: "create" },
-      ...baseChannels.map((c) => ({ ...c, kind: "channel" as const })),
-    ],
-    []
+  // list: first item is "create", then real channels (derived + stable)
+  const listData = useMemo(
+    () =>
+      [
+        { kind: "create", id: "create" as const },
+        ...channels.map((c) => ({
+          kind: "channel" as const,
+          id: String(c.id), // make sure it's a string
+          title: c.name,
+          subtitle: c.description ?? "",
+          code: c.code,
+          logo: (c as any)?.logo ?? undefined,
+          color: colorFor(c.id || (c as any)?.code || c.name),
+        })),
+      ] as const,
+    [channels]
   );
 
   return (
@@ -96,6 +100,8 @@ export default function StaffHome() {
         contentContainerStyle={{ paddingBottom: 32 }}
         className="px-5"
         showsVerticalScrollIndicator={false}
+        directionalLockEnabled
+        alwaysBounceVertical={false}
       >
         {/* Top Bar */}
         <View className="flex-row items-center justify-between mt-8">
@@ -104,7 +110,6 @@ export default function StaffHome() {
             <Text className="text-3xl text-gray-900 font-kumbhBold">
               {greetingName ? `Hi ${greetingName}` : "Hi there!"}
             </Text>
-
             {roleText ? (
               <View className="self-start mt-2 rounded-full border border-emerald-300 px-3 py-1">
                 <Text className="text-emerald-600 text-[12px] font-kumbhBold">
@@ -133,32 +138,34 @@ export default function StaffHome() {
 
         <View style={{ marginTop: 16 }}>
           <FlatList
-            data={listData}
+            data={listData as any}
             horizontal
-            keyExtractor={(it) => it.id}
-            renderItem={({ item }) =>
+            keyExtractor={(it: any) => `${it.kind}:${it.id}`} // ✅ unique + stable
+            renderItem={({ item }: any) =>
               item.kind === "create" ? (
                 <CreateChannelCard
-                  width={CARD_WIDTH}
+                  width={CARD_WIDTH_NARROW}
                   gap={GAP}
                   onPress={() => setShowCreate(true)}
                 />
               ) : (
-                <ChannelCard
-                  width={CARD_WIDTH}
-                  gap={GAP}
-                  item={{ ...item, memberAvatars: item.memberAvatars ?? [] }}
-                />
+                <ChannelCard width={CARD_WIDTH_NARROW} gap={GAP} item={item} />
               )
             }
             showsHorizontalScrollIndicator={false}
-            // No snapping:
-            snapToAlignment={undefined as any}
-            snapToOffsets={undefined as any}
-            // Make scroll feel natural:
-            decelerationRate="normal"
-            pagingEnabled={false}
-            overScrollMode="auto"
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
+            snapToInterval={SNAP}
+            snapToAlignment="start"
+            decelerationRate="fast"
+            style={{ height: 200 + 16 }}
+            contentContainerStyle={{ paddingRight: 8 }}
+            getItemLayout={(_, index) => ({
+              length: SNAP,
+              offset: SNAP * index,
+              index,
+            })}
           />
         </View>
 

@@ -157,6 +157,7 @@ export const login = createAsyncThunk(
       dispatch(
         setSession({ user: res.data.user as any, token: res.data.token as any })
       );
+      return { user: res.data.user, token: res.data.token };
     } catch (err: any) {
       const msg =
         err?.response?.data?.errors?.[0]?.msg ||
