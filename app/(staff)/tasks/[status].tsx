@@ -7,7 +7,6 @@ import { FlatList, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import TaskCard from "../../../components/staff/tasks/TaskCard";
 import { StatusBar } from "expo-status-bar";
-import BackHeader from "@/components/BackHeader";
 
 export default function StatusScreen() {
   const params = useLocalSearchParams<{ status: StatusKey }>();

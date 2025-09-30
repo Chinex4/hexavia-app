@@ -3,20 +3,17 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   TouchableWithoutFeedback,
   Keyboard,
-  Image,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast } from "react-native-toast-notifications";
-import { Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react-native";
+import { Mail, ArrowLeft } from "lucide-react-native";
 import HexButton from "@/components/ui/HexButton";
 import { BlurView } from "expo-blur";
 import { useAppDispatch } from "@/store/hooks";
@@ -45,8 +42,6 @@ const maskEmail = (v: string) => {
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
-  const toast = useToast();
-  const [showPassword, setShowPassword] = useState(false);
   const dispatch = useAppDispatch();
 
   const {

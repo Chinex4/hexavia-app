@@ -24,7 +24,6 @@ export default function useFakeChat(currentUserId: string) {
   const msgIdx = useRef(0);
 
   useEffect(() => {
-    // Seed two bot messages
     const now = Date.now();
     setMessages([
       {
@@ -64,12 +63,10 @@ export default function useFakeChat(currentUserId: string) {
     };
     setMessages((prev) => [...prev, myMsg]);
 
-    // Status progression
     setTimeout(() => advance(id, "sent"), 250);
     setTimeout(() => advance(id, "delivered"), 900);
     setTimeout(() => advance(id, "seen", ["Fin Bot"]), 1500);
 
-    // Bot “typing” and reply
     setIsTyping(true);
     const replyDelay = 1100 + Math.random() * 900;
     setTimeout(() => {

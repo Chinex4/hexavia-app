@@ -184,7 +184,7 @@ export default function SignupScreen() {
           username: values.username,
           email: values.email,
           role: "client",
-          // phoneNumber: `${selectedCountry?.dialCode ?? ""}${values.phoneNumber}`,
+          phoneNumber: `${selectedCountry?.dialCode ?? ""}${values.phoneNumber}`,
         })
       ).unwrap();
 

@@ -38,7 +38,6 @@ function InfoRow({
       <View className="flex-row items-center">
         <View className="mr-3 rounded-2xl bg-primary/10 p-2">
           <Ionicons name={icon} size={18} color="#4C5FAB" />
-          {/* falls back if primary differs */}
         </View>
         <Text className="text-gray-500 font-kumbh">{label}</Text>
       </View>
@@ -55,34 +54,30 @@ export default function Profile() {
   const user = useSelector(selectUser);
   const phase = useSelector(selectPhase);
   const [refreshing, setRefreshing] = useState(false);
-
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await dispatch(fetchProfile());
     setRefreshing(false);
   }, [dispatch]);
-
   useFocusEffect(
     useCallback(() => {
       if (!user) dispatch(fetchProfile());
     }, [dispatch, user])
   );
-
   const avatarUri = user?.profilePicture || undefined;
-
   const logoutHandler = useCallback(() => {
     dispatch(logout());
     clearToken();
     clearUser();
     router.replace("/(auth)/login");
   }, [dispatch, router]);
-
   const role = user?.role ?? "";
   const channel =
     (user as any)?.channel?.name ||
     (user as any)?.channelName ||
     (user as any)?.channel ||
     "";
+
 
   const topCard = useMemo(() => {
     return (
@@ -123,7 +118,6 @@ export default function Profile() {
             )}
           </View>
         </View>
-
         <View className="mt-4 flex-row">
           <Pressable
             className="flex-1 mr-2 items-center justify-center rounded-2xl bg-primary px-4 py-3"
@@ -150,9 +144,10 @@ export default function Profile() {
     user?.username,
   ]);
 
+  
   return (
     <View className="flex-1 bg-gray-50">
-        <StatusBar style="light" />
+      <StatusBar style="light" />
       {/* Header */}
       <View className="relative z-0 h-40 w-full bg-primary rounded-b-[28px] px-5 pt-20">
         <Text className="text-white font-kumbhBold text-2xl">Profile</Text>
@@ -190,7 +185,6 @@ export default function Profile() {
             value={(user as any)?.phoneNumber || (user as any)?.phone || ""}
           />
           <InfoRow icon="people" label="Role" value={role} />
-          <InfoRow icon="chatbox-ellipses" label="Channel" value={channel} />
         </View>
 
         {/* Loading state overlay if first load */}

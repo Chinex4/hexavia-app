@@ -3,14 +3,14 @@ import { View, Text, Pressable } from "react-native";
 import { Plus } from "lucide-react-native";
 
 type Props = {
-  width: number; // CARD_WIDTH from hook
+  width: number;
   gap: number;
   onPress: () => void;
 };
 
 export default function CreateChannelCard({ width, gap, onPress }: Props) {
-  const CARD_HEIGHT = 200; // same as ChannelCard height
-  const REDUCED_WIDTH = width * 0.6; // 60% of channel card width
+  const CARD_HEIGHT = 200;
+  const REDUCED_WIDTH = width * 0.6;
 
   return (
     <Pressable

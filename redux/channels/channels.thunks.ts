@@ -1,4 +1,3 @@
-// store/channels.thunks.ts
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import type { AxiosError } from "axios";
 import { api } from "@/api/axios";

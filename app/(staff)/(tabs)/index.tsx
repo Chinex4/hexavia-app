@@ -21,7 +21,6 @@ import {
   selectStatus,
 } from "@/redux/channels/channels.selectors";
 
-// ---- stable “random” colors (same channel => same color) ----
 const PALETTE = [
   "#14D699",
   "#60A5FA",
@@ -50,24 +49,20 @@ export default function StaffHome() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  // profile
   const user = useAppSelector(selectUser);
   useEffect(() => {
     dispatch(fetchProfile());
   }, [dispatch]);
 
-  // channels (memoized selector)
   const status = useAppSelector(selectStatus);
   const channels = useAppSelector(selectAllChannels);
 
-  // fetch channels on mount (or if status was reset to idle)
   useEffect(() => {
     if (status === "idle") dispatch(fetchChannels());
   }, [status, dispatch]);
 
   const [showCreate, setShowCreate] = useState(false);
 
-  // make cards narrower than default
   const { GAP, CARD_WIDTH } = useChannelCardLayout();
   const CARD_WIDTH_NARROW = Math.max(220, CARD_WIDTH - 40);
   const SNAP = CARD_WIDTH_NARROW + GAP;
@@ -75,14 +70,13 @@ export default function StaffHome() {
   const greetingName = firstNameOf(user?.fullname);
   const roleText = prettyRole(user?.role || "Hexavia Staff");
 
-  // list: first item is "create", then real channels (derived + stable)
   const listData = useMemo(
     () =>
       [
         { kind: "create", id: "create" as const },
         ...channels.map((c) => ({
           kind: "channel" as const,
-          id: String(c.id), // make sure it's a string
+          id: String(c.id),
           title: c.name,
           subtitle: c.description ?? "",
           code: c.code,
@@ -105,7 +99,7 @@ export default function StaffHome() {
       >
         {/* Top Bar */}
         <View className="flex-row items-center justify-between mt-8">
-          <AvatarPlaceholder />
+          <AvatarPlaceholder avatar={user?.profilePicture} />
           <View className="flex-1 ml-3">
             <Text className="text-3xl text-gray-900 font-kumbhBold">
               {greetingName ? `Hi ${greetingName}` : "Hi there!"}
@@ -140,7 +134,7 @@ export default function StaffHome() {
           <FlatList
             data={listData as any}
             horizontal
-            keyExtractor={(it: any) => `${it.kind}:${it.id}`} // ✅ unique + stable
+            keyExtractor={(it: any) => `${it.kind}:${it.id}`}
             renderItem={({ item }: any) =>
               item.kind === "create" ? (
                 <CreateChannelCard

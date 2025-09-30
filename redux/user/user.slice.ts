@@ -48,7 +48,6 @@ const slice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // GET /users/profile
     builder
       .addCase(fetchProfile.pending, (state) => {
         state.phase = state.user ? "authenticated" : "loading";
@@ -60,11 +59,9 @@ const slice = createSlice({
       })
       .addCase(fetchProfile.rejected, (state, { payload }) => {
         state.error = (payload as string) || "Failed to load profile";
-        // don’t force sign-out; just drop to idle if we had nothing
         if (!state.user) state.phase = "idle";
       });
 
-    // PUT /users/profile
     builder
       .addCase(updateProfile.pending, (state) => {
         state.error = null;

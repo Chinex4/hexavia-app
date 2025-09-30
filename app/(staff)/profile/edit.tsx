@@ -1,3 +1,4 @@
+// app/(staff)/profile/edit.tsx
 import React, { useMemo, useState } from "react";
 import {
   View,
@@ -15,6 +16,8 @@ import { useSelector } from "react-redux";
 import { useAppDispatch } from "@/store/hooks";
 import { selectUser } from "@/redux/user/user.slice";
 import { updateProfile } from "@/redux/user/user.thunks";
+import { uploadSingle } from "@/redux/upload/upload.thunks";
+import { selectUpload } from "@/redux/upload/upload.slice";
 import * as ImagePicker from "expo-image-picker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
@@ -23,16 +26,21 @@ import { ChevronLeft } from "lucide-react-native";
 export default function EditProfile() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+
   const current = useSelector(selectUser);
+  const upload = useSelector(selectUpload);
 
   const [fullname, setFullname] = useState(current?.fullname || "");
   const [username, setUsername] = useState(current?.username || "");
-  const [phone, setPhone] = useState(
-    (current as any)?.phoneNumber || (current as any)?.phone || ""
-  );
+  // const [phone, setPhone] = useState((current as any)?.phoneNumber || (current as any)?.phone || "");
   const [photo, setPhoto] = useState<string | undefined>(
     current?.profilePicture || undefined
   );
+  const [photoFile, setPhotoFile] = useState<{
+    uri: string;
+    name?: string;
+    type?: string;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function pickPhoto() {
@@ -49,14 +57,17 @@ export default function EditProfile() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
-      base64: true,
+      base64: false,
     });
+
     if (!res.canceled && res.assets?.[0]) {
       const a = res.assets[0];
-      const dataUrl = a.base64
-        ? `data:${a.mimeType || "image/jpeg"};base64,${a.base64}`
-        : a.uri;
-      setPhoto(dataUrl);
+      setPhoto(a.uri);
+      setPhotoFile({
+        uri: a.uri,
+        name: a.fileName || `avatar_${Date.now()}.jpg`,
+        type: a.mimeType || "image/jpeg",
+      });
     }
   }
 
@@ -69,20 +80,25 @@ export default function EditProfile() {
     try {
       if (!canSave) return;
       setSaving(true);
-      // Your API accepts: { username?, fullname?, profilePicture? }
-      // If your backend also accepts phone, add it to thunk + payload.
+      let profilePictureUrl: string | undefined;
+      if (photoFile?.uri) {
+        const up = await dispatch(
+          uploadSingle({
+            uri: photoFile.uri,
+            name: photoFile.name,
+            type: photoFile.type,
+          })
+        ).unwrap();
+        profilePictureUrl = up.url;
+      }
       const payload: any = {
         fullname: fullname.trim(),
         username: username.trim().toLowerCase(),
       };
-      if (photo !== undefined) payload.profilePicture = photo;
-      // OPTIONAL: when backend supports phoneNumber
-      // payload.phoneNumber = phone.trim();
-
+      if (profilePictureUrl) payload.profilePicture = profilePictureUrl;
       await dispatch(updateProfile(payload)).unwrap();
-      router.back();
-    } catch (e: any) {
-      // toast already shown by thunk; keep UX quiet here
+    } catch (e) {
+      // toasts already shown in thunks
     } finally {
       setSaving(false);
     }
@@ -99,8 +115,8 @@ export default function EditProfile() {
       >
         {/* Header */}
         <View className="h-48 w-full bg-primary rounded-b-[28px] px-5 pt-10 flex-row items-center gap-2">
-          <Pressable onPress={() => router.back()}>
-            <ChevronLeft color={'white'} size={25}/>
+          <Pressable onPress={() => router.back()} hitSlop={8}>
+            <ChevronLeft color={"white"} size={25} />
           </Pressable>
           <View>
             <Text className="text-white font-kumbhBold text-2xl">
@@ -133,6 +149,13 @@ export default function EditProfile() {
             >
               <Text className="text-white font-kumbhBold">Change photo</Text>
             </Pressable>
+
+            {/* Optional tiny progress label under avatar while uploading */}
+            {saving && upload?.phase === "uploading" && (
+              <Text className="mt-2 text-xs font-kumbh text-gray-500">
+                Uploading… {upload.progress}%
+              </Text>
+            )}
           </View>
 
           {/* Inputs */}
@@ -155,6 +178,8 @@ export default function EditProfile() {
               autoCapitalize="none"
             />
 
+            {/* If/when phone is supported */}
+            {/* 
             <Text className="mt-4 mb-2 font-kumbh text-gray-600">Phone</Text>
             <TextInput
               value={phone}
@@ -163,10 +188,7 @@ export default function EditProfile() {
               keyboardType="phone-pad"
               className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 font-kumbh text-gray-900"
             />
-            {/* <Text className="mt-2 text-xs text-gray-400 font-kumbh">
-              (If your API supports updating phone, include it in the thunk
-              payload.)
-            </Text> */}
+            */}
           </View>
 
           <View className="mt-6 flex-row">
@@ -177,13 +199,25 @@ export default function EditProfile() {
             >
               <Text className="font-kumbhBold text-gray-700">Cancel</Text>
             </Pressable>
+
             <Pressable
-              disabled={!canSave}
+              disabled={!canSave || saving}
               onPress={onSave}
-              className={`flex-1 ml-2 items-center justify-center rounded-2xl px-4 py-3 ${canSave ? "bg-primary" : "bg-primary/50"}`}
+              className={`flex-1 ml-2 items-center justify-center rounded-2xl px-4 py-3 ${
+                canSave ? "bg-primary" : "bg-primary/50"
+              }`}
             >
               {saving ? (
-                <ActivityIndicator color="#fff" />
+                upload?.phase === "uploading" ? (
+                  <Text className="font-kumbhBold text-white">
+                    Uploading {upload.progress}%
+                  </Text>
+                ) : (
+                  <View className="flex-row items-center gap-2">
+                    <ActivityIndicator color="#fff" />
+                    <Text className="font-kumbhBold text-white">Saving…</Text>
+                  </View>
+                )
               ) : (
                 <Text className="font-kumbhBold text-white">Save Changes</Text>
               )}

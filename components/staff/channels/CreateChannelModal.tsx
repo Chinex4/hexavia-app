@@ -30,7 +30,7 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  
+
   const doGenerateCode = async () => {
     try {
       setIsGenerating(true);
@@ -84,13 +84,11 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
       animationType="fade"
       statusBarTranslucent
     >
-      {/* Backdrop (tap outside to close) */}
       <Pressable
         onPress={onClose}
         className="flex-1 bg-black/40"
         style={{ justifyContent: "center", paddingHorizontal: 20 }}
       >
-        {/* Content (prevent backdrop press) */}
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           className="w-full"
