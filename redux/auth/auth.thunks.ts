@@ -1,52 +1,91 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "@/api/axios";
 import { saveToken, saveUser, clearToken, clearUser } from "@/storage/auth";
-import { setPhase, setLastEmail, setSession, clearSession } from "./auth.slice";
-import { showPromise, showSuccess } from "@/components/ui/toast";
+import { setPhase, setLastEmail, setSession } from "./auth.slice";
+import { showError, showPromise, showSuccess } from "@/components/ui/toast";
 import type { ApiEnvelope, User } from "@/api/types";
+import { setUser } from "../user/user.slice";
 
-/** ---------- Registration ---------- */
+/** --------- Registration (Step 1) --------- */
 export const register = createAsyncThunk(
   "auth/register",
   async (
     body: {
-      fullName: string;
+      fullname: string;
       email: string;
       username: string;
-      phoneNumber: string;
-      password: string;
+      role?: "client" | "staff";
     },
-    { dispatch }
+    { dispatch, rejectWithValue }
   ) => {
-    await showPromise(
-      api.post<ApiEnvelope>("/auth/register", body),
-      "Creating account…",
-      "Registration successful. OTP sent."
-    );
-    dispatch(setLastEmail(body.email));
-    dispatch(setPhase("awaiting_otp"));
+    try {
+      const payload = {
+        username: body.username,
+        email: body.email.trim().toLowerCase(),
+        fullname: body.fullname,
+        role: body.role ?? "client",
+        // ...(body.phoneNumber ? { phoneNumber: body.phoneNumber } : {}),
+      };
+
+      await showPromise(
+        api.post<ApiEnvelope>("/auth/register", payload),
+        "Creating account…",
+        "OTP sent to your email"
+      );
+
+      dispatch(setLastEmail(body.email));
+      dispatch(setPhase("awaiting_otp"));
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.errors?.[0]?.msg ||
+        err?.response?.data?.message ||
+        (err?.response?.status === 400
+          ? "Email or Username already exists."
+          : err?.message || "Something went wrong.");
+
+      showError(msg);
+      return rejectWithValue(msg);
+    }
   }
 );
 
-// Verify EMail
+/** --------- Verify email (Step 2) --------- */
 export const verifyEmail = createAsyncThunk(
   "auth/verifyEmail",
-  async (body: { email: string; code: string }, { dispatch }) => {
-    const res = await showPromise(
-      api.post<ApiEnvelope<{ user: User }>>("/auth/verify-email", body),
-      "Verifying…",
-      "Email verified"
-    );
-    const token = res.data.token!;
-    const user = (res.data.user as any) ?? null;
+  async (
+    body: { email: string; otp: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const res = await showPromise(
+        api.post<ApiEnvelope<{ user: User }>>("/auth/verify-email", body),
+        "Verifying…",
+        "Email verified"
+      );
 
-    if (token) await saveToken(token);
-    if (user) await saveUser(user);
+      const token = (res.data.token ?? null) as string | null;
+      const user =
+        (res.data.user as any) || ((res.data.data as any)?.user ?? null);
 
-    dispatch(setSession({ user, token }));
+      if (token) await saveToken(token);
+      if (user) await saveUser(user);
+
+      dispatch(setSession({ user, token: token ?? null }));
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        (err?.response?.status === 400
+          ? "Invalid or expired OTP"
+          : "Verification failed");
+
+      showError(msg);
+      return rejectWithValue(msg);
+    }
   }
 );
-// Resend OTP
+
+/** --------- Resend register OTP --------- */
 export const resendRegisterOtp = createAsyncThunk(
   "auth/resendRegisterOtp",
   async (email: string) => {
@@ -58,134 +97,125 @@ export const resendRegisterOtp = createAsyncThunk(
   }
 );
 
-/** ---------- Login (2-step) ---------- */
-export const loginStart = createAsyncThunk(
-  "auth/loginStart",
+/** --------- Join channel + set password (Step 3) --------- */
+export const joinChannel = createAsyncThunk(
+  "auth/joinChannel",
   async (
-    body: { email: string; password: string },
-    { dispatch }
-  ): Promise<
-    { requiresOtp: true } | { requiresOtp: false; token: string; user: any }
-  > => {
-    const res = await showPromise(
-      api.post("/auth/login", body),
-      "Checking credentials…",
-      "Logged in"
-    );
+    body: { channelCode: string; password: string; phoneNumber?: string },
+    { rejectWithValue }
+  ) => {
+    try {
+      const res = await showPromise(
+        api.post<ApiEnvelope<{ channelId: string; channelName: string }>>(
+          "/users/registration/join-channel",
+          { channelCode: body.channelCode.trim(), password: body.password }
+        ),
+        "Finalizing account…",
+        "Channel joined and password set"
+      );
+      return res.data;
+    } catch (err: any) {
+      const msg =
+        err?.response?.message ||
+        err?.response?.data?.error ||
+        (err?.response?.status === 400
+          ? "Invalid channel code"
+          : "Could not join channel");
 
-    const { requires_otp, token, user } = res.data;
-
-    if (requires_otp) {
-      dispatch(setLastEmail(body.email));
-      dispatch(setPhase("awaiting_otp"));
-      return { requiresOtp: true };
+      showError(msg);
+      return rejectWithValue(msg);
     }
-    await saveToken(token);
-    await saveUser(user);
-    dispatch(setPhase("authenticated"));
-    dispatch(setSession({ user, token }));
-
-    return { requiresOtp: false, token, user };
   }
 );
 
-export const loginVerify = createAsyncThunk(
-  "auth/loginVerify",
-  async (body: { email: string; code: string }, { dispatch }) => {
-    const res = await showPromise(
-      api.post<ApiEnvelope<{ user: User }>>("/auth/login/verify", body),
-      "Verifying…",
-      "Logged in"
-    );
-    const token = res.data.token!;
-    const user = (res.data.user as any) ?? null;
+export const login = createAsyncThunk(
+  "auth/login",
+  async (
+    body: {
+      email: string;
+      password: string;
+    },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const payload = {
+        email: body.email.trim().toLowerCase(),
+        password: body.password,
+      };
 
-    if (token) await saveToken(token);
-    if (user) await saveUser(user);
+      const res = await showPromise(
+        api.post<ApiEnvelope>("/auth/login", payload),
+        "Logging in…",
+        "Welcome back!"
+      );
 
-    dispatch(setSession({ user, token }));
+      dispatch(setLastEmail(body.email));
+      dispatch(setPhase("authenticated"));
+      dispatch(setUser(res.data.user as any));
+      await saveToken(res.data.token as any);
+      await saveUser(res.data.user as any);
+      dispatch(
+        setSession({ user: res.data.user as any, token: res.data.token as any })
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.errors?.[0]?.msg ||
+        err?.response?.data?.message ||
+        (err?.response?.status === 400
+          ? "Invalid Credentialss."
+          : err?.message || "Something went wrong.");
+
+      showError(msg);
+      return rejectWithValue(msg);
+    }
   }
 );
 
-export const loginResendOtp = createAsyncThunk(
-  "auth/loginResendOtp",
-  async (email: string) => {
-    await showPromise(
-      api.post<ApiEnvelope>("/auth/login/resend-otp", { email }),
-      "Sending OTP…",
-      "OTP resent"
-    );
+export const forgotPassword = createAsyncThunk(
+  "auth/forgotPassword",
+  async (body: { email: string }, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await showPromise(
+        api.post<ApiEnvelope<{ user: User }>>("/auth/forgot-password", body),
+        "Verifying…",
+        "OTP sent to your email. Purpose is to reset password."
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.errors?.[0]?.msg ||
+        (err?.response?.status === 404
+          ? "Email does not exist"
+          : "Verification failed");
+
+      showError(msg);
+      return rejectWithValue(msg);
+    }
   }
 );
 
-/** ---------- Forgot Password ---------- */
-export const passwordForgot = createAsyncThunk(
-  "auth/passwordForgot",
-  async (email: string, { dispatch }) => {
-    const res = await showPromise(
-      api.post("/auth/password/forgot", { email }),
-      "Requesting reset…",
-      "If this email exists, a reset code has been sent."
-    );
-    dispatch(setLastEmail(email));
-    dispatch(setPhase("password_reset_pending"));
-    return res.data.message; 
-  }
-);
+export const resetPassword = createAsyncThunk(
+  "auth/resetPassword",
+  async (
+    body: { email: string; newPassword: string; otp: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const res = await showPromise(
+        api.post<ApiEnvelope<{ user: User }>>("/auth/reset-password", body),
+        "Verifying…",
+        "Password Successfully Update, Proceed to login."
+      );
+    } catch (err: any) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.errors?.[0]?.msg ||
+        (err?.response?.status === 400 || 404
+          ? "Invalid or expired OTP"
+          : "Verification failed");
 
-export const passwordVerify = createAsyncThunk(
-  "auth/passwordVerify",
-  async (body: { email: string; code: string }) => {
-    // IMPORTANT: don't post twice!
-    const res = await showPromise(
-      api.post<{ message: string; reset_token: string; expires: string }>(
-        "/auth/password/verify",
-        body
-      ),
-      "Verifying OTP…",
-      "OTP verified"
-    );
-
-    return res.data.reset_token;
-  }
-);
-
-export const passwordReset = createAsyncThunk(
-  "auth/passwordReset",
-  async (body: {
-    email: string;
-    reset_token: string;
-    password: string;
-    password_confirmation: string;
-  }) => {
-    await showPromise(
-      api.post("/auth/password/reset", body),
-      "Saving new password…",
-      "Password updated"
-    );
-    // Server revokes tokens, clear any local session just in case
-    await clearToken();
-    await clearUser();
-    showSuccess("Please log in with your new password.");
-  }
-);
-
-export const passwordResendOtp = createAsyncThunk(
-  "auth/passwordResendOtp",
-  async (email: string) => {
-    await showPromise(
-      api.post("/auth/password/resend-otp", { email }),
-      "Sending OTP…",
-      "If this email exists, a reset code has been resent."
-    );
-  }
-);
-
-export const localLogout = createAsyncThunk(
-  "auth/localLogout",
-  async (_, { dispatch }) => {
-    await clearToken();
-    await clearUser();
-    dispatch(clearSession());
+      showError(msg);
+      return rejectWithValue(msg);
+    }
   }
 );

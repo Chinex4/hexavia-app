@@ -5,7 +5,6 @@ export function showSuccess(message: string, description?: string) {
     type: "success",
     text1: message,
     text2: description,
-    visibilityTime: 2500,
     position: "top",
   });
 }
@@ -14,8 +13,8 @@ export function showError(message: string, description?: string) {
     type: "error",
     text1: message,
     text2: description,
-    visibilityTime: 3500,
     position: "top",
+    visibilityTime: 4000,
   });
 }
 
@@ -24,35 +23,43 @@ export async function showPromise<T>(
   loadingMessage = "Please wait…",
   successMessage = "Success"
 ): Promise<T> {
-  const id = Date.now().toString();
   Toast.show({
     type: "info",
     text1: loadingMessage,
     autoHide: false,
     position: "top",
-    onPress: () => Toast.hide(),
-    props: { id },
   });
 
   try {
     const res = await p;
     Toast.hide();
-    Toast.show({
-      type: "success",
-      text1: successMessage,
-      visibilityTime: 2200,
-      position: "top",
-    });
+    Toast.show({ type: "success", text1: successMessage, position: "top" });
     return res;
   } catch (e: any) {
+    // 🔎 noisy console logging so you can see what's going on
+    // eslint-disable-next-line no-console
+    console.log("[showPromise] error", {
+      message: e?.message,
+      status: e?.response?.status,
+      data: e?.response?.data,
+      url: e?.config?.url,
+      method: e?.config?.method,
+      params: e?.config?.params,
+      body: e?.config?.data,
+    });
+
     const msg =
-      e?.response?.data?.message || e?.message || "Something went wrong";
+      e?.response?.data?.message ||
+      e?.response?.data?.error ||
+      e?.message ||
+      "Something went wrong";
+
     Toast.hide();
     Toast.show({
       type: "error",
       text1: msg,
-      visibilityTime: 4000,
       position: "top",
+      visibilityTime: 5000,
     });
     throw e;
   }

@@ -11,26 +11,28 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast } from "react-native-toast-notifications";
 import { BlurView } from "expo-blur";
 import HexButton from "@/components/ui/HexButton";
 import { Eye, EyeOff, Lock, Hash } from "lucide-react-native";
+import { useAppDispatch } from "@/store/hooks";
+import { joinChannel } from "@/redux/auth/auth.thunks";
+import { showSuccess } from "@/components/ui/toast";
 
 type FormValues = {
-  clientCode: string;
+  channelCode: string;
   password: string;
   confirmPassword: string;
 };
 
 const schema = yup.object({
-  clientCode: yup
+  channelCode: yup
     .string()
     .trim()
     .matches(/^[A-Za-z0-9-]{4,}$/, "Use letters/numbers (min 4)")
-    .required("Client/Department code is required"),
+    .required("Channel code is required"),
   password: yup
     .string()
     .min(8, "At least 8 characters")
@@ -48,6 +50,12 @@ export default function SignupFinalScreen() {
   const toast = useToast();
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const dispatch = useAppDispatch();
+  const {
+      phoneNumber,
+    } = useLocalSearchParams<{
+      phoneNumber?: string;
+    }>();
 
   const {
     control,
@@ -56,34 +64,23 @@ export default function SignupFinalScreen() {
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
-    defaultValues: { clientCode: "", password: "", confirmPassword: "" },
+    defaultValues: { channelCode: "", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
     try {
-      const existing = await AsyncStorage.getItem("signup_user");
-      const base = existing ? JSON.parse(existing) : {};
-      const payload = {
-        ...base,
-        clientCode: values.clientCode.trim(),
-        password: values.password,
-        completedAt: new Date().toISOString(),
-      };
-      await AsyncStorage.setItem("signup_user", JSON.stringify(payload));
+      await dispatch(
+        joinChannel({
+          channelCode: values.channelCode,
+          password: values.password,
+          phoneNumber,
+        })
+      ).unwrap();
 
-      toast.show("Account created. You can now log in.", {
-        type: "success",
-        placement: "top",
-      });
-
-      // Go to login
+      showSuccess("Account ready. Please log in.");
       router.replace("/(auth)/login");
-    } catch (err) {
-      console.error("final signup error:", err);
-      toast.show("Could not finish signup. Try again.", {
-        type: "danger",
-        placement: "top",
-      });
+    } catch {
+      // Error toast shown in thunk
     }
   };
 
@@ -120,19 +117,19 @@ export default function SignupFinalScreen() {
             </Text>
           </View>
 
-          {/* Client/Department Code */}
+          {/* Channel Code */}
           <View className="mt-6">
             <Text className="text-sm text-gray-700 mb-2 font-kumbh">
-              Client/Department Code
+              Channel Code
             </Text>
             <Controller
               control={control}
-              name="clientCode"
+              name="channelCode"
               render={({ field: { onChange, onBlur, value } }) => (
                 <View className="w-full h-14 px-4 rounded-xl bg-gray-100 flex-row items-center">
                   <Hash size={18} color="#6B7280" />
                   <TextInput
-                    placeholder="Enter Client/Department Code"
+                    placeholder="Enter Channel Code"
                     placeholderTextColor="#9CA3AF"
                     onBlur={onBlur}
                     onChangeText={(t) => onChange(t.toUpperCase())}
@@ -145,9 +142,9 @@ export default function SignupFinalScreen() {
                 </View>
               )}
             />
-            {errors.clientCode && (
+            {errors.channelCode && (
               <Text className="text-red-500 text-xs mt-1 font-kumbh">
-                {errors.clientCode.message}
+                {errors.channelCode.message}
               </Text>
             )}
           </View>

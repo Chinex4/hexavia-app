@@ -1,3 +1,4 @@
+import { STORAGE_KEYS } from "@/storage/keys";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
@@ -8,16 +9,14 @@ export default function Splash() {
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      const token = await AsyncStorage.getItem("user");
-      // const token = false;
+      const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
 
       if (!token) {
         router.replace("/(auth)/login");
-        // router.replace("/(staff)/(tabs)");
       } else {
         router.replace("/(staff)/(tabs)");
       }
-    }, 3000); // 2s
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, []);

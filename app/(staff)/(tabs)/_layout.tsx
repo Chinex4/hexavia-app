@@ -96,19 +96,6 @@ export default function StaffTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="calendar"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabButton
-              focused={focused}
-              label="Calendar"
-              activeName="calendar"
-              inactiveName="calendar-outline"
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="chats/[channelId]"
         options={{
           tabBarIcon: ({ focused }) => (

@@ -6,20 +6,19 @@ import {
   Pressable,
   TouchableWithoutFeedback,
   Keyboard,
-  Image,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import * as yup from "yup";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast } from "react-native-toast-notifications";
 import { Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react-native";
 import HexButton from "@/components/ui/HexButton";
 import { BlurView } from "expo-blur";
-import GoogleButton from "@/components/auth/GoogleButton";
+import { useAppDispatch } from "@/store/hooks";
+import { resetPassword } from "@/redux/auth/auth.thunks";
 
 type FormValues = { password: string; confirmPassword: string };
 
@@ -39,6 +38,11 @@ export default function ResetPasswordScreen() {
   const toast = useToast();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const { code: otp, email } = useLocalSearchParams<{
+    code?: string;
+    email?: string;
+  }>();
+  const dispatch = useAppDispatch();
 
   const {
     control,
@@ -53,22 +57,15 @@ export default function ResetPasswordScreen() {
   const onSubmit = async (values: FormValues) => {
     try {
       const userPayload = {
-        id: Date.now(),
-        password: values.password,
-        confirmPassword: values.confirmPassword,
-        resetAt: new Date().toISOString(),
+        email: String(email),
+        newPassword: values.password,
+        otp: String(otp),
       };
-      toast.show("Password Reset Successful. Proceed to login", {
-        type: "success",
-        placement: "top",
-      });
+      await dispatch(resetPassword(userPayload)).unwrap();
 
       router.push({ pathname: "/(auth)/login" });
-    } catch {
-      toast.show("Something went wrong. Please try again.", {
-        type: "danger",
-        placement: "top",
-      });
+    } catch (err) {
+      console.log("Reset password failed:", err);
     }
   };
 
