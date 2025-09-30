@@ -41,7 +41,7 @@ export const fetchChannels = createAsyncThunk<
 >("channels/fetchAll", async (_: void, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.get<GetChannelsResponse>("/api/channel"),
+      api.get<GetChannelsResponse>("/channel"),
       "Loading channels…",
       "Channels loaded"
     );
@@ -60,7 +60,7 @@ export const fetchChannelById = createAsyncThunk<
 >("channels/fetchById", async (id, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.get<GetChannelByIdResponse>(`/api/channel/${id}`),
+      api.get<GetChannelByIdResponse>(`/channel/${id}`),
       "Loading channel…",
       "Channel loaded"
     );
@@ -78,11 +78,7 @@ export const generateChannelCode = createAsyncThunk<
   { rejectValue: string }
 >("channels/generateCode", async (_: void, { rejectWithValue }) => {
   try {
-    const res = await showPromise(
-      api.get<GenerateCodeResponse>("/api/channel/generate-code"),
-      "Generating code…",
-      "Code ready"
-    );
+    const res = await api.get<GenerateCodeResponse>("/channel/generate-code");
     return res.data.code as string;
   } catch (err) {
     const msg = extractErrorMessage(err);
@@ -98,7 +94,7 @@ export const createChannel = createAsyncThunk<
 >("channels/create", async (body, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.post<CreateChannelResponse>("/api/channel", body),
+      api.post<CreateChannelResponse>("/channel", body),
       "Creating channel…",
       "Channel created"
     );
@@ -119,7 +115,7 @@ export const addMemberToChannel = createAsyncThunk<
 >("channels/addMember", async (body, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.post<AddMemberResponse>("/api/channel/add-member", body),
+      api.post<AddMemberResponse>("/channel/add-member", body),
       "Adding member…",
       "Member added"
     );
@@ -138,7 +134,7 @@ export const removeMemberFromChannel = createAsyncThunk<
 >("channels/removeMember", async (body, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.post<RemoveMemberResponse>("/api/channel/remove-member", body),
+      api.post<RemoveMemberResponse>("/channel/remove-member", body),
       "Removing member…",
       "Member removed"
     );
@@ -157,10 +153,7 @@ export const updateChannelMemberRole = createAsyncThunk<
 >("channels/updateMemberRole", async (body, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.post<UpdateMemberRoleResponse>(
-        "/api/channel/update-member-role",
-        body
-      ),
+      api.post<UpdateMemberRoleResponse>("/channel/update-member-role", body),
       "Updating role…",
       "Member role updated"
     );

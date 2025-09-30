@@ -73,7 +73,8 @@ const channelsSlice = createSlice({
       })
       .addCase(fetchChannels.rejected, (state, action) => {
         state.status = "failed";
-        state.error = action.error.message ?? "Failed to load channels";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
       });
 
     // fetchChannelById
@@ -86,11 +87,7 @@ const channelsSlice = createSlice({
         state.status = "succeeded";
         upsertOne(state, action.payload);
       })
-      .addCase(fetchChannels.rejected, (state, action) => {
-        state.status = "failed";
-        state.error =
-          (action.payload as string) ?? action.error.message ?? null;
-      });
+      
 
     builder
       .addCase(createChannel.pending, (state) => {

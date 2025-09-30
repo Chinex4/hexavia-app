@@ -26,13 +26,13 @@ export default function SearchBar({
           returnKeyType="search"
         />
       </View>
-      <Pressable
+      {/* <Pressable
         onPress={onOpenFilter}
         className="ml-3 h-12 w-12 rounded-2xl bg-gray-100 items-center justify-center"
         android_ripple={{ color: "#e5e7eb", radius: 24 }}
       >
         <Ionicons name="filter" size={20} color="#111827" />
-      </Pressable>
+      </Pressable> */}
     </View>
   );
 }
