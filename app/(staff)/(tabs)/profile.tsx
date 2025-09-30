@@ -1,4 +1,5 @@
 import { logout } from "@/redux/auth/auth.slice";
+import { clearToken, clearUser } from "@/storage/auth";
 import { useAppDispatch } from "@/store/hooks";
 import { useRouter } from "expo-router";
 import { View, Text, Pressable } from "react-native";
@@ -7,6 +8,8 @@ export default function Profile() {
   const router = useRouter();
   const logoutHandler = () => {
     dispatch(logout());
+    clearToken();
+    clearUser();
     router.replace("/(auth)/login");
   };
   return (
