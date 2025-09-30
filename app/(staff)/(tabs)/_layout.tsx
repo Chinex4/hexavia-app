@@ -109,7 +109,7 @@ export default function StaffTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           tabBarIcon: ({ focused }) => (
             <TabButton

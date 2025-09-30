@@ -7,10 +7,10 @@ type CardChannel = {
   name: string;
   description?: string | null;
   logo?: string | null;
-  code: string;
+  code?: string; // optional
 };
 
-export default function ChannelCard({
+function ChannelCard({
   item,
   colorOverride,
 }: {
@@ -30,7 +30,8 @@ export default function ChannelCard({
           >
             {item.name}
           </Text>
-          <View className=" mt-24 flex-row justify-between items-center">
+
+          <View className="mt-24 flex-row justify-between items-center">
             {!!item.description && (
               <Text
                 className="text-white/90 leading-5 text-[13px] font-kumbh"
@@ -39,9 +40,11 @@ export default function ChannelCard({
                 {item.description}
               </Text>
             )}
-            <Text className="text-white/90 font-kumbh text-[13px]">
-              Channel Code: {item.code.toUpperCase()}
-            </Text>
+            {!!item.code && (
+              <Text className="text-white/90 font-kumbh text-[13px]">
+                Channel Code: {item.code.toUpperCase()}
+              </Text>
+            )}
           </View>
         </View>
 
@@ -63,3 +66,5 @@ export default function ChannelCard({
     </View>
   );
 }
+
+export default React.memo(ChannelCard);

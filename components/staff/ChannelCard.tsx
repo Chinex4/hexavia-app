@@ -1,31 +1,26 @@
+import React from "react";
 import { Image, Pressable, Text, View } from "react-native";
-import MemberStack from "../MemberStack";
 import { useRouter } from "expo-router";
 
-interface Channel {
+interface ChannelCardItem {
   id: string;
   title: string;
   subtitle: string;
   logo?: string;
   color: string;
-  memberAvatars: string[];
+  code: string;
 }
 
-const ChannelCard = ({
-  item,
-  width,
-  gap,
-}: {
-  item: Channel;
+type Props = {
+  item: ChannelCardItem;
   width: number;
   gap: number;
-}) => {
+};
+
+function ChannelCard({ item, width, gap }: Props) {
   const router = useRouter();
   return (
-    <Pressable
-      onPress={() => router.push("/(staff)/channels")}
-      style={{ width, marginRight: gap }}
-    >
+    <Pressable onPress={() => router.push("/(staff)/channels")} style={{ width, marginRight: gap }}>
       <View
         className="rounded-2xl p-4"
         style={{
@@ -35,26 +30,30 @@ const ChannelCard = ({
         }}
       >
         <View className="flex-row justify-between">
-          <Text className="text-white text-3xl font-kumbhBold">
+          <Text className="text-white text-3xl font-kumbhBold" numberOfLines={1}>
             {item.title}
           </Text>
-          <View className="size-16 rounded-full overflow-hidden border border-white/40">
+          {/* <View className="size-16 rounded-full overflow-hidden border border-white/40">
             {item.logo ? (
               <Image source={{ uri: item.logo }} className="h-full w-full" />
             ) : (
               <View className="h-full w-full bg-white/30" />
             )}
-          </View>
+          </View> */}
         </View>
-        <View className="mt-4 flex-row justify-between items-end">
-          <Text className="text-white/90 mt-4 leading-5 text-[13px] font-kumbh w-44">
+
+        {/* Bottom (no member avatars to keep it clean & light) */}
+        <View className="mt-4 flex-row justify-between items-center">
+          <Text className="text-white/90 mt-4 leading-5 text-[13px] font-kumbh" numberOfLines={3}>
             {item.subtitle}
           </Text>
-          <MemberStack avatars={item.memberAvatars} />
+          <Text className="text-white/90 font-kumbh text-[13px] mt-2">
+            Channel Code: {item.code}
+          </Text>
         </View>
       </View>
     </Pressable>
   );
-};
+}
 
-export default ChannelCard;
+export default React.memo(ChannelCard);

@@ -1,4 +1,4 @@
-// app/(staff)/(tabs)/channels/index.tsx (or your path)
+// app/(staff)/(tabs)/channels/index.tsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { View, FlatList, Text, Platform, RefreshControl } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -14,7 +14,6 @@ import { StatusBar } from "expo-status-bar";
 import type { RootState, AppDispatch } from "@/store";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
 
-// ---- stable “random” color picker (same channel => same color) ----
 const PALETTE = ["#37CC86", "#48A7FF", "#F6A94A", "#29C57A", "#4C5FAB", "#9B7BF3"];
 const colorFor = (key: string) => {
   let hash = 0;
@@ -24,10 +23,13 @@ const colorFor = (key: string) => {
 
 const INACTIVE = "#9CA3AF";
 
+// ---- helper to create a stable unique key per channel
+const makeKey = (c: any) =>
+  String(c?.id ?? c?._id ?? c?.code ?? c?.name ?? "");
+
 export default function AllChannelsScreen() {
   const dispatch = useDispatch<AppDispatch>();
 
-  // ---- fetch on mount / pull-to-refresh ----
   const status = useSelector((s: RootState) => s.channels.status);
   const allIds = useSelector((s: RootState) => s.channels.allIds);
   const byId = useSelector((s: RootState) => s.channels.byId);
@@ -41,7 +43,6 @@ export default function AllChannelsScreen() {
     dispatch(fetchChannels());
   }, [dispatch]);
 
-  // ---- search + filters (works on server data) ----
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebounced(query, 250);
 
@@ -52,8 +53,26 @@ export default function AllChannelsScreen() {
   });
   const [filterOpen, setFilterOpen] = useState(false);
 
+  // sanitize + search/filter/sort
   const data = useMemo(() => {
-    let list = channels.slice();
+    // 1) build stable keys + drop empties
+    const keyed = channels
+      .filter(Boolean)
+      .map((c) => ({ ...c, __key: makeKey(c) }))
+      .filter((c) => c.__key.length > 0);
+
+    // 2) de-dupe by key
+    const seen = new Set<string>();
+    const deduped: any[] = [];
+    for (const c of keyed) {
+      if (!seen.has(c.__key)) {
+        seen.add(c.__key);
+        deduped.push(c);
+      }
+    }
+
+    // 3) search/filter/sort on deduped
+    let list = deduped.slice();
     const q = debouncedQuery.trim().toLowerCase();
 
     if (q) {
@@ -68,15 +87,12 @@ export default function AllChannelsScreen() {
           .includes(q)
       );
     }
-
     if (filters.department !== "All") {
       list = list.filter((c: any) => c?.department === filters.department);
     }
-
     if (filters.unreadOnly) {
       list = list.filter((c: any) => !!c?.unread);
     }
-
     if (filters.sortBy === "name") {
       list.sort((a, b) => (a?.name ?? "").localeCompare(b?.name ?? ""));
     } else if (filters.sortBy === "members") {
@@ -84,7 +100,6 @@ export default function AllChannelsScreen() {
         (a: any, b: any) => (b?.membersCount ?? 0) - (a?.membersCount ?? 0)
       );
     }
-
     return list;
   }, [channels, debouncedQuery, filters]);
 
@@ -106,12 +121,11 @@ export default function AllChannelsScreen() {
 
         <FlatList
           data={data}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item: any) => item.__key}       // ✅ unique, stable
           renderItem={({ item }) => (
             <ChannelCard
               item={item}
-              // prefer backend color if present, else stable-picked color
-              colorOverride={(item as any)?.color || colorFor(item.id || item.code || item.name)}
+              colorOverride={(item as any)?.color || colorFor(item.__key)}
             />
           )}
           contentContainerStyle={{ paddingBottom: 24, paddingTop: 12 }}
