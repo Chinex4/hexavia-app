@@ -5,7 +5,7 @@ type Opts = {
   success?: string | ((val: any) => string);
   error?: string | ((err: any) => string);
   type?: ToastType;
-  placement?: "top" | "bottom" | "center"; // or string, depending on your usage
+  placement?: "top" | "bottom" | "center";
 };
 
 export async function toastPromise<T>(

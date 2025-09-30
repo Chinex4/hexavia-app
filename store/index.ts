@@ -2,12 +2,14 @@ import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "@/redux/auth/auth.slice";
 import userReducer from "@/redux/user/user.slice";
 import channelsReducer from "@/redux/channels/channels.slice";
+import uploadReducer from "@/redux/upload/upload.slice";
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     user: userReducer,
     channels: channelsReducer,
+    upload: uploadReducer,
   },
   middleware: (gdm) =>
     gdm({

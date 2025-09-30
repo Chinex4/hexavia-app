@@ -6,7 +6,6 @@ import { useTasks } from "@/features/staff/tasksStore";
 export default function TasksOverviewCard() {
   const { tasks, hydrated } = useTasks();
 
-  // show latest 3
   const latest = useMemo(
     () => [...tasks].sort((a, b) => b.createdAt - a.createdAt).slice(0, 3),
     [tasks]
@@ -31,7 +30,7 @@ export default function TasksOverviewCard() {
           className="mt-4"
           data={latest}
           keyExtractor={(i) => i.id}
-          scrollEnabled={false}           // safe inside parent ScrollView
+          scrollEnabled={false}
           ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
           renderItem={({ item }) => (
             <View className="rounded-xl border border-gray-200 bg-white px-4 py-3">

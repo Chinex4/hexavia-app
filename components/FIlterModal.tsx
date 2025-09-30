@@ -104,7 +104,6 @@ export default function FilterModal({ visible, onClose, value, onChange }: Props
           <View className="flex-row items-center justify-between mb-4">
             <View className="flex-row items-center">
               <Text className="text-xl font-kumbhBold text-gray-900">Filters</Text>
-              {/* Small badge showing active count */}
               {(
                 (value.department !== "All" ? 1 : 0) +
                 (value.unreadOnly ? 1 : 0) +

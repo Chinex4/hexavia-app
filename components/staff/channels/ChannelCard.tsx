@@ -7,7 +7,7 @@ type CardChannel = {
   name: string;
   description?: string | null;
   logo?: string | null;
-  code?: string; // optional
+  code?: string;
 };
 
 function ChannelCard({

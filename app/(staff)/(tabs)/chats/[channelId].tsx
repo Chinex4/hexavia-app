@@ -1,27 +1,25 @@
-import React, { useMemo, useRef, useState, useEffect } from "react";
-import { View, FlatList, SafeAreaView, Platform } from "react-native";
-import ChatHeader from "@/components/staff/chat/ChatHeader";
-import MessageBubble from "@/components/staff/chat/MessageBubble";
-import AttachmentTray from "@/components/staff/chat/AttachmentTray";
-import Composer from "@/components/staff/chat/Composer";
 import ActionSheet from "@/components/staff/chat/ActionSheet";
+import AttachmentTray from "@/components/staff/chat/AttachmentTray";
 import BottomStack from "@/components/staff/chat/BottomStack";
+import ChatHeader from "@/components/staff/chat/ChatHeader";
+import Composer from "@/components/staff/chat/Composer";
+import MessageBubble from "@/components/staff/chat/MessageBubble";
 import useFakeChat from "@/hooks/useFakeChat";
 import type { AttachmentKind, Message, ReplyMeta } from "@/types/chat";
-import { StatusBar } from "expo-status-bar";
-import { useLocalSearchParams } from "expo-router";
-import * as Clipboard from "expo-clipboard";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as ImagePicker from "expo-image-picker";
-import * as DocumentPicker from "expo-document-picker";
-import { InteractionManager } from "react-native";
 import {
-  useAudioRecorder,
-  useAudioRecorderState,
+  AudioModule,
   RecordingPresets,
   setAudioModeAsync,
-  AudioModule,
-} from "expo-audio"; // SDK ≥ 52
+  useAudioRecorder,
+  useAudioRecorderState,
+} from "expo-audio";
+import * as Clipboard from "expo-clipboard";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, InteractionManager, Platform, SafeAreaView, View } from "react-native";
 
 const ME = "me-001";
 
@@ -33,44 +31,33 @@ export default function ChatScreen() {
   const [selected, setSelected] = useState<Message | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyMeta | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
-  const insets = useSafeAreaInsets();
-
   const [isRecording, setIsRecording] = useState(false);
   const [recordDurationMs, setRecordDurationMs] = useState(0);
-  const tickRef = useRef<number | null>(null);
-
-  // create the recorder once
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  // poll status every 200ms (gives you durationMillis + isRecording)
   const recorderState = useAudioRecorderState(audioRecorder, 200);
 
-  // if you still keep these in your component:
   const recordRef = useRef<typeof audioRecorder | null>(null);
   useEffect(() => {
-    // mirror expo-audio’s duration into your state
     setRecordDurationMs(recorderState.durationMillis ?? 0);
   }, [recorderState.durationMillis]);
 
   const startRecording = async () => {
     try {
-      // ask mic permission (expo-audio)
       const perm = await AudioModule.requestRecordingPermissionsAsync();
       if (!perm.granted) return;
 
-      // configure session (expo-audio)
       await setAudioModeAsync({
-        allowsRecording: true, // was allowsRecordingIOS
-        playsInSilentMode: true, // was playsInSilentModeIOS
+        allowsRecording: true,
+        playsInSilentMode: true,
         shouldPlayInBackground: false,
       });
 
-      // prepare + start (expo-audio)
-      await audioRecorder.prepareToRecordAsync(); // uses HIGH_QUALITY preset above
+      await audioRecorder.prepareToRecordAsync();
       audioRecorder.record();
 
-      recordRef.current = audioRecorder; // keep your ref pattern if you like
+      recordRef.current = audioRecorder;
       setIsRecording(true);
-      setRecordDurationMs(0); // we keep this, but it’ll be driven by recorderState
+      setRecordDurationMs(0);
     } catch (e) {
       console.warn(e);
     }
@@ -81,15 +68,15 @@ export default function ChatScreen() {
       const rec = recordRef.current ?? audioRecorder;
       if (!recorderState.isRecording) return;
 
-      await rec.stop(); // expo-audio
-      const uri = rec.uri ?? undefined; // final file path
+      await rec.stop();
+      const uri = rec.uri ?? undefined;
 
       recordRef.current = null;
       setIsRecording(false);
 
       if (!cancel && uri) {
         const duration = recorderState.durationMillis ?? 0;
-        send(""); // create the message
+        send("");
         setMessages((prev) => {
           const copy = [...prev];
           for (let i = copy.length - 1; i >= 0; i--) {
@@ -224,13 +211,12 @@ export default function ChatScreen() {
     if (!lastRealId) return;
 
     if (lastRealId !== lastRealMsgIdRef.current) {
-      // a NEW real message (sent by you OR received)
       const shouldAuto =
         ALWAYS_SNAP_TO_BOTTOM ||
         (atBottomRef.current && !isInteractingRef.current);
 
       if (shouldAuto) {
-        pendingAutoScrollRef.current = true; // defer to onContentSizeChange
+        pendingAutoScrollRef.current = true;
       }
 
       lastRealMsgIdRef.current = lastRealId;
@@ -240,9 +226,8 @@ export default function ChatScreen() {
   const handlePick = async (kind: AttachmentKind) => {
     try {
       if (kind === "gallery") {
-        // No explicit permission needed just to launch the library per docs.
         const res = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"], // <- new API, replaces deprecated MediaTypeOptions
+          mediaTypes: ["images"],
           quality: 0.7,
           allowsEditing: false,
         });
@@ -339,7 +324,7 @@ export default function ChatScreen() {
     }
   };
 
-  const ALWAYS_SNAP_TO_BOTTOM = true; // set false later if you want “smart” behavior
+  const ALWAYS_SNAP_TO_BOTTOM = true;
 
   const atBottomRef = useRef(true);
   const isInteractingRef = useRef(false);
@@ -369,7 +354,6 @@ export default function ChatScreen() {
       <StatusBar style="dark" />
       <ChatHeader title={title} subtitle={subtitle} avatar={avatar} />
 
-      {/* Messages list fills the space; extra bottom padding so last message isn't hidden behind bottom stack */}
       <FlatList
         ref={listRef}
         contentContainerStyle={{
@@ -394,11 +378,9 @@ export default function ChatScreen() {
             />
           );
         }}
-        // Keep initial jump only once if you like:
         onLayout={scrollToEnd}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        // NEW: these make Android reliable
         onScroll={handleScroll}
         scrollEventThrottle={16}
         onScrollBeginDrag={() => {
@@ -415,15 +397,9 @@ export default function ChatScreen() {
 
           if (pendingAutoScrollRef.current) {
             pendingAutoScrollRef.current = false;
-
-            // Do the scroll after layout settles
             requestAnimationFrame(() => {
-              // Try the simple way first
               listRef.current?.scrollToEnd({ animated: true });
-
-              // Android fallback: force to the exact bottom using height
               if (Platform.OS === "android") {
-                // Give the UI thread a moment to finish measuring (prevents “no-op” scrolls)
                 InteractionManager.runAfterInteractions(() => {
                   listRef.current?.scrollToOffset({
                     offset: Math.max(0, contentHeightRef.current),
@@ -435,8 +411,6 @@ export default function ChatScreen() {
           }
         }}
       />
-
-      {/* BottomStack animates with Android keyboard (and respects safe area). */}
       <BottomStack
         tray={
           trayOpen ? (

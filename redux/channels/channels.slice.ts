@@ -1,4 +1,3 @@
-// store/channels.slice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "@/store";
 import type { Channel, ChannelId } from "./channels.types";
@@ -61,7 +60,6 @@ const channelsSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // fetchChannels
     builder
       .addCase(fetchChannels.pending, (state) => {
         state.status = "loading";
@@ -77,7 +75,6 @@ const channelsSlice = createSlice({
           (action.payload as string) ?? action.error.message ?? null;
       });
 
-    // fetchChannelById
     builder
       .addCase(fetchChannelById.pending, (state) => {
         state.status = "loading";
@@ -87,7 +84,6 @@ const channelsSlice = createSlice({
         state.status = "succeeded";
         upsertOne(state, action.payload);
       })
-      
 
     builder
       .addCase(createChannel.pending, (state) => {

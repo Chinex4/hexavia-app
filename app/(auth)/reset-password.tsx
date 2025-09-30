@@ -14,7 +14,7 @@ import * as yup from "yup";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useToast } from "react-native-toast-notifications";
-import { Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react-native";
+import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react-native";
 import HexButton from "@/components/ui/HexButton";
 import { BlurView } from "expo-blur";
 import { useAppDispatch } from "@/store/hooks";

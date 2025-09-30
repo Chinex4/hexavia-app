@@ -2,7 +2,6 @@ import HexButton from "@/components/ui/HexButton";
 import { login } from "@/redux/auth/auth.thunks";
 import { useAppDispatch } from "@/store/hooks";
 import { yupResolver } from "@hookform/resolvers/yup";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -78,7 +77,6 @@ export default function LoginScreen() {
     if (r && r in pathByRole) {
       router.replace(pathByRole[r] as any);
     } else {
-      // fallback
       router.replace("/(client)/(tabs)");
     }
   }

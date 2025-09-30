@@ -15,6 +15,7 @@ export const register = createAsyncThunk(
       email: string;
       username: string;
       role?: "client" | "staff";
+      phoneNumber?: string;
     },
     { dispatch, rejectWithValue }
   ) => {
@@ -24,7 +25,7 @@ export const register = createAsyncThunk(
         email: body.email.trim().toLowerCase(),
         fullname: body.fullname,
         role: body.role ?? "client",
-        // ...(body.phoneNumber ? { phoneNumber: body.phoneNumber } : {}),
+        ...(body.phoneNumber ? { phoneNumber: body.phoneNumber } : {}),
       };
 
       await showPromise(

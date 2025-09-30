@@ -8,7 +8,6 @@ import {
   TouchableWithoutFeedback,
   Dimensions,
   Linking,
-  Platform,
 } from "react-native";
 import type { Message } from "@/types/chat";
 import { formatTime } from "@/utils/format";
@@ -21,11 +20,9 @@ import {
   FileText,
   X,
 } from "lucide-react-native";
-import { Audio, AVPlaybackStatusSuccess } from "expo-av";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import * as WebBrowser from "expo-web-browser";
 import * as Sharing from "expo-sharing";
-
-/* ------------------- utils ------------------- */
 function renderWithMentions(text: string) {
   const parts = text.split(/(\@\w+)/g);
   return parts.map((p, i) =>
@@ -62,7 +59,6 @@ function ReplyPreview({ msg }: { msg: Message }) {
     </View>
   );
 }
-
 const isHttp = (uri?: string) => !!uri && /^https?:\/\//i.test(uri);
 const hasExt = (uri: string, exts: string[]) =>
   new RegExp(`\\.(${exts.join("|")})($|\\?)`, "i").test(uri);
@@ -112,10 +108,6 @@ const filenameFromUri = (uri?: string) => {
     return "document";
   }
 };
-
-/* ------------------- media preview blocks ------------------- */
-
-// Full-screen image preview modal
 function ImagePreviewModal({
   uri,
   visible,
@@ -127,7 +119,12 @@ function ImagePreviewModal({
 }) {
   const { width, height } = Dimensions.get("window");
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal
+      visible={visible}
+      onRequestClose={onClose}
+      transparent
+      animationType="fade"
+    >
       <View className="flex-1 bg-black/95">
         <View className="absolute right-4 top-10 z-10">
           <Pressable
@@ -153,8 +150,6 @@ function ImagePreviewModal({
     </Modal>
   );
 }
-
-// Document pill; opens with browser or share-sheet
 async function openDocument(uri: string) {
   try {
     if (isHttp(uri)) {
@@ -165,7 +160,6 @@ async function openDocument(uri: string) {
       await Sharing.shareAsync(uri);
       return;
     }
-    // Fallback
     await Linking.openURL(uri);
   } catch (e) {
     console.warn("Open document failed", e);
@@ -186,87 +180,50 @@ function DocumentPill({ msg }: { msg: Message }) {
     </Pressable>
   );
 }
-
-// Audio player with tiny progress bar
 function AudioPlayer({ msg }: { msg: Message }) {
-  const soundRef = useRef<Audio.Sound | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [pos, setPos] = useState(0);
-  const [dur, setDur] = useState(msg.durationMs ?? 0);
+  const player = useAudioPlayer(msg.mediaUri!, { updateInterval: 200 });
+  const status = useAudioPlayerStatus(player);
 
-  useEffect(() => {
-    return () => {
-      // unload on unmount
-      (async () => {
-        try {
-          await soundRef.current?.unloadAsync();
-        } catch {}
-      })();
-    };
-  }, []);
-
-  const onStatus = (s: AVPlaybackStatusSuccess) => {
-    if (!s.isLoaded) return;
-    setPos(s.positionMillis ?? 0);
-    setDur(s.durationMillis ?? dur);
-    setIsPlaying(s.isPlaying);
+  const toggle = () => {
+    if (!status.isLoaded) return;
+    if (status.playing) player.pause();
+    else player.play();
   };
 
-  const ensureLoaded = async () => {
-    if (soundRef.current) return;
-    if (!msg.mediaUri) return;
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: msg.mediaUri },
-      { shouldPlay: false, progressUpdateIntervalMillis: 200 },
-      (status) => {
-        if ("isLoaded" in status && status.isLoaded) onStatus(status);
-      }
-    );
-    soundRef.current = sound;
-    const s = (await sound.getStatusAsync()) as AVPlaybackStatusSuccess;
-    onStatus(s);
+  const fmtClock = (s = 0) => {
+    const total = Math.max(0, Math.round(s));
+    const mm = Math.floor(total / 60);
+    const ss = total % 60;
+    return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
   };
 
-  const toggle = async () => {
-    try {
-      await ensureLoaded();
-      if (!soundRef.current) return;
-      const s = (await soundRef.current.getStatusAsync()) as AVPlaybackStatusSuccess;
-      if (s.isPlaying) {
-        await soundRef.current.pauseAsync();
-      } else {
-        await soundRef.current.playAsync();
-      }
-    } catch (e) {
-      console.warn("audio toggle error", e);
-    }
-  };
-
+  const pos = status.currentTime ?? 0;
+  const dur = status.duration ?? (msg.durationMs ? msg.durationMs / 1000 : 0);
   const pct = dur > 0 ? Math.min(1, pos / dur) : 0;
 
   return (
     <View className="mb-2 px-3 py-2 rounded-xl bg-white/60 border border-white/40">
       <View className="flex-row items-center">
         <Pressable onPress={toggle} className="mr-2">
-          {isPlaying ? (
+          {status.playing ? (
             <PauseCircle size={22} color="#374151" />
           ) : (
             <PlayCircle size={22} color="#374151" />
           )}
         </Pressable>
         <Text className="text-[13px] text-gray-800 font-kumbh">
-          {fmtClock(pos)} / {fmtClock(dur || msg.durationMs || 0)}
+          {fmtClock(pos)} / {fmtClock(dur)}
         </Text>
       </View>
       <View className="mt-2 h-1.5 rounded-full bg-white/70 overflow-hidden">
-        <View style={{ width: `${pct * 100}%` }} className="h-full bg-gray-500" />
+        <View
+          style={{ width: `${pct * 100}%` }}
+          className="h-full bg-gray-500"
+        />
       </View>
     </View>
   );
 }
-
-/* ------------------- main component ------------------- */
-
 export default function MessageBubble({
   msg,
   isMe,
@@ -281,11 +238,12 @@ export default function MessageBubble({
   const BubbleCore = (
     <>
       <ReplyPreview msg={msg} />
-
-      {/* media preview area */}
       {isImage(msg) ? (
         <>
-          <Pressable onPress={() => setImgOpen(true)} className="mb-2 overflow-hidden rounded-2xl">
+          <Pressable
+            onPress={() => setImgOpen(true)}
+            className="mb-2 overflow-hidden rounded-2xl"
+          >
             <Image
               source={{ uri: msg.mediaUri! }}
               style={{
@@ -299,7 +257,11 @@ export default function MessageBubble({
           </Pressable>
           {/* full screen modal */}
           {msg.mediaUri ? (
-            <ImagePreviewModal uri={msg.mediaUri} visible={imgOpen} onClose={() => setImgOpen(false)} />
+            <ImagePreviewModal
+              uri={msg.mediaUri}
+              visible={imgOpen}
+              onClose={() => setImgOpen(false)}
+            />
           ) : null}
         </>
       ) : isAudio(msg) ? (
@@ -308,24 +270,35 @@ export default function MessageBubble({
         <DocumentPill msg={msg} />
       ) : null}
 
-      {!!msg.text && <Text className="text-gray-800">{renderWithMentions(msg.text)}</Text>}
+      {!!msg.text && (
+        <Text className="text-gray-800">{renderWithMentions(msg.text)}</Text>
+      )}
     </>
   );
 
   if (isMe) {
     return (
       <View className="px-5 mb-3 items-end">
-        <Pressable onLongPress={() => onLongPress?.(msg)} className="max-w-[82%]">
-          <View className="bg-[#C9CEEA] rounded-3xl px-5 py-3">{BubbleCore}</View>
+        <Pressable
+          onLongPress={() => onLongPress?.(msg)}
+          className="max-w-[82%]"
+        >
+          <View className="bg-[#C9CEEA] rounded-3xl px-5 py-3">
+            {BubbleCore}
+          </View>
         </Pressable>
 
         <View className="flex-row items-center mt-1">
-          <Text className="text-[11px] text-gray-400 mr-1">{formatTime(msg.createdAt)}</Text>
+          <Text className="text-[11px] text-gray-400 mr-1">
+            {formatTime(msg.createdAt)}
+          </Text>
           <StatusTicks status={msg.status} />
         </View>
 
         {msg.status === "seen" && !!msg.seenBy?.length && (
-          <Text className="text-[11px] text-gray-400 mt-0.5">Seen by {msg.seenBy.join(", ")}</Text>
+          <Text className="text-[11px] text-gray-400 mt-0.5">
+            Seen by {msg.seenBy.join(", ")}
+          </Text>
         )}
       </View>
     );
@@ -336,8 +309,12 @@ export default function MessageBubble({
       <View className="flex-row items-start">
         <View className="h-9 w-9 rounded-full bg-emerald-700 mr-3" />
         <Pressable onLongPress={() => onLongPress?.(msg)}>
-          <View className="bg-gray-200 rounded-3xl px-5 py-3 max-w-[82%]">{BubbleCore}</View>
-          <Text className="text-[11px] text-gray-400 mt-1">{formatTime(msg.createdAt)}</Text>
+          <View className="bg-gray-200 rounded-3xl px-5 py-3 max-w-[82%]">
+            {BubbleCore}
+          </View>
+          <Text className="text-[11px] text-gray-400 mt-1">
+            {formatTime(msg.createdAt)}
+          </Text>
         </Pressable>
       </View>
     </View>

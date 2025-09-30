@@ -14,18 +14,24 @@ import { StatusBar } from "expo-status-bar";
 import type { RootState, AppDispatch } from "@/store";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
 
-const PALETTE = ["#37CC86", "#48A7FF", "#F6A94A", "#29C57A", "#4C5FAB", "#9B7BF3"];
+const PALETTE = [
+  "#37CC86",
+  "#48A7FF",
+  "#F6A94A",
+  "#29C57A",
+  "#4C5FAB",
+  "#9B7BF3",
+];
 const colorFor = (key: string) => {
   let hash = 0;
-  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < key.length; i++)
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
   return PALETTE[hash % PALETTE.length];
 };
 
 const INACTIVE = "#9CA3AF";
 
-// ---- helper to create a stable unique key per channel
-const makeKey = (c: any) =>
-  String(c?.id ?? c?._id ?? c?.code ?? c?.name ?? "");
+const makeKey = (c: any) => String(c?.id ?? c?._id ?? c?.code ?? c?.name ?? "");
 
 export default function AllChannelsScreen() {
   const dispatch = useDispatch<AppDispatch>();
@@ -53,15 +59,12 @@ export default function AllChannelsScreen() {
   });
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // sanitize + search/filter/sort
   const data = useMemo(() => {
-    // 1) build stable keys + drop empties
     const keyed = channels
       .filter(Boolean)
       .map((c) => ({ ...c, __key: makeKey(c) }))
       .filter((c) => c.__key.length > 0);
 
-    // 2) de-dupe by key
     const seen = new Set<string>();
     const deduped: any[] = [];
     for (const c of keyed) {
@@ -71,17 +74,12 @@ export default function AllChannelsScreen() {
       }
     }
 
-    // 3) search/filter/sort on deduped
     let list = deduped.slice();
     const q = debouncedQuery.trim().toLowerCase();
 
     if (q) {
       list = list.filter((c) =>
-        [
-          c?.name ?? "",
-          c?.description ?? "",
-          (c as any)?.department ?? "",
-        ]
+        [c?.name ?? "", c?.description ?? "", (c as any)?.department ?? ""]
           .join(" ")
           .toLowerCase()
           .includes(q)
@@ -121,7 +119,7 @@ export default function AllChannelsScreen() {
 
         <FlatList
           data={data}
-          keyExtractor={(item: any) => item.__key}       // ✅ unique, stable
+          keyExtractor={(item: any) => item.__key}
           renderItem={({ item }) => (
             <ChannelCard
               item={item}
@@ -130,13 +128,18 @@ export default function AllChannelsScreen() {
           )}
           contentContainerStyle={{ paddingBottom: 24, paddingTop: 12 }}
           refreshControl={
-            <RefreshControl refreshing={status === "loading"} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={status === "loading"}
+              onRefresh={onRefresh}
+            />
           }
           ListEmptyComponent={
             <View className="items-center mt-24">
               <Ionicons name="chatbubbles-outline" size={28} color={INACTIVE} />
               <Text className="mt-2 text-gray-500 font-kumbh">
-                {status === "loading" ? "Loading channels…" : "No channels found"}
+                {status === "loading"
+                  ? "Loading channels…"
+                  : "No channels found"}
               </Text>
             </View>
           }

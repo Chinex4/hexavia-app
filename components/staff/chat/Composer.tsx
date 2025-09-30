@@ -9,10 +9,9 @@ type Props = {
   trayOpen: boolean;
   replyTo?: ReplyMeta | null;
   onCancelReply?: () => void;
-  // NEW
   isRecording?: boolean;
   recordDurationMs?: number;
-  onMicPress?: () => void; // start/stop
+  onMicPress?: () => void;
   onCancelRecording?: () => void;
 };
 
@@ -97,7 +96,6 @@ export default function Composer({
           />
         </View>
 
-        {/* Mic / Send */}
         <Pressable
           onPress={text.trim() ? commit : onMicPress}
           className="ml-3 h-12 w-12 rounded-full items-center justify-center"

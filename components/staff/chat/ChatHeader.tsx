@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Image, Pressable, Platform } from "react-native";
-import { ChevronLeft, Phone, Video } from "lucide-react-native";
+import { ChevronLeft, File } from "lucide-react-native";
 import { useRouter } from "expo-router";
 
 type Props = {
@@ -34,12 +34,10 @@ export default function ChatHeader({ title, subtitle, avatar }: Props) {
         </View>
 
         <View className="flex-row items-center space-x-3">
-          {/* <Pressable className="h-10 w-10 rounded-2xl bg-gray-100 items-center justify-center">
-            <Phone size={20} color="#111827" />
-          </Pressable>
           <Pressable className="h-10 w-10 rounded-2xl bg-gray-100 items-center justify-center">
-            <Video size={20} color="#111827" />
-          </Pressable> */}
+            <File size={20} color="#111827" />
+          </Pressable>
+          
         </View>
       </View>
 

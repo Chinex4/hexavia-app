@@ -25,7 +25,6 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 
-//global 401 handler + friendly error message
 api.interceptors.response.use(
   (res) => res,
   async (err: AxiosError<any>) => {
