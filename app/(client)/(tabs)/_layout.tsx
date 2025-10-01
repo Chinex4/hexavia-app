@@ -1,7 +1,8 @@
-import React from "react";
-import { Tabs } from "expo-router";
-import { View, Text } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { Tabs } from "expo-router";
+import React from "react";
+import { Text, View } from "react-native";
+import { TasksProvider } from "@/features/staff/tasksStore";
 
 const PRIMARY = "#4C5FAB";
 const INACTIVE = "#9CA3AF";
@@ -58,9 +59,8 @@ export default function StaffTabsLayout() {
         tabBarInactiveTintColor: INACTIVE,
         tabBarStyle: {
           height: 75,
-          borderRadius: 12,
           backgroundColor: "#FFFFFF",
-          borderTopWidth: 0,
+          borderTopWidth: 1,
           paddingHorizontal: 18,
           paddingVertical: 10,
           paddingTop: 6,
@@ -82,34 +82,9 @@ export default function StaffTabsLayout() {
           ),
         }}
       />
+      
       <Tabs.Screen
-        name="task"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabButton
-              focused={focused}
-              label="Task"
-              activeName="clipboard"
-              inactiveName="clipboard-outline"
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="calendar"
-        options={{
-          tabBarIcon: ({ focused }) => (
-            <TabButton
-              focused={focused}
-              label="Calendar"
-              activeName="calendar"
-              inactiveName="calendar-outline"
-            />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="chat"
+        name="chats/[channelId]"
         options={{
           tabBarIcon: ({ focused }) => (
             <TabButton
@@ -122,7 +97,7 @@ export default function StaffTabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="profile"
+        name="profile/index"
         options={{
           tabBarIcon: ({ focused }) => (
             <TabButton
