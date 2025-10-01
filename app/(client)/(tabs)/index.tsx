@@ -1,72 +1,92 @@
-import AvatarPlaceholder from "@/components/staff/AvatarPlaceHolder";
-import ChannelCard from "@/components/staff/ChannelCard";
-import SanctionCard from "@/components/staff/SanctionCard";
-import TaskCard from "@/components/staff/TaskOverviewCard";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Bell, ChevronRight } from "lucide-react-native";
-import React from "react";
-import {
-  Dimensions,
-  FlatList,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-type Channel = {
-  id: string;
-  title: string;
-  subtitle: string;
-  color: string;
-  logo?: string;
-  memberAvatars?: string[];
-};
+import AvatarPlaceholder from "@/components/staff/AvatarPlaceHolder";
+import ChannelCard from "@/components/staff/ChannelCard";
+import SanctionCard from "@/components/staff/SanctionCard";
+import TaskOverview from "@/components/staff/TaskOverviewCard";
+import CreateChannelCard from "@/components/staff/channels/CreateChannelCard";
+import CreateChannelModal from "@/components/staff/channels/CreateChannelModal";
+import useChannelCardLayout from "@/hooks/useChannelCardLayout";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchProfile } from "@/redux/user/user.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+import {
+  selectAllChannels,
+  selectStatus,
+} from "@/redux/channels/channels.selectors";
 
-const channels: Channel[] = [
-  {
-    id: "1",
-    title: "FinTeam",
-    subtitle:
-      "Horizontal swipeable carousel of channel cards PR/Marketing Channel",
-    color: "#14D699",
-    logo: undefined,
-    memberAvatars: [
-      "https://i.pravatar.cc/100?img=1",
-      "https://i.pravatar.cc/100?img=2",
-      "https://i.pravatar.cc/100?img=3",
-      "https://i.pravatar.cc/100?img=4",
-      "https://i.pravatar.cc/100?img=5",
-    ],
-  },
-  {
-    id: "2",
-    title: "ZEETeam",
-    subtitle:
-      "Horizontal swipeable carousel of channel cards PR/Marketing Channel",
-    color: "#60A5FA", // blue-400-ish
-    logo: undefined,
-    memberAvatars: [
-      "https://i.pravatar.cc/100?img=1",
-      "https://i.pravatar.cc/100?img=2",
-      "https://i.pravatar.cc/100?img=3",
-      "https://i.pravatar.cc/100?img=4",
-      "https://i.pravatar.cc/100?img=5",
-    ],
-  },
+const PALETTE = [
+  "#4C5FAB", // indigo (primary)
+  "#22D3EE", // cyan
+  "#10B981", // emerald
+  "#F6A94A", // amber
+  "#FB7185", // soft coral/rose
+  "#9B7BF3", // violet
 ];
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const PAGE_PAD = 16;
-const GAP = 10;
-const PEEK = 20;
-const CARD_WIDTH = SCREEN_WIDTH - PAGE_PAD * 2 - PEEK;
-const SNAP = CARD_WIDTH + GAP;
+const colorFor = (key: string) => {
+  let hash = 0;
+  for (let i = 0; i < key.length; i++)
+    hash = (hash * 5 + key.charCodeAt(i)) >>> 0;
+  return PALETTE[hash % PALETTE.length];
+};
+
+function firstNameOf(fullname?: string | null) {
+  if (!fullname) return "User";
+  return fullname.trim().split(/\s+/)[0];
+}
+function prettyRole(role?: string | null) {
+  if (!role) return "Project Member";
+  return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 export default function StaffHome() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+
+  const user = useAppSelector(selectUser);
+  useEffect(() => {
+    dispatch(fetchProfile());
+  }, [dispatch]);
+
+  const status = useAppSelector(selectStatus);
+  const channels = useAppSelector(selectAllChannels);
+
+  useEffect(() => {
+    if (status === "idle") dispatch(fetchChannels());
+  }, [status, dispatch]);
+
+  const [showCreate, setShowCreate] = useState(false);
+
+  const { GAP, CARD_WIDTH } = useChannelCardLayout();
+  const CARD_WIDTH_NARROW = Math.max(220, CARD_WIDTH - 40);
+  const SNAP = CARD_WIDTH_NARROW + GAP;
+
+  const greetingName = firstNameOf(user?.fullname);
+  const roleText = prettyRole(user?.role || "Hexavia Staff");
+
+  const listData = useMemo(
+    () =>
+      [
+        ...channels.map((c) => ({
+          kind: "channel" as const,
+          id: String(c._id),
+          title: c.name,
+          subtitle: c.description ?? "",
+          code: c.code,
+          logo: (c as any)?.logo ?? undefined,
+          color: colorFor(c._id || (c as any)?.code || c.name),
+        })),
+      ] as const,
+    [channels]
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
@@ -74,17 +94,25 @@ export default function StaffHome() {
         contentContainerStyle={{ paddingBottom: 32 }}
         className="px-5"
         showsVerticalScrollIndicator={false}
+        directionalLockEnabled
+        alwaysBounceVertical={false}
       >
         {/* Top Bar */}
         <View className="flex-row items-center justify-between mt-8">
-          <AvatarPlaceholder />
+          <Pressable onPress={() => router.push("/(staff)/(tabs)/profile")}>
+            <AvatarPlaceholder avatar={user?.profilePicture} />
+          </Pressable>
           <View className="flex-1 ml-3">
-            <Text className="text-3xl text-gray-900 font-kumbhBold">Hi Nj</Text>
-            <View className="self-start mt-2 rounded-full border border-emerald-300 px-3 py-1">
-              <Text className="text-emerald-600 text-[12px] font-kumbhBold">
-                Project Manager
-              </Text>
-            </View>
+            <Text className="text-3xl text-gray-900 font-kumbhBold">
+              {greetingName ? `Hi ${greetingName}` : "Hi there!"}
+            </Text>
+            {roleText ? (
+              <View className="self-start mt-2 rounded-full border border-emerald-300 px-3 py-1">
+                <Text className="text-emerald-600 text-[12px] font-kumbhBold">
+                  {roleText}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <Pressable className="h-11 w-11 items-center justify-center rounded-2xl bg-gray-100">
@@ -104,38 +132,51 @@ export default function StaffHome() {
           </Pressable>
         </View>
 
-        <View style={{ marginHorizontal: -PAGE_PAD, marginTop: 16 }}>
+        <View style={{ marginTop: 16 }}>
           <FlatList
-            data={channels}
+            data={listData as any}
             horizontal
-            keyExtractor={(it) => it.id}
-            renderItem={({ item }) => (
-              <ChannelCard
-                width={CARD_WIDTH}
-                gap={GAP}
-                item={{
-                  ...item,
-                  memberAvatars: item.memberAvatars ?? [],
-                }}
-              />
-            )}
-            contentContainerStyle={{
-              paddingLeft: 12,
-              paddingRight: PAGE_PAD,
-            }}
+            keyExtractor={(it: any) => `${it.kind}:${it.id}`}
+            renderItem={({ item }: any) =>
+              item.kind === "create" ? (
+                <CreateChannelCard
+                  width={CARD_WIDTH_NARROW}
+                  gap={GAP}
+                  onPress={() => setShowCreate(true)}
+                />
+              ) : (
+                <ChannelCard width={CARD_WIDTH_NARROW} gap={GAP} item={item} />
+              )
+            }
             showsHorizontalScrollIndicator={false}
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
+            // snapToInterval={SNAP}
+            // snapToAlignment="start"
             decelerationRate="fast"
-            snapToInterval={SNAP}
-            snapToAlignment="start"
+            style={{ height: 200 + 16 }}
+            contentContainerStyle={{ paddingRight: 8 }}
+            getItemLayout={(_, index) => ({
+              length: SNAP,
+              offset: SNAP * index,
+              index,
+            })}
           />
         </View>
 
         {/* Task */}
-        <TaskCard />
+        <TaskOverview />
 
         {/* Sanction */}
         <SanctionCard />
       </ScrollView>
+
+      {/* Modal */}
+      <CreateChannelModal
+        visible={showCreate}
+        onClose={() => setShowCreate(false)}
+      />
     </SafeAreaView>
   );
 }
