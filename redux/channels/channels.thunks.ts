@@ -14,6 +14,12 @@ import type {
   RemoveMemberResponse,
   UpdateMemberRoleBody,
   UpdateMemberRoleResponse,
+  CreateTaskBody,
+  CreateTaskResponse,
+  UpdateTaskBody,
+  UpdateTaskResponse,
+  UploadResourcesBody,
+  UploadResourcesResponse,
 } from "./channels.types";
 
 function extractErrorMessage(err: unknown): string {
@@ -151,6 +157,64 @@ export const updateChannelMemberRole = createAsyncThunk<
       api.post<UpdateMemberRoleResponse>("/channel/update-member-role", body),
       "Updating role…",
       "Member role updated"
+    );
+    return res.data.channel as Channel;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+// CHANNEL TASKS & RESOURCES
+export const createChannelTask = createAsyncThunk<
+  Channel,
+  CreateTaskBody,
+  { rejectValue: string }
+>("channels/createTask", async (body, { rejectWithValue }) => {
+  try {
+    const res = await showPromise(
+      api.post<CreateTaskResponse>(`/channel/create-task`, body),
+      "Creating task…",
+      "Task created"
+    );
+    return res.data.channel as Channel;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const updateChannelTask = createAsyncThunk<
+  Channel,
+  UpdateTaskBody,
+  { rejectValue: string }
+>("channels/updateTask", async (body, { rejectWithValue }) => {
+  try {
+    const res = await showPromise(
+      api.put<UpdateTaskResponse>(`/channel/update-task`, body),
+      "Updating task…",
+      "Task updated"
+    );
+    return res.data.channel as Channel;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const uploadChannelResources = createAsyncThunk<
+  Channel,
+  UploadResourcesBody,
+  { rejectValue: string }
+>("channels/uploadResources", async (body, { rejectWithValue }) => {
+  try {
+    const res = await showPromise(
+      api.post<UploadResourcesResponse>(`/channel/upload-resources`, body),
+      "Uploading resources…",
+      "Resources uploaded"
     );
     return res.data.channel as Channel;
   } catch (err) {

@@ -25,7 +25,7 @@ export const register = createAsyncThunk(
         email: body.email.trim().toLowerCase(),
         fullname: body.fullname,
         role: body.role ?? "client",
-        ...(body.phoneNumber ? { phoneNumber: body.phoneNumber } : {}),
+        // ...(body.phoneNumber ? { phoneNumber: body.phoneNumber } : {}),
       };
 
       await showPromise(
@@ -50,7 +50,6 @@ export const register = createAsyncThunk(
   }
 );
 
-/** --------- Verify email (Step 2) --------- */
 export const verifyEmail = createAsyncThunk(
   "auth/verifyEmail",
   async (
@@ -86,7 +85,6 @@ export const verifyEmail = createAsyncThunk(
   }
 );
 
-/** --------- Resend register OTP --------- */
 export const resendRegisterOtp = createAsyncThunk(
   "auth/resendRegisterOtp",
   async (email: string) => {
@@ -98,7 +96,6 @@ export const resendRegisterOtp = createAsyncThunk(
   }
 );
 
-/** --------- Join channel + set password (Step 3) --------- */
 export const joinChannel = createAsyncThunk(
   "auth/joinChannel",
   async (
