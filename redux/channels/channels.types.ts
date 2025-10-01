@@ -3,7 +3,7 @@
 export type ChannelId = string;
 
 export interface Channel {
-  id: ChannelId;
+  _id: ChannelId;
   name: string;
   description?: string | null;
   code: string;              
@@ -55,6 +55,40 @@ export interface UpdateMemberRoleBody {
   type: "pm" | "staff" | "client";
 }
 export interface UpdateMemberRoleResponse {
+  message: string;
+  channel: Channel;
+}
+
+export interface CreateTaskBody {
+  channelId: string;
+  name: string;
+  description?: string | null;
+}
+export interface CreateTaskResponse {
+  message: string;
+  channel: Channel;
+}
+
+export interface UpdateTaskBody {
+  channelId: string;
+  taskId: string;
+  name?: string;
+  description?: string | null;
+}
+export interface UpdateTaskResponse {
+  message: string;
+  channel: Channel;
+}
+
+export interface UploadResourcesBody {
+  channelId: string;
+  resources: Array<{
+    name: string;
+    description?: string | null;
+    resourceUpload: string;
+  }>;
+}
+export interface UploadResourcesResponse {
   message: string;
   channel: Channel;
 }

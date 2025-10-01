@@ -76,12 +76,12 @@ export default function StaffHome() {
         { kind: "create", id: "create" as const },
         ...channels.map((c) => ({
           kind: "channel" as const,
-          id: String(c.id),
+          id: String(c._id),
           title: c.name,
           subtitle: c.description ?? "",
           code: c.code,
           logo: (c as any)?.logo ?? undefined,
-          color: colorFor(c.id || (c as any)?.code || c.name),
+          color: colorFor(c._id || (c as any)?.code || c.name),
         })),
       ] as const,
     [channels]
@@ -99,7 +99,9 @@ export default function StaffHome() {
       >
         {/* Top Bar */}
         <View className="flex-row items-center justify-between mt-8">
-          <AvatarPlaceholder avatar={user?.profilePicture} />
+          <Pressable onPress={() => router.push("/(staff)/(tabs)/profile")}>
+            <AvatarPlaceholder avatar={user?.profilePicture} />
+          </Pressable>
           <View className="flex-1 ml-3">
             <Text className="text-3xl text-gray-900 font-kumbhBold">
               {greetingName ? `Hi ${greetingName}` : "Hi there!"}
@@ -150,8 +152,8 @@ export default function StaffHome() {
             bounces={false}
             alwaysBounceVertical={false}
             overScrollMode="never"
-            snapToInterval={SNAP}
-            snapToAlignment="start"
+            // snapToInterval={SNAP}
+            // snapToAlignment="start"
             decelerationRate="fast"
             style={{ height: 200 + 16 }}
             contentContainerStyle={{ paddingRight: 8 }}

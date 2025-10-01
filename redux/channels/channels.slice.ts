@@ -9,6 +9,9 @@ import {
   addMemberToChannel,
   removeMemberFromChannel,
   updateChannelMemberRole,
+  createChannelTask,
+  updateChannelTask,
+  uploadChannelResources,
 } from "./channels.thunks";
 
 type Status = "idle" | "loading" | "succeeded" | "failed";
@@ -33,14 +36,14 @@ const initialState: ChannelsState = {
 
 function upsertMany(state: ChannelsState, channels: Channel[]) {
   for (const ch of channels) {
-    state.byId[ch.id] = { ...state.byId[ch.id], ...ch };
-    if (!state.allIds.includes(ch.id)) state.allIds.push(ch.id);
+    state.byId[ch._id] = { ...state.byId[ch._id], ...ch };
+    if (!state.allIds.includes(ch._id)) state.allIds.push(ch._id);
   }
 }
 
 function upsertOne(state: ChannelsState, channel: Channel) {
-  state.byId[channel.id] = { ...state.byId[channel.id], ...channel };
-  if (!state.allIds.includes(channel.id)) state.allIds.push(channel.id);
+  state.byId[channel._id] = { ...state.byId[channel._id], ...channel };
+  if (!state.allIds.includes(channel._id)) state.allIds.push(channel._id);
 }
 
 const channelsSlice = createSlice({
@@ -83,7 +86,7 @@ const channelsSlice = createSlice({
       .addCase(fetchChannelById.fulfilled, (state, action) => {
         state.status = "succeeded";
         upsertOne(state, action.payload);
-      })
+      });
 
     builder
       .addCase(createChannel.pending, (state) => {
@@ -93,7 +96,7 @@ const channelsSlice = createSlice({
       .addCase(createChannel.fulfilled, (state, action) => {
         state.status = "succeeded";
         upsertOne(state, action.payload);
-        state.currentChannelId = action.payload.id;
+        state.currentChannelId = action.payload._id;
       })
       .addCase(createChannel.rejected, (state, action) => {
         state.status = "failed";
@@ -152,6 +155,52 @@ const channelsSlice = createSlice({
         upsertOne(state, action.payload);
       })
       .addCase(updateChannelMemberRole.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    //   Channel tasks & resources
+    builder
+      .addCase(createChannelTask.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(createChannelTask.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        upsertOne(state, action.payload);
+      })
+      .addCase(createChannelTask.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    builder
+      .addCase(updateChannelTask.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(updateChannelTask.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        upsertOne(state, action.payload);
+      })
+      .addCase(updateChannelTask.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    builder
+      .addCase(uploadChannelResources.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(uploadChannelResources.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        upsertOne(state, action.payload);
+      })
+      .addCase(uploadChannelResources.rejected, (state, action) => {
         state.status = "failed";
         state.error =
           (action.payload as string) ?? action.error.message ?? null;
