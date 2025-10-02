@@ -14,6 +14,8 @@ import {
   uploadChannelResources,
 } from "./channels.thunks";
 
+const normalizeCode = (c: string) => c.trim().toUpperCase().replace(/\s+/g, "");
+
 type Status = "idle" | "loading" | "succeeded" | "failed";
 
 export interface ChannelsState {
@@ -23,6 +25,7 @@ export interface ChannelsState {
   error: string | null;
   currentChannelId: ChannelId | null;
   lastGeneratedCode: string | null;
+  codeIndex: Record<string, ChannelId>;
 }
 
 const initialState: ChannelsState = {
@@ -32,18 +35,26 @@ const initialState: ChannelsState = {
   error: null,
   currentChannelId: null,
   lastGeneratedCode: null,
+  codeIndex: {},
 };
+
+function indexChannel(state: ChannelsState, ch: Channel) {
+  const rawCode = (ch as any).code ?? (ch as any).channelCode;
+  if (rawCode) state.codeIndex[normalizeCode(String(rawCode))] = ch._id;
+}
 
 function upsertMany(state: ChannelsState, channels: Channel[]) {
   for (const ch of channels) {
     state.byId[ch._id] = { ...state.byId[ch._id], ...ch };
     if (!state.allIds.includes(ch._id)) state.allIds.push(ch._id);
+    indexChannel(state, ch);
   }
 }
 
 function upsertOne(state: ChannelsState, channel: Channel) {
   state.byId[channel._id] = { ...state.byId[channel._id], ...channel };
   if (!state.allIds.includes(channel._id)) state.allIds.push(channel._id);
+  indexChannel(state, channel);
 }
 
 const channelsSlice = createSlice({
@@ -222,3 +233,13 @@ export const selectCurrentChannel = (s: RootState) =>
     : null;
 export const selectLastGeneratedCode = (s: RootState) =>
   s.channels.lastGeneratedCode;
+
+
+export const selectChannelIdByCode = (code: string) => (s: RootState) =>
+  s.channels.codeIndex[normalizeCode(code)] ?? null;
+
+export const selectChannelByCode = (code: string) => (s: RootState) => {
+  const id = s.channels.codeIndex[normalizeCode(code)];
+  return id ? s.channels.byId[id] : null;
+};
+

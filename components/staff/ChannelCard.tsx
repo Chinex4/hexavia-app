@@ -20,7 +20,15 @@ type Props = {
 function ChannelCard({ item, width, gap }: Props) {
   const router = useRouter();
   return (
-    <Pressable onPress={() => router.push("/(staff)/channels")} style={{ width, marginRight: gap }}>
+    <Pressable
+      onPress={() =>
+        router.push({
+          pathname: "/(staff)/channels/[channelId]/resources" as any,
+          params: { channelId: item.id },
+        })
+      }
+      style={{ width, marginRight: gap }}
+    >
       <View
         className="rounded-2xl p-4"
         style={{
@@ -30,7 +38,10 @@ function ChannelCard({ item, width, gap }: Props) {
         }}
       >
         <View className="flex-row justify-between">
-          <Text className="text-white text-3xl font-kumbhBold" numberOfLines={1}>
+          <Text
+            className="text-white text-3xl font-kumbhBold"
+            numberOfLines={1}
+          >
             {item.title}
           </Text>
           {/* <View className="size-16 rounded-full overflow-hidden border border-white/40">
@@ -44,10 +55,13 @@ function ChannelCard({ item, width, gap }: Props) {
 
         {/* Bottom (no member avatars to keep it clean & light) */}
         <View className="mt-4 flex-row justify-between items-center">
-          <Text className="text-white/90 mt-4 leading-5 text-[13px] font-kumbh" numberOfLines={3}>
+          <Text
+            className="text-white/90 mt-4 leading-5 text-[13px] font-kumbh truncate"
+            numberOfLines={3}
+          >
             {item.subtitle}
           </Text>
-          <Text className="text-white/90 font-kumbh text-[13px] mt-2">
+          <Text className="text-white/90 font-kumbh text-[12px] mt-2">
             Channel Code: {item.code}
           </Text>
         </View>

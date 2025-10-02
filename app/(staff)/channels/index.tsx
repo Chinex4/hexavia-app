@@ -1,4 +1,3 @@
-// app/(staff)/(tabs)/channels/index.tsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { View, FlatList, Text, Platform, RefreshControl } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -13,6 +12,10 @@ import { StatusBar } from "expo-status-bar";
 
 import type { RootState, AppDispatch } from "@/store";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { selectMyChannelsByUserId } from "@/redux/channels/channels.selectors";
+import { useAppSelector } from "@/store/hooks";
+import { selectUser } from "@/redux/user/user.slice";
+import { fetchProfile } from "@/redux/user/user.thunks";
 
 const PALETTE = [
   "#37CC86",
@@ -39,7 +42,14 @@ export default function AllChannelsScreen() {
   const status = useSelector((s: RootState) => s.channels.status);
   const allIds = useSelector((s: RootState) => s.channels.allIds);
   const byId = useSelector((s: RootState) => s.channels.byId);
-  const channels = useMemo(() => allIds.map((id) => byId[id]), [allIds, byId]);
+  // const channels = useMemo(() => allIds.map((id) => byId[id]), [allIds, byId]);
+  const user = useAppSelector(selectUser);
+    useEffect(() => {
+      dispatch(fetchProfile());
+    }, [dispatch]);
+  
+    const userId = user?._id ?? null;
+  const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
 
   useEffect(() => {
     if (status === "idle") dispatch(fetchChannels());

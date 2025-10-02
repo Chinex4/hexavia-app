@@ -41,7 +41,7 @@ function InfoRow({
         </View>
         <Text className="text-gray-500 font-kumbh">{label}</Text>
       </View>
-      <Text className="ml-4 max-w-[58%] text-right text-gray-900 font-kumbh">
+      <Text className="ml-4 max-w-[58%] text-right text-sm text-gray-900 font-kumbh">
         {value || "—"}
       </Text>
     </View>
@@ -78,7 +78,6 @@ export default function Profile() {
     (user as any)?.channel ||
     "";
 
-
   const topCard = useMemo(() => {
     return (
       <View
@@ -94,9 +93,13 @@ export default function Profile() {
                 resizeMode="cover"
               />
             ) : (
-              <Text className="text-2xl font-kumbhBold text-gray-700">
-                {initialsOf(user?.fullname)}
-              </Text>
+              <Image
+                source={{
+                  uri: "https://png.pngtree.com/png-vector/20220709/ourmid/pngtree-businessman-user-avatar-wearing-suit-with-red-tie-png-image_5809521.png",
+                }}
+                className="h-20 w-20"
+                resizeMode="cover"
+              />
             )}
           </View>
           <View className="flex-1">
@@ -144,7 +147,6 @@ export default function Profile() {
     user?.username,
   ]);
 
-  
   return (
     <View className="flex-1 bg-gray-50">
       <StatusBar style="light" />
