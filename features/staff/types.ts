@@ -5,6 +5,7 @@ export type Task = {
   title: string;
   description?: string;
   channelCode: string;
+  channelId?: string;
   status: StatusKey;
   createdAt: number;
 };

@@ -21,7 +21,8 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.heischinex.hexavia",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "useNextNotificationsApi": true
     },
     "web": {
       "bundler": "metro",
@@ -45,6 +46,13 @@
         "expo-audio",
         {
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "mode": "production"
         }
       ]
     ],

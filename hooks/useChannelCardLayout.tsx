@@ -9,7 +9,7 @@ export default function useChannelCardLayout() {
     const GAP = 12;
     const PEEK = 16;
 
-    const CARD_WIDTH = SCREEN_WIDTH - (PAGE_PAD * 2 - PEEK);
+    const CARD_WIDTH = 250;
     const SNAP = CARD_WIDTH + GAP;
 
     return {

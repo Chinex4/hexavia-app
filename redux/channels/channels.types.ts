@@ -1,13 +1,31 @@
-// types/channel.ts
-
 export type ChannelId = string;
 
 export interface Channel {
   _id: ChannelId;
   name: string;
   description?: string | null;
-  code: string;              
+  code: string;
   createdAt?: string;
+  createdBy?: string;
+  members: Array<{
+    userId: string;
+    type: "pm" | "staff" | "client";
+  }>;
+  tasks: Array<{
+    _id: string;
+    name: string;
+    description?: string | null;
+    createdAt: string;
+    updatedAt?: string;
+    status: "not_started" | "in_progress" | "completed";
+  }>;
+  resources: Array<{
+    _id: string;
+    name: string;
+    description?: string | null;
+    resourceUpload: string;
+    uploadedAt: string;
+  }>;
   updatedAt?: string;
 }
 
@@ -28,12 +46,13 @@ export interface GetChannelByIdResponse {
   success: boolean;
   message: string;
   data: { channel: Channel };
+  channel: Channel;
 }
 
 export interface AddMemberBody {
-  code: string; 
-  userId: string;               
-  type: "pm" | "staff" | "client"; 
+  code: string;
+  userId: string;
+  type: "pm" | "staff" | "client";
 }
 export interface AddMemberResponse {
   message: string;
@@ -63,6 +82,7 @@ export interface CreateTaskBody {
   channelId: string;
   name: string;
   description?: string | null;
+  status?: string
 }
 export interface CreateTaskResponse {
   message: string;
@@ -70,7 +90,7 @@ export interface CreateTaskResponse {
 }
 
 export interface UpdateTaskBody {
-  channelId: string;
+  channelId: string | undefined;
   taskId: string;
   name?: string;
   description?: string | null;

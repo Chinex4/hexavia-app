@@ -13,7 +13,7 @@ export default function StatusCard({ status }: Props) {
       onPress={() =>
         router.push({
           pathname: "/(staff)/tasks/[status]",
-          params: { status }, // status: StatusKey
+          params: { status },
         })
       }
       android_ripple={{ color: "#ffffff30" }}

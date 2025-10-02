@@ -5,10 +5,11 @@ export type ApiEnvelope<T = unknown> = {
   user?: T;            
   token?: string | null;
   status?: boolean;
+  otp?: string;
 };
 
 export type User = {
-  id: number | string;
+  _id: number | string | undefined;
   fullname: string;
   email: string;
   role?: string | null;

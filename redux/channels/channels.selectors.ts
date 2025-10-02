@@ -1,5 +1,6 @@
 import { createSelector } from "@reduxjs/toolkit";
 import type { RootState } from "@/store";
+import { Channel } from "./channels.types";
 
 export const normalizeCode = (s: string | null | undefined): string => {
   if (!s) return "";
@@ -37,3 +38,25 @@ export const makeSelectChannelByCode = (codeInput: string) =>
     const id = idx.get(normalizeCode(codeInput));
     return id ? byId[id] : null;
   });
+
+const channelHasUser = (ch: Channel, userId: string | number) => {
+  const members = (ch as any)?.members ?? [];
+  return (
+    Array.isArray(members) &&
+    members.some((m: any) => {
+      const id =
+        (typeof m === "string" && m) || m?._id || m?.userId || m?.user?._id;
+      return id === userId;
+    })
+  );
+};
+export const selectMyChannelsByUserId = createSelector(
+  [selectAllChannels, (_: RootState, userId: string | number | null) => userId],
+  (channels, userId) => {
+    if (!userId) return [];
+    return channels.filter(
+      (ch) =>
+        (ch as any)?.createdBy?._id === userId || channelHasUser(ch, userId)
+    );
+  }
+);

@@ -82,7 +82,6 @@ export default function StaffTabsLayout() {
           ),
         }}
       />
-      
       <Tabs.Screen
         name="chats/[channelId]"
         options={{

@@ -17,23 +17,25 @@ import { fetchProfile } from "@/redux/user/user.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
 import {
+  selectMyChannelsByUserId,
   selectAllChannels,
   selectStatus,
 } from "@/redux/channels/channels.selectors";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import SkeletonChannelCard from "@/components/staff/channels/SkeletonChannelCard";
 
 const PALETTE = [
-  "#4C5FAB", // indigo (primary)
-  "#22D3EE", // cyan
-  "#10B981", // emerald
-  "#F6A94A", // amber
-  "#FB7185", // soft coral/rose
-  "#9B7BF3", // violet
+  "#14D699",
+  "#60A5FA",
+  "#F6A94A",
+  "#29C57A",
+  "#4C5FAB",
+  "#9B7BF3",
 ];
-
 const colorFor = (key: string) => {
   let hash = 0;
   for (let i = 0; i < key.length; i++)
-    hash = (hash * 5 + key.charCodeAt(i)) >>> 0;
+    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
   return PALETTE[hash % PALETTE.length];
 };
 
@@ -54,9 +56,12 @@ export default function StaffHome() {
   useEffect(() => {
     dispatch(fetchProfile());
   }, [dispatch]);
+  const userId = user?._id ?? null;
+  const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
+
 
   const status = useAppSelector(selectStatus);
-  const channels = useAppSelector(selectAllChannels);
+  // console.log("Channels:", channels);
 
   useEffect(() => {
     if (status === "idle") dispatch(fetchChannels());
@@ -65,7 +70,7 @@ export default function StaffHome() {
   const [showCreate, setShowCreate] = useState(false);
 
   const { GAP, CARD_WIDTH } = useChannelCardLayout();
-  const CARD_WIDTH_NARROW = Math.max(220, CARD_WIDTH - 40);
+  const CARD_WIDTH_NARROW = Math.max(250, CARD_WIDTH - 40);
   const SNAP = CARD_WIDTH_NARROW + GAP;
 
   const greetingName = firstNameOf(user?.fullname);
@@ -74,6 +79,7 @@ export default function StaffHome() {
   const listData = useMemo(
     () =>
       [
+        { kind: "create", id: "create" as const },
         ...channels.map((c) => ({
           kind: "channel" as const,
           id: String(c._id),
@@ -86,6 +92,14 @@ export default function StaffHome() {
       ] as const,
     [channels]
   );
+
+  const isLoading = status === "loading" && channels.length === 0;
+  const skeletons = Array.from({ length: 4 }, (_, i) => ({
+    kind: "skeleton" as const,
+    id: `skeleton-${i}`,
+  }));
+
+  // console.log(channels);
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -115,7 +129,10 @@ export default function StaffHome() {
             ) : null}
           </View>
 
-          <Pressable className="h-11 w-11 items-center justify-center rounded-2xl bg-gray-100">
+          <Pressable
+            onPress={() => router.push("/(staff)/notifications")}
+            className="h-11 w-11 items-center justify-center rounded-2xl bg-gray-100"
+          >
             <Bell size={20} color="#111827" />
           </Pressable>
         </View>
@@ -144,9 +161,25 @@ export default function StaffHome() {
                   gap={GAP}
                   onPress={() => setShowCreate(true)}
                 />
+              ) : item.kind === "skeleton" ? (
+                <SkeletonChannelCard width={CARD_WIDTH_NARROW} gap={GAP} />
               ) : (
                 <ChannelCard width={CARD_WIDTH_NARROW} gap={GAP} item={item} />
               )
+            }
+            ListEmptyComponent={
+              <View className="items-center mt-24">
+                <Ionicons
+                  name="chatbubbles-outline"
+                  size={28}
+                  color={"#9CA3AF"}
+                />
+                <Text className="mt-2 text-gray-500 font-kumbh">
+                  {status === "loading"
+                    ? "Loading channels…"
+                    : "No channels found"}
+                </Text>
+              </View>
             }
             showsHorizontalScrollIndicator={false}
             bounces={false}

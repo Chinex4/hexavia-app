@@ -28,7 +28,7 @@ export const register = createAsyncThunk(
         // ...(body.phoneNumber ? { phoneNumber: body.phoneNumber } : {}),
       };
 
-      await showPromise(
+      const res = await showPromise(
         api.post<ApiEnvelope>("/auth/register", payload),
         "Creating account…",
         "OTP sent to your email"
@@ -36,6 +36,8 @@ export const register = createAsyncThunk(
 
       dispatch(setLastEmail(body.email));
       dispatch(setPhase("awaiting_otp"));
+      showSuccess(`OTP code is ${res.data.otp}`);
+      console.log(res.data);
     } catch (err: any) {
       const msg =
         err?.response?.data?.errors?.[0]?.msg ||
@@ -115,7 +117,7 @@ export const joinChannel = createAsyncThunk(
     } catch (err: any) {
       const msg =
         err?.response?.message ||
-        err?.response?.data?.error ||
+        err?.response?.data?.message ||
         (err?.response?.status === 400
           ? "Invalid channel code"
           : "Could not join channel");

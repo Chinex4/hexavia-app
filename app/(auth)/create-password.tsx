@@ -71,7 +71,7 @@ export default function SignupFinalScreen() {
     try {
       await dispatch(
         joinChannel({
-          channelCode: values.channelCode,
+          channelCode: `#${values.channelCode}`,
           password: values.password,
           phoneNumber,
         })

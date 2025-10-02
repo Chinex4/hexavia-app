@@ -46,6 +46,7 @@ export const fetchChannels = createAsyncThunk<
 >("channels/fetchAll", async (_: void, { rejectWithValue }) => {
   try {
     const res = await api.get<GetChannelsResponse>("/channel");
+    console.log(res.data);
     return res.data.channels;
   } catch (err) {
     const msg = extractErrorMessage(err);
@@ -60,12 +61,9 @@ export const fetchChannelById = createAsyncThunk<
   { rejectValue: string }
 >("channels/fetchById", async (id, { rejectWithValue }) => {
   try {
-    const res = await showPromise(
-      api.get<GetChannelByIdResponse>(`/channel/${id}`),
-      "Loading channel…",
-      "Channel loaded"
-    );
-    return res.data.data.channel as Channel;
+    const res = await api.get<GetChannelByIdResponse>(`/channel/${id}`);
+    // console.log(res.data)
+    return res.data.channel as Channel;
   } catch (err) {
     const msg = extractErrorMessage(err);
     showError(msg);
@@ -178,6 +176,7 @@ export const createChannelTask = createAsyncThunk<
       "Creating task…",
       "Task created"
     );
+    // console.log(res.data)
     return res.data.channel as Channel;
   } catch (err) {
     const msg = extractErrorMessage(err);
@@ -216,9 +215,19 @@ export const uploadChannelResources = createAsyncThunk<
       "Uploading resources…",
       "Resources uploaded"
     );
-    return res.data.channel as Channel;
-  } catch (err) {
-    const msg = extractErrorMessage(err);
+    const channel =
+      (res.data as any)?.channel ||
+      (res.data as any)?.data?.channel ||
+      (res.data as any)?.data;
+    if (!channel) {
+      throw new Error("Missing channel in response");
+    }
+    return channel as Channel;
+  } catch (err: any) {
+    const msg =
+      err?.response?.data?.message ||
+      err?.message ||
+      "Failed to upload resources";
     showError(msg);
     return rejectWithValue(msg);
   }
