@@ -19,8 +19,10 @@ export default function Splash() {
           router.replace("/(client)/(tabs)");
         } else if (user?.includes('"role":"staff"')) {
           router.replace("/(staff)/(tabs)");
+        }else if (user?.includes('"role":"super-admin"')) {
+          router.replace("/(admin)");
         } else {
-          router.replace("/(admin)/(tabs)");
+          router.replace("/(admin)");
         }
       }
     }, 3000);
