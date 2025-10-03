@@ -58,6 +58,7 @@ export default function StaffHome() {
   }, [dispatch]);
   const userId = user?._id ?? null;
   const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
+  // const channels = useAppSelector(selectAllChannels);
 
 
   const status = useAppSelector(selectStatus);

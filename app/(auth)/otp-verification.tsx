@@ -166,7 +166,7 @@ export default function OtpVerification() {
             </Text>
             <Text className="text-base text-gray-500 mt-2 font-kumbhLight">
               We’ve sent you an OTP Code via Email. Please enter the {DIGITS}
-              -digit code sent to{" "}
+              -digit code sent to{" "} 
               <Text className="text-primary font-kumbh">
                 {String(maskedFromParams)}
               </Text>

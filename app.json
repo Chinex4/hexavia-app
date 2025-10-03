@@ -21,8 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.heischinex.hexavia",
-      "softwareKeyboardLayoutMode": "resize",
-      "useNextNotificationsApi": true
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "bundler": "metro",
@@ -51,7 +50,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.png",
+          "icon": "./assets/images/logo.png",
           "mode": "production"
         }
       ]
