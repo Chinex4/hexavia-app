@@ -61,12 +61,13 @@ export default function LoginScreen() {
     defaultValues: { email: "", password: "" },
   });
 
-  type Role = "staff" | "client" | "admin";
+  type Role = "staff" | "client" | "admin" | "super-admin";
 
   const pathByRole: Record<Role, string> = {
     staff: "/(staff)/(tabs)",
     client: "/(client)/(tabs)",
     admin: "/(admin)/(tabs)",
+    "super-admin": "/(admin)/(tabs)",
   };
 
   function redirectByRole(
