@@ -1,4 +1,3 @@
-// app/(staff)/sanctions/index.tsx
 import React, { useEffect, useMemo } from "react";
 import {
   View,

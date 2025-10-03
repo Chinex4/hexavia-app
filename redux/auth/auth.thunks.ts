@@ -36,7 +36,7 @@ export const register = createAsyncThunk(
 
       dispatch(setLastEmail(body.email));
       dispatch(setPhase("awaiting_otp"));
-      showSuccess(`OTP code is ${res.data.otp}`);
+      showSuccess(`OTP code is ${res.data.otp}`); //remove this later you this boy
       console.log(res.data);
     } catch (err: any) {
       const msg =

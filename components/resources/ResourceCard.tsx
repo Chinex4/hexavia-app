@@ -9,6 +9,7 @@ const icons = {
   image: require("@/assets/images/type-image.png"),
   document: require("@/assets/images/type-pdf.png"),
   audio: require("@/assets/images/type-audio.png"),
+  video: require("@/assets/images/type-audio.png"),
   folder: require("@/assets/images/type-folder.png"),
   other: require("@/assets/images/type-folder.png"),
 };
@@ -31,6 +32,7 @@ export default function ResourceCard({
   const cat = detectCategory(item);
   // console.log("ResourceCard", { item, cat });
   const fileExt = (ext(item.name || item.resourceUpload) || "").toUpperCase();
+  // console.log(item.resourceUpload)
 
   return (
     <Pressable

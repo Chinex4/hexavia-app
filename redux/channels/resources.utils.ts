@@ -33,13 +33,15 @@ export const ext = (name?: string | null) => {
 };
 
 export const detectCategory = (r: ChannelResource): ChannelResourceCategory => {
-  const m = (r.mime || "").toLowerCase();
-  const e = ext(r.name || r.url);
+  const m = (r.resourceUpload || "").toLowerCase();
+  // console.log("m: ",m)
+  const e = ext(r.name || r.resourceUpload);
 
-  if (m.startsWith("image/")) return "image";
+  if (m.includes("image/")) return "image";
   if (m === "application/pdf" || e === "pdf") return "document";
-  if (m.startsWith("audio/") || ["mp3", "wav", "m4a", "aac", "ogg"].includes(e))
+  if (m.includes("audio/") || ["mp3", "wav", "m4a", "aac", "ogg"].includes(e))
     return "audio";
-  if (r.category === "folder" || e === "") return "folder";
+  // if (m.includes("video/") || ["mp4", "mov", "avi", "mkv"].includes(e)) return "video";
+  // console.log(r.category)
   return "other";
 };

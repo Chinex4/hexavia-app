@@ -2,6 +2,7 @@ export type ChannelResourceCategory =
   | "image"
   | "document"
   | "audio"
+  | "video"
   | "folder"
   | "other";
 

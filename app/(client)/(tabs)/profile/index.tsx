@@ -124,7 +124,7 @@ export default function Profile() {
         <View className="mt-4 flex-row">
           <Pressable
             className="flex-1 mr-2 items-center justify-center rounded-2xl bg-primary px-4 py-3"
-            onPress={() => router.push("/(staff)/profile/edit")}
+            onPress={() => router.push("/(client)/profile/edit")}
           >
             <Text className="font-kumbhBold text-white">Edit Profile</Text>
           </Pressable>

@@ -200,7 +200,7 @@ export default function EditProfile() {
           <View className="mt-6 flex-row">
             <Pressable
               disabled={saving}
-              onPress={() => router.push('/(staff)/(tabs)/profile')}
+              onPress={() => router.push('/(client)/(tabs)/profile')}
               className="flex-1 mr-2 items-center justify-center rounded-2xl bg-gray-100 px-4 py-3"
             >
               <Text className="font-kumbhBold text-gray-700">Cancel</Text>
