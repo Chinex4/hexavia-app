@@ -1,51 +1,67 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, FlatList } from "react-native";
+// app/(admin)/team/sanctions/index.tsx
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  Pressable,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import clsx from "clsx";
 
-type RowStatus = "Active" | "Resolved" | "Pending";
-type Sanction = {
-  id: string;
-  date: string;
-  recipient: string;
-  reason: string;
-  status: RowStatus;
-};
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchSanctions } from "@/redux/sanctions/sanctions.thunks";
+import {
+  selectSanctions,
+  selectSanctionsLoading,
+  selectSanctionsError,
+} from "@/redux/sanctions/sanctions.slice";
 
-const DUMMY: Sanction[] = [
-  {
-    id: "1",
-    date: "2025-09-12",
-    recipient: "Adebayo Moda",
-    reason: "Late delivery",
-    status: "Active",
-  },
-  {
-    id: "2",
-    date: "2025-09-05",
-    recipient: "Chidi Okafor",
-    reason: "Missed standup",
-    status: "Resolved",
-  },
-  {
-    id: "3",
-    date: "2025-08-28",
-    recipient: "Amaka Benson",
-    reason: "Unapproved leave",
-    status: "Pending",
-  },
-];
+type RowStatus = "Active" | "Resolved" | "Pending";
 
 export default function SanctionsView() {
   const router = useRouter();
-  const [filter, setFilter] = useState<RowStatus | "All">("All");
+  const dispatch = useAppDispatch();
 
-  const data = useMemo(
-    () => (filter === "All" ? DUMMY : DUMMY.filter((s) => s.status === filter)),
-    [filter]
-  );
+  const rows = useAppSelector(selectSanctions);
+  const loading = useAppSelector(selectSanctionsLoading);
+  const error = useAppSelector(selectSanctionsError) ?? null;
+
+  const [filter, setFilter] = useState<RowStatus | "All">("All");
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchSanctions());
+  }, [dispatch]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await dispatch(fetchSanctions()).unwrap();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [dispatch]);
+
+  const data = useMemo(() => {
+    const mapStatus = (s?: boolean | null) =>
+      s === false ? "Resolved" : "Active"; // fallback
+    return rows
+      .map((r) => ({
+        id: r._id,
+        date: r.createdAt ?? "",
+        recipient: r.user?.fullname || r.user?.name || r.userId || "Unknown",
+        reason: r.reason,
+        status: (["warning", "penalty"].includes(r.type)
+          ? "Active"
+          : mapStatus(r.isActive)) as RowStatus,
+      }))
+      .filter((r) => (filter === "All" ? true : r.status === filter));
+  }, [rows, filter]);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -86,25 +102,46 @@ export default function SanctionsView() {
       </View>
 
       {/* List */}
-      <FlatList
-        data={data}
-        keyExtractor={(i) => i.id}
-        contentContainerClassName="px-5 pt-4 pb-10"
-        ItemSeparatorComponent={() => (
-          <View className="h-[1px] bg-gray-200 my-4" />
-        )}
-        renderItem={({ item }) => (
-          <View>
-            <Row label="Date" value={formatDate(item.date)} />
-            <Row label="Recipient" value={item.recipient} />
-            <Row label="Reason" value={item.reason} />
-            <View className="flex-row items-center justify-between py-1">
-              <Text className="text-base text-gray-700 font-kumbh">Status</Text>
-              <StatusPill status={item.status} />
+      {loading && rows.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator />
+          <Text className="mt-2 text-gray-500 font-kumbh">
+            Loading sanctions…
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={data}
+          keyExtractor={(i) => i.id}
+          contentContainerClassName="px-5 pt-4 pb-10"
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ItemSeparatorComponent={() => (
+            <View className="h-[1px] bg-gray-200 my-4" />
+          )}
+          renderItem={({ item }) => (
+            <View>
+              <Row label="Date" value={formatDate(item.date)} />
+              <Row label="Recipient" value={item.recipient} />
+              <Row label="Reason" value={item.reason} />
+              <View className="flex-row items-center justify-between py-1">
+                <Text className="text-base text-gray-700 font-kumbh">
+                  Status
+                </Text>
+                <StatusPill status={item.status} />
+              </View>
             </View>
-          </View>
-        )}
-      />
+          )}
+          ListEmptyComponent={
+            <View className="px-5 py-12">
+              <Text className="text-center text-gray-500 font-kumbh">
+                {error ? `Error: ${error}` : "No sanctions found."}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -119,7 +156,7 @@ function Row({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-function StatusPill({ status }: { status: "Active" | "Resolved" | "Pending" }) {
+function StatusPill({ status }: { status: RowStatus }) {
   const map = {
     Active: { bg: "bg-red-100", text: "text-red-700" },
     Resolved: { bg: "bg-green-100", text: "text-green-700" },
@@ -132,11 +169,16 @@ function StatusPill({ status }: { status: "Active" | "Resolved" | "Pending" }) {
     </View>
   );
 }
-function formatDate(d: string) {
-  const dt = new Date(d);
-  return dt.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
+function formatDate(d?: string) {
+  if (!d) return "—";
+  try {
+    const dt = new Date(d);
+    return dt.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  } catch {
+    return d;
+  }
 }

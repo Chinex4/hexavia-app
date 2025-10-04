@@ -1,34 +1,51 @@
+// app/(admin)/team/taskboard/index.tsx
 import React, { useMemo } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
+import { useAppSelector } from "@/store/hooks";
+import { selectAllChannels } from "@/redux/channels/channels.slice";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
 
-type Task = { id: string; title: string };
+type TaskLike = any; // from server
 
 export default function TaskBoard() {
   const router = useRouter();
   const { staffId } = useLocalSearchParams<{ staffId?: string }>();
 
-  // dummy tasks
-  const todo: Task[] = useMemo(
-    () => [
-      { id: "t1", title: "Draft proposal" },
-      { id: "t2", title: "Prepare brief" },
-    ],
-    []
-  );
-  const doing: Task[] = useMemo(
-    () => [
-      { id: "t3", title: "UI Screens" },
-      { id: "t4", title: "Client follow-up" },
-    ],
-    []
-  );
-  const done: Task[] = useMemo(() => [{ id: "t5", title: "Onboarding" }], []);
+  const channels = useAppSelector(selectAllChannels);
+  const users = useAppSelector(selectAdminUsers);
+  const staff = users.find((u) => u._id === staffId);
+
+  const { todo, doing, done } = useMemo(() => {
+    const tasks: TaskLike[] = [];
+    for (const ch of channels) {
+      const list = Array.isArray(ch?.tasks) ? ch.tasks : [];
+      for (const t of list) {
+        if (isAssignedTo(t, staffId)) tasks.push(t);
+      }
+    }
+    // naive status grouping
+    const bucket = {
+      todo: [] as TaskLike[],
+      doing: [] as TaskLike[],
+      done: [] as TaskLike[],
+    };
+    for (const t of tasks) {
+      const s = (t.status || t.state || "").toString().toLowerCase();
+      if (["todo", "backlog", "pending"].includes(s)) bucket.todo.push(t);
+      else if (["doing", "in_progress", "in-progress", "progress"].includes(s))
+        bucket.doing.push(t);
+      else if (["done", "completed", "resolved"].includes(s))
+        bucket.done.push(t);
+      else bucket.todo.push(t);
+    }
+    return bucket;
+  }, [channels, staffId]);
 
   const staffName =
-    staffId === "s2" ? "Staff II" : staffId === "s3" ? "Staff III" : "Staff I";
+    staff?.fullname || staff?.username || staff?.email || "Staff";
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -44,7 +61,6 @@ export default function TaskBoard() {
         </Text>
       </View>
 
-      {/* Simple horizontal columns */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
@@ -58,19 +74,15 @@ export default function TaskBoard() {
   );
 }
 
-function Column({
-  title,
-  items,
-}: {
-  title: string;
-  items: { id: string; title: string }[];
-}) {
+function Column({ title, items }: { title: string; items: any[] }) {
   return (
     <View className="w-72 bg-white rounded-2xl p-4">
       <Text className="text-base font-kumbhBold text-text mb-3">{title}</Text>
-      {items.map((t) => (
-        <View key={t.id} className="mb-3 rounded-xl bg-gray-100 p-3">
-          <Text className="font-kumbh text-text">{t.title}</Text>
+      {items.map((t, i) => (
+        <View key={t._id ?? i} className="mb-3 rounded-xl bg-gray-100 p-3">
+          <Text className="font-kumbh text-text">
+            {t.title || t.name || "(Untitled Task)"}
+          </Text>
         </View>
       ))}
       {items.length === 0 && (
@@ -78,4 +90,15 @@ function Column({
       )}
     </View>
   );
+}
+function isAssignedTo(task: any, staffId?: string) {
+  if (!staffId) return false;
+  if (task?.assigneeId === staffId) return true;
+  if (task?.assignee?._id === staffId) return true;
+  if (
+    Array.isArray(task?.assignees) &&
+    task.assignees.some((x: any) => x === staffId || x?._id === staffId)
+  )
+    return true;
+  return false;
 }

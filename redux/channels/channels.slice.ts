@@ -243,3 +243,34 @@ export const selectChannelByCode = (code: string) => (s: RootState) => {
   const id = s.channels.codeIndex[normalizeCode(code)];
   return id ? s.channels.byId[id] : null;
 };
+
+type MemberLike =
+  | string
+  | { _id?: string; userId?: string; user?: { _id?: string } }
+  | null
+  | undefined;
+
+const hasUserId = (m: MemberLike, userId: string) => {
+  if (!m) return false;
+  if (typeof m === "string") return m === userId;
+  if (m._id === userId) return true;
+  if (m.userId === userId) return true;
+  if (m.user?._id === userId) return true;
+  return false;
+};
+
+export const selectChannelsForUser = (userId: string) =>
+  createSelector(
+    [
+      (s: RootState) => s.channels.allIds,
+      (s: RootState) => s.channels.byId as Record<ChannelId, Channel>,
+    ],
+    (allIds, byId) =>
+      allIds
+        .map((id) => byId[id])
+        .filter(
+          (ch) =>
+            Array.isArray((ch as any)?.members) &&
+            (ch as any).members.some((m: MemberLike) => hasUserId(m, userId))
+        )
+  );

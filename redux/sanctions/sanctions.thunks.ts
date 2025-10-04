@@ -8,8 +8,9 @@ import {
   UpdateSanctionBody,
   SanctionsQuery,
 } from "./sanctions.type";
+import { showPromise } from "@/components/ui/toast";
 
-// GET /api/sanction?userId=...
+// GET /sanction?userId=...
 export const fetchSanctions = createAsyncThunk<
   { rows: ApiSanction[]; userIdKey: string | "_all" },
   SanctionsQuery | void,
@@ -19,7 +20,7 @@ export const fetchSanctions = createAsyncThunk<
     const params: Record<string, string> = {};
     if (query?.userId) params.userId = query.userId;
 
-    const { data } = await api.get<ApiSanction[]>("/api/sanction", { params });
+    const { data } = await api.get<ApiSanction[]>("/sanction", { params });
     return { rows: data ?? [], userIdKey: query?.userId ?? "_all" };
   } catch (err) {
     const e = err as AxiosError<any>;
@@ -33,29 +34,35 @@ export const fetchSanctions = createAsyncThunk<
   }
 });
 
-// POST /api/sanction/create
+// POST /sanction/create
 export const createSanction = createAsyncThunk<
   ApiSanction,
   CreateSanctionBody,
   { rejectValue: string }
 >("sanctions/create", async (body, { rejectWithValue }) => {
   try {
-    const { data } = await api.post<ApiSanction>("/api/sanction/create", body);
+    const { data, status } = await showPromise(
+      api.post<ApiSanction>("/sanction/create", body),
+      "Creating Sanction",
+      "Sanction given"
+    );
+    console.log(data, status);
     return data;
   } catch (err) {
     const e = err as AxiosError<any>;
+    console.log(e);
     return rejectWithValue(e.response?.data?.message || e.message);
   }
 });
 
-// PUT /api/sanction/update
+// PUT /sanction/update
 export const updateSanction = createAsyncThunk<
   ApiSanction,
   UpdateSanctionBody,
   { rejectValue: string }
 >("sanctions/update", async (body, { rejectWithValue }) => {
   try {
-    const { data } = await api.put<ApiSanction>("/api/sanction/update", body);
+    const { data } = await api.put<ApiSanction>("/sanction/update", body);
     return data;
   } catch (err) {
     const e = err as AxiosError<any>;
