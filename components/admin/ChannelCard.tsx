@@ -13,6 +13,10 @@ export default function ChannelCard({
   tint?: string;
   onPress?: () => void;
 }) {
+  const short = description
+    ? `${description.slice(0, 14)}${description.length > 14 ? "…" : ""}`
+    : "";
+
   return (
     <Pressable
       onPress={onPress}
@@ -25,9 +29,8 @@ export default function ChannelCard({
       <View className="flex-1 p-4 justify-between">
         <Text className="text-white text-xl font-kumbhBold">{title}</Text>
         <View className="flex-row items-center justify-between">
-          <Text className="text-white/90 font-kumbh">{description}</Text>
+          <Text className="text-white/90 font-kumbh text-xs">{short}</Text>
           <Text className="text-white/90 font-kumbh">{code}</Text>
-          
         </View>
       </View>
     </Pressable>

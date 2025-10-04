@@ -4,6 +4,7 @@ import userReducer from "@/redux/user/user.slice";
 import channelsReducer from "@/redux/channels/channels.slice";
 import uploadReducer from "@/redux/upload/upload.slice";
 import sanctionsReducer from "@/redux/sanctions/sanctions.slice";
+import adminReducer from "@/redux/admin/admin.slice";
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     channels: channelsReducer,
     upload: uploadReducer,
     sanctions: sanctionsReducer,
+    admin: adminReducer,
   },
   middleware: (gdm) =>
     gdm({

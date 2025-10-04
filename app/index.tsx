@@ -1,15 +1,19 @@
 import { STORAGE_KEYS } from "@/storage/keys";
+import { RootState } from "@/store";
+import { useAppSelector } from "@/store/hooks";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect } from "react";
 import { Image, StyleSheet, Text, View } from "react-native";
+import { useSelector } from "react-redux";
 
 export default function Splash() {
   const router = useRouter();
+  const token = useAppSelector((s: RootState) => s.auth.token);
 
   useEffect(() => {
     const timer = setTimeout(async () => {
-      const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
+      // const token = await AsyncStorage.getItem(STORAGE_KEYS.TOKEN);
       const user = await AsyncStorage.getItem(STORAGE_KEYS.USER);
 
       if (!token && !user) {
@@ -19,7 +23,7 @@ export default function Splash() {
           router.replace("/(client)/(tabs)");
         } else if (user?.includes('"role":"staff"')) {
           router.replace("/(staff)/(tabs)");
-        }else if (user?.includes('"role":"super-admin"')) {
+        } else if (user?.includes('"role":"super-admin"')) {
           router.replace("/(admin)");
         } else {
           router.replace("/(admin)");

@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { createSelector, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "@/store";
 import type { Channel, ChannelId } from "./channels.types";
 import {
@@ -223,8 +223,10 @@ export const { setCurrentChannel, clearChannels } = channelsSlice.actions;
 export default channelsSlice.reducer;
 
 export const selectChannelsState = (s: RootState) => s.channels;
-export const selectAllChannels = (s: RootState) =>
-  s.channels.allIds.map((id) => s.channels.byId[id]);
+export const selectAllChannels = createSelector(
+  [(s: RootState) => s.channels.allIds, (s: RootState) => s.channels.byId],
+  (allIds, byId) => allIds.map((id) => byId[id])
+);
 export const selectChannelById = (id: ChannelId) => (s: RootState) =>
   s.channels.byId[id] ?? null;
 export const selectCurrentChannel = (s: RootState) =>
@@ -234,7 +236,6 @@ export const selectCurrentChannel = (s: RootState) =>
 export const selectLastGeneratedCode = (s: RootState) =>
   s.channels.lastGeneratedCode;
 
-
 export const selectChannelIdByCode = (code: string) => (s: RootState) =>
   s.channels.codeIndex[normalizeCode(code)] ?? null;
 
@@ -242,4 +243,3 @@ export const selectChannelByCode = (code: string) => (s: RootState) => {
   const id = s.channels.codeIndex[normalizeCode(code)];
   return id ? s.channels.byId[id] : null;
 };
-

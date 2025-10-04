@@ -1,53 +1,119 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, FlatList } from "react-native";
+// app/(admin)/channels/index.tsx
+import React, { useEffect, useMemo, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  FlatList,
+  ActivityIndicator,
+  RefreshControl,
+  Modal,
+  Alert,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  Plus,
-  Search,
-  SlidersHorizontal,
-} from "lucide-react-native";
+import { ArrowLeft, Plus, Search, MoreVertical } from "lucide-react-native";
+
 import ChannelCard from "@/components/admin/ChannelCard";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { selectAllChannels, selectChannelsState } from "@/redux/channels/channels.slice";
 
-type Channel = {
-  id: string;
-  name: string;
-  code: string;
-  description?: string;
-  color?: string; // optional accent
-};
+const TINTS = ["#707fbc", "#60A5FA", "#14D699", "#F6A94A", "#9B7BF3", "#29C57A"];
 
-const DUMMY_CHANNELS: Channel[] = Array.from({ length: 8 }, (_, i) => ({
-  id: `ch_${i + 1}`,
-  name: "FinTeam",
-  description: "Finance Team",
-  code: "#12398",
-  color: i % 3 === 0 ? "#707fbc" : "#60A5FA", // last one slightly different tint
-}));
+function hashToIndex(input: string, mod: number) {
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) h = (h * 33) ^ input.charCodeAt(i);
+  return Math.abs(h) % mod;
+}
+function getTint(item: { color?: string; _id?: string }, index: number) {
+  if (item.color) return item.color;
+  if (item._id) return TINTS[hashToIndex(item._id, TINTS.length)];
+  return TINTS[index % TINTS.length];
+}
 
 export default function ChannelsIndex() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+
+  const channels = useAppSelector(selectAllChannels);
+  const { status, error } = useAppSelector(selectChannelsState);
+
   const [query, setQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  // menu state
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchChannels());
+  }, [dispatch]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await dispatch(fetchChannels()).unwrap();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [dispatch]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return DUMMY_CHANNELS;
-    return DUMMY_CHANNELS.filter(
-      (c) =>
-        c.name.toLowerCase().includes(q) || c.code.toLowerCase().includes(q)
+    if (!q) return channels;
+    return channels.filter((c) => {
+      const name = (c.name || "").toLowerCase();
+      const code = (c.code || "").toLowerCase();
+      const desc = (c.description || "").toLowerCase();
+      return name.includes(q) || code.includes(q) || desc.includes(q);
+    });
+  }, [channels, query]);
+
+  const initialLoading = status === "loading" && channels.length === 0;
+
+  const openMenu = (id: string) => {
+    setSelectedId(id);
+    setMenuOpen(true);
+  };
+  const closeMenu = () => {
+    setMenuOpen(false);
+  };
+
+  const onEdit = () => {
+    if (selectedId) {
+      closeMenu();
+      router.push({ pathname: "/(admin)/channels/[id]/edit", params: { id: selectedId } });
+    }
+  };
+
+  const onDelete = () => {
+    closeMenu();
+    if (!selectedId) return;
+    Alert.alert(
+      "Delete Channel",
+      "Are you sure you want to delete this channel? This action cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            // TODO: wire delete thunk later
+            // dispatch(deleteChannel(selectedId))
+          },
+        },
+      ]
     );
-  }, [query]);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <View className="px-5 pt-6">
         <View className="flex-row items-center gap-4">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 rounded-full items-center justify-center"
-          >
+          <Pressable onPress={() => router.back()} className="w-10 h-10 rounded-full items-center justify-center">
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
           <Text className="text-3xl font-kumbhBold text-text">Channels</Text>
@@ -61,9 +127,7 @@ export default function ChannelsIndex() {
           <View className="w-7 h-7 rounded-lg bg-white items-center justify-center">
             <Plus size={18} color="#111827" />
           </View>
-          <Text className="text-base font-kumbhBold text-text">
-            Create New Channels
-          </Text>
+          <Text className="text-base font-kumbhBold text-text">Create New Channels</Text>
         </Pressable>
 
         {/* Search */}
@@ -79,37 +143,87 @@ export default function ChannelsIndex() {
           />
         </View>
 
-        <Text className="mt-6 mb-3 text-base font-kumbh text-text">
-          Channels
-        </Text>
+        <Text className="mt-6 mb-3 text-base font-kumbh text-text">Channels</Text>
       </View>
 
-      {/* Grid */}
-      <FlatList
-        data={filtered}
-        keyExtractor={(item) => item.id}
-        numColumns={2}
-        columnWrapperStyle={{ gap: 5, paddingHorizontal: 20 }}
-        contentContainerStyle={{ paddingBottom: 24, gap: 5 }}
-        renderItem={({ item }) => (
-          <ChannelCard
-            title={item.name}
-            code={item.code}
-            description={item.description}
-            tint={item.color}
-            onPress={() => {
-              // later: push to channel detail if needed
-            }}
-          />
-        )}
-        ListEmptyComponent={
-          <View className="px-5 py-16">
-            <Text className="text-center text-gray-500 font-kumbh">
-              No channels found.
-            </Text>
+      {/* Content */}
+      {initialLoading ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator />
+          <Text className="mt-2 text-gray-500 font-kumbh">Loading channels…</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filtered}
+          keyExtractor={(item) => item._id}
+          numColumns={2}
+          columnWrapperStyle={{ gap: 5, paddingHorizontal: 20 }}
+          contentContainerStyle={{ paddingBottom: 24, gap: 5 }}
+          refreshControl={
+            <RefreshControl refreshing={status === "loading" && channels.length > 0} onRefresh={onRefresh} />
+          }
+          renderItem={({ item, index }) => (
+            <View style={{ flex: 1, position: "relative" }}>
+              <ChannelCard
+                title={item.name ?? ""}
+                code={item.code ?? ""}
+                description={item.description ?? undefined}
+                tint={getTint(item, index)}
+                onPress={() => {
+                  // router.push({ pathname: "/(admin)/channels/[id]", params: { id: item._id } });
+                }}
+              />
+              {/* Ellipsis button in top-right of the card */}
+              <Pressable
+                onPress={() => openMenu(item._id)}
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 32,
+                  height: 32,
+                  borderRadius: 16,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "rgba(0,0,0,0.2)",
+                }}
+              >
+                <MoreVertical size={18} color="#fff" />
+              </Pressable>
+            </View>
+          )}
+          ListEmptyComponent={
+            <View className="px-5 py-16">
+              <Text className="text-center text-gray-500 font-kumbh">
+                {status === "failed" && error ? `Error: ${error}` : "No channels found."}
+              </Text>
+            </View>
+          }
+        />
+      )}
+
+      {/* Simple modal menu */}
+      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={closeMenu}>
+        <Pressable
+          onPress={closeMenu}
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-end" }}
+        >
+          <View style={{ backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
+            <Text className="text-center font-kumbhBold text-base mb-3">Channel Actions</Text>
+            <Pressable onPress={onEdit} className="py-3">
+              <Text className="text-center font-kumbh text-blue-700">Edit channel</Text>
+            </Pressable>
+            <View className="h-[1px] bg-gray-200" />
+            <Pressable onPress={onDelete} className="py-3">
+              <Text className="text-center font-kumbh text-red-600">Delete channel</Text>
+            </Pressable>
+            <View className="h-[1px] bg-gray-200" />
+            <Pressable onPress={closeMenu} className="py-3">
+              <Text className="text-center font-kumbh text-gray-700">Cancel</Text>
+            </Pressable>
           </View>
-        }
-      />
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }

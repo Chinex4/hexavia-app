@@ -46,7 +46,7 @@ export const fetchChannels = createAsyncThunk<
 >("channels/fetchAll", async (_: void, { rejectWithValue }) => {
   try {
     const res = await api.get<GetChannelsResponse>("/channel");
-    console.log(res.data);
+    // console.log(res.data);
     return res.data.channels;
   } catch (err) {
     const msg = extractErrorMessage(err);
