@@ -66,8 +66,8 @@ export default function LoginScreen() {
   const pathByRole: Record<Role, string> = {
     staff: "/(staff)/(tabs)",
     client: "/(client)/(tabs)",
-    admin: "/(admin)/(tabs)",
-    "super-admin": "/(admin)/(tabs)",
+    admin: "/(admin)",
+    "super-admin": "/(admin)",
   };
 
   function redirectByRole(
