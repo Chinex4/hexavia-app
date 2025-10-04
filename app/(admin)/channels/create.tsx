@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// app/(admin)/channels/create.tsx
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,24 +11,71 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ChevronDown } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
+
 import Field from "@/components/admin/Field";
-import Dropdown from "@/components/admin/Dropdown";
-import Menu from "@/components/admin/Menu";
-import MenuItem from "@/components/admin/MenuItem";
 import HexButton from "@/components/ui/HexButton";
+
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  createChannel,
+  generateChannelCode,
+} from "@/redux/channels/channels.thunks";
+import {
+  selectChannelsState,
+  selectLastGeneratedCode,
+} from "@/redux/channels/channels.slice";
+import { showError } from "@/components/ui/toast";
 
 export default function CreateChannel() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
-  // form state (dummy)
+  const { status, error } = useAppSelector(selectChannelsState);
+  const generatedCode = useAppSelector(selectLastGeneratedCode);
+
+  // local form state
   const [name, setName] = useState("");
-  const [desc, setDesc] = useState("");
-  const [code, setCode] = useState("");
-  const [position, setPosition] = useState<
-    "Lead" | "Member" | "Guest" | "Owner"
-  >("Member");
-  const [showPos, setShowPos] = useState(false);
+  const [desc, setDesc] = useState<string>("");
+  const [code, setCode] = useState<string>("");
+
+  // generate on open
+  useEffect(() => {
+    dispatch(generateChannelCode());
+  }, [dispatch]);
+
+  // keep local code in sync with generatedCode from store
+  useEffect(() => {
+    if (generatedCode) setCode(generatedCode);
+  }, [generatedCode]);
+
+  const onGenerateCode = () => {
+    dispatch(generateChannelCode());
+  };
+
+  const onCreate = async () => {
+    if (!name.trim()) {
+      showError("Channel name is required");
+      return;
+    }
+    if (!code?.trim()) {
+      showError("Channel code is missing. Generate a code first.");
+      return;
+    }
+
+    const body = {
+      name: name.trim(),
+      description: desc?.trim() ? desc.trim() : undefined, // null-safe
+      code: code.trim().toUpperCase(),
+    };
+
+    const res = await dispatch(createChannel(body));
+    if ((res as any)?.meta?.requestStatus === "fulfilled") {
+      router.back(); // or navigate to the new channel detail if you have that
+    }
+  };
+
+  const creating = status === "loading";
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -54,13 +102,20 @@ export default function CreateChannel() {
           contentContainerClassName="px-5 pb-10 pt-4"
           keyboardShouldPersistTaps="handled"
         >
+          {!!error && (
+            <View className="mb-3 rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+              <Text className="text-red-700 font-kumbh">{error}</Text>
+            </View>
+          )}
+
           <Field label="Name of Channel">
             <TextInput
-              placeholder="Enter Quantity"
+              placeholder="Enter Channel Name"
               placeholderTextColor="#9CA3AF"
               value={name}
               onChangeText={setName}
               className="bg-gray-200 rounded-2xl px-4 py-4 font-kumbh text-text"
+              autoCapitalize="words"
             />
           </Field>
 
@@ -76,46 +131,37 @@ export default function CreateChannel() {
           </Field>
 
           <View className="flex-row gap-3">
-            <Field label="Create Code" className="flex-1">
-              <TextInput
-                placeholder="Enter Code"
-                placeholderTextColor="#9CA3AF"
-                value={code}
-                onChangeText={setCode}
-                className="bg-gray-200 rounded-2xl px-4 py-4 font-kumbh text-text"
-                autoCapitalize="characters"
-              />
-            </Field>
-
-            {/* <Field label="Position" className="flex-1">
-              <View>
-                <Dropdown
-                  value={position}
-                  open={showPos}
-                  onToggle={() => setShowPos((s) => !s)}
+            <Field label="Channel Code" className="flex-1">
+              <View className="relative">
+                <TextInput
+                  placeholder="Auto-generated"
+                  placeholderTextColor="#9CA3AF"
+                  value={code}
+                  onChangeText={setCode}
+                  editable={false} // keep disabled
+                  selectTextOnFocus={false}
+                  className="bg-gray-200 rounded-2xl px-4 py-4 pr-24 font-kumbh text-text opacity-90"
+                  autoCapitalize="characters"
                 />
-                {showPos && (
-                  <Menu>
-                    {(["Owner", "Lead", "Member", "Guest"] as const).map(
-                      (opt) => (
-                        <MenuItem
-                          key={opt}
-                          active={opt === position}
-                          onPress={() => {
-                            setPosition(opt);
-                            setShowPos(false);
-                          }}
-                        >
-                          {opt}
-                        </MenuItem>
-                      )
-                    )}
-                  </Menu>
-                )}
+                {/* Generate button (top-right inside the field) */}
+                <Pressable
+                  onPress={onGenerateCode}
+                  disabled={creating}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-2 rounded-xl bg-primary-50 border border-primary-100"
+                >
+                  <Text className="font-kumbhBold text-primary-700">
+                    Generate
+                  </Text>
+                </Pressable>
               </View>
-            </Field> */}
+            </Field>
           </View>
-          <HexButton title="Create Channel" onPress={() => {}} />
+
+          <HexButton
+            title={creating ? "Creating..." : "Create Channel"}
+            onPress={onCreate}
+            disabled={creating}
+          />
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
