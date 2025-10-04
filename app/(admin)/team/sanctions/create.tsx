@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+// app/(admin)/team/sanctions/create.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -17,19 +18,58 @@ import Dropdown from "@/components/admin/Dropdown";
 import Menu from "@/components/admin/Menu";
 import MenuItem from "@/components/admin/MenuItem";
 
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
+
+import { createSanction } from "@/redux/sanctions/sanctions.thunks";
+import { showError, showSuccess } from "@/components/ui/toast";
+
+type StatusOpt = "Active" | "Resolved" | "Pending";
+
 export default function CreateSanction() {
   const router = useRouter();
-  const [recipient, setRecipient] = useState("");
-  const [reason, setReason] = useState("");
-  const [date, setDate] = useState("2025-11-12"); // dummy string
-  const [status, setStatus] = useState<"Active" | "Resolved" | "Pending">(
-    "Active"
+  const dispatch = useAppDispatch();
+
+  // load staff to select recipient
+  const allUsers = useAppSelector(selectAdminUsers);
+  const staff = useMemo(
+    () => allUsers.filter((u) => u.role === "staff"),
+    [allUsers]
   );
+
+  useEffect(() => {
+    if (staff.length === 0) dispatch(fetchAdminUsers({ role: "staff" }));
+  }, [dispatch, staff.length]);
+
+  const [recipientId, setRecipientId] = useState<string>("");
+  const [recipientLabel, setRecipientLabel] = useState<string>("Select staff");
+  const [reason, setReason] = useState("");
+  const [status, setStatus] = useState<StatusOpt>("Active");
   const [show, setShow] = useState(false);
 
-  const handleSave = () => {
-    // TODO: dispatch(createSanction(...))
-    router.back();
+  const handleSave = async () => {
+    if (!recipientId) return showError("Select a staff to sanction");
+    if (!reason.trim()) return showError("Enter a reason");
+
+    // map UI status to API type/isActive — using minimal mapping:
+    // You can change this mapping when you finalize server semantics.
+    const type = "query" as const; // or "warning" | "penalty" etc.
+    const duration = 1; // placeholder (required by API type)
+
+    const res = await dispatch(
+      createSanction({
+        userId: recipientId,
+        reason: reason.trim(),
+        type,
+        duration,
+      })
+    );
+
+    if ((res as any)?.meta?.requestStatus === "fulfilled") {
+      showSuccess("Sanction created");
+      router.back();
+    }
   };
 
   return (
@@ -54,13 +94,33 @@ export default function CreateSanction() {
           keyboardShouldPersistTaps="handled"
         >
           <Field label="Recipient">
-            <TextInput
-              placeholder="Enter staff name"
-              placeholderTextColor="#9CA3AF"
-              value={recipient}
-              onChangeText={setRecipient}
-              className="bg-gray-200 rounded-2xl px-4 py-4 font-kumbh text-text"
-            />
+            <View>
+              <Dropdown
+                value={recipientLabel}
+                open={show}
+                onToggle={() => setShow((s) => !s)}
+              />
+              {show && (
+                <Menu>
+                  {staff.map((u) => {
+                    const label = u.fullname || u.username || u.email || u._id;
+                    return (
+                      <MenuItem
+                        key={u._id}
+                        active={u._id === recipientId}
+                        onPress={() => {
+                          setRecipientId(u._id);
+                          setRecipientLabel(label);
+                          setShow(false);
+                        }}
+                      >
+                        {label}
+                      </MenuItem>
+                    );
+                  })}
+                </Menu>
+              )}
+            </View>
           </Field>
 
           <Field label="Reason">
@@ -74,39 +134,26 @@ export default function CreateSanction() {
             />
           </Field>
 
-          <Field label="Date">
-            <TextInput
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor="#9CA3AF"
-              value={date}
-              onChangeText={setDate}
-              className="bg-gray-200 rounded-2xl px-4 py-4 font-kumbh text-text"
-            />
-          </Field>
-
-          <Field label="Status">
-            <View>
-              <Dropdown
-                value={status}
-                open={show}
-                onToggle={() => setShow((s) => !s)}
-              />
-              {show && (
-                <Menu>
-                  {(["Active", "Resolved", "Pending"] as const).map((opt) => (
-                    <MenuItem
-                      key={opt}
-                      active={opt === status}
-                      onPress={() => {
-                        setStatus(opt);
-                        setShow(false);
-                      }}
-                    >
-                      {opt}
-                    </MenuItem>
-                  ))}
-                </Menu>
-              )}
+          {/* Optional UI-only status (not required by your API create) */}
+          <Field label="Status (UI)">
+            <View className="flex-row gap-2">
+              {(["Active", "Resolved", "Pending"] as const).map((opt) => (
+                <Pressable
+                  key={opt}
+                  onPress={() => setStatus(opt)}
+                  className={`px-4 py-2 rounded-full border ${
+                    status === opt
+                      ? "bg-primary-500 border-primary-500"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <Text
+                    className={`text-sm font-kumbhBold ${status === opt ? "text-white" : "text-text"}`}
+                  >
+                    {opt}
+                  </Text>
+                </Pressable>
+              ))}
             </View>
           </Field>
 

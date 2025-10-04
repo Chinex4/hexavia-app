@@ -50,9 +50,10 @@ export default function ClientsIndex() {
 
   // filter per tab
   const data = useMemo(() => {
+    // console.log(users)
     let arr = users.filter((u) => u.role === "client");
-    if (tab === "active") arr = arr.filter((u) => !u.suspended);
-    if (tab === "suspended") arr = arr.filter((u) => !!u.suspended);
+    if (tab === "active") arr = arr.filter((u) => !u.isSuspended);
+    if (tab === "suspended") arr = arr.filter((u) => !!u.isSuspended);
     return arr;
   }, [users, tab]);
 
@@ -162,8 +163,8 @@ function ClientRow({
 }) {
   const name = getDisplayName(item);
   const joined = formatDate(item.createdAt);
-  const badgeText = item.suspended ? "Suspended" : "Active";
-  const badgeStyle = item.suspended
+  const badgeText = item.isSuspended ? "Suspended" : "Active";
+  const badgeStyle = item.isSuspended
     ? "bg-red-100 text-red-700"
     : "bg-green-100 text-green-700";
 
