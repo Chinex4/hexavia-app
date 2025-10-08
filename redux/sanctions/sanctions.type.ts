@@ -18,7 +18,7 @@ export interface CreateSanctionBody {
   userId: string;
   reason: string;
   type: SanctionType;
-  duration: number;
+  duration?: number;
 }
 
 export interface UpdateSanctionBody {
