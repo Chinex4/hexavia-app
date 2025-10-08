@@ -25,7 +25,6 @@ export const register = createAsyncThunk(
         email: body.email.trim().toLowerCase(),
         fullname: body.fullname,
         // role: body.role ?? "client",
-        // ...(body.phoneNumber ? { phoneNumber: body.phoneNumber } : {}),
       };
 
       const res = await showPromise(

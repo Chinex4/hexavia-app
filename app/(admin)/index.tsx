@@ -46,7 +46,9 @@ export default function AdminDashboard() {
           title="Hi Hexavia!"
           subtitleBadge="Admin"
           rightIcon={<Bell size={20} color="#111827" />}
-          onRightPress={() => {}}
+          onRightPress={() => {
+            router.push("/(admin)/notifications");
+          }}
         />
 
         {/* Big tiles */}

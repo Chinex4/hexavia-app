@@ -1,14 +1,16 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { AuthState, AuthPhase } from "./auth.types";
 import { getUser, getToken } from "@/storage/auth";
-import { AppDispatch } from "@/store";
+import { AppDispatch, RootState } from "@/store";
+import { fetchProfile } from "../user/user.thunks";
 
 const initialState: AuthState = {
   user: null,
   token: null,
-  phase: "idle",
+  phase: "loading",
   error: null,
   lastEmailForOtp: null,
+  hydrated: false
 };
 
 const slice = createSlice({
@@ -30,7 +32,7 @@ const slice = createSlice({
     ) {
       state.user = action.payload.user;
       state.token = action.payload.token ?? state.token;
-      state.phase = "authenticated";
+      state.phase = action.payload.user || action.payload.token ? "authenticated" : "idle";
       state.error = null;
     },
     clearSession(state) {
@@ -40,17 +42,42 @@ const slice = createSlice({
       state.error = null;
       state.lastEmailForOtp = null;
     },
+    setHydrated(state, action: PayloadAction<boolean>) {
+      state.hydrated = action.payload;
+      // if we had nothing, phase should be idle (unauth)
+      if (!state.user && !state.token && state.phase === "loading") {
+        state.phase = "idle";
+      }
+    },
   },
 });
 
-export const { setPhase, setError, setLastEmail, setSession, clearSession } =
+export const { setPhase, setError, setLastEmail, setSession, clearSession, setHydrated } =
   slice.actions;
 
 export const bootstrapSession = () => {
   return (async (dispatch: AppDispatch) => {
-    const [u, t] = await Promise.all([getUser<any>(), getToken()]);
-    if (u && t) {
-      dispatch(setSession({ user: u, token: t }));
+    try {
+      const [u, t] = await Promise.all([getUser<any>(), getToken()]);
+      dispatch(setSession({ user: u ?? null, token: t ?? null }));
+    } finally {
+      dispatch(setHydrated(true));
+    }
+  }) as any;
+};
+
+export const ensureProfile = () => {
+  return (async (dispatch: AppDispatch, getState: () => RootState) => {
+    const { auth } = getState();
+    if (auth.token && !auth.user) {
+      dispatch(setPhase("loading"));
+      try {
+        const user = await dispatch(fetchProfile()).unwrap();
+        dispatch(setSession({ user, token: auth.token }));
+      } catch (e) {
+        // token might be bad; fall back to unauth
+        dispatch(clearSession());
+      }
     }
   }) as any;
 };

@@ -26,7 +26,7 @@ import { createSanction } from "@/redux/sanctions/sanctions.thunks";
 import { showError, showSuccess } from "@/components/ui/toast";
 
 type StatusOpt = "Active" | "Resolved" | "Pending";
-type ApiType = "warning" | "suspension" | "penalty" | "other";
+type ApiType = "warning" ;
 
 export default function CreateSanction() {
   const router = useRouter();
@@ -145,7 +145,7 @@ export default function CreateSanction() {
               />
               {show && (
                 <Menu>
-                  {(["warning", "suspension", "penalty", "other"] as const).map(
+                  {(["warning"] as const).map(
                     (opt) => (
                       <MenuItem
                         key={opt}

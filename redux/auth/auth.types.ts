@@ -13,4 +13,5 @@ export type AuthState = {
   phase: AuthPhase;
   error: string | null;
   lastEmailForOtp: string | null;
+  hydrated: boolean;
 };

@@ -18,9 +18,19 @@ import { ArrowLeft, Plus, Search, MoreVertical } from "lucide-react-native";
 import ChannelCard from "@/components/admin/ChannelCard";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
-import { selectAllChannels, selectChannelsState } from "@/redux/channels/channels.slice";
+import {
+  selectAllChannels,
+  selectChannelsState,
+} from "@/redux/channels/channels.slice";
 
-const TINTS = ["#707fbc", "#60A5FA", "#14D699", "#F6A94A", "#9B7BF3", "#29C57A"];
+const TINTS = [
+  "#707fbc",
+  "#60A5FA",
+  "#14D699",
+  "#F6A94A",
+  "#9B7BF3",
+  "#29C57A",
+];
 
 function hashToIndex(input: string, mod: number) {
   let h = 5381;
@@ -84,7 +94,10 @@ export default function ChannelsIndex() {
   const onEdit = () => {
     if (selectedId) {
       closeMenu();
-      router.push({ pathname: "/(admin)/channels/[id]/edit", params: { id: selectedId } });
+      router.push({
+        pathname: "/(admin)/channels/[id]/edit",
+        params: { id: selectedId },
+      });
     }
   };
 
@@ -113,7 +126,10 @@ export default function ChannelsIndex() {
       {/* Header */}
       <View className="px-5 pt-6">
         <View className="flex-row items-center gap-4">
-          <Pressable onPress={() => router.back()} className="w-10 h-10 rounded-full items-center justify-center">
+          <Pressable
+            onPress={() => router.back()}
+            className="w-10 h-10 rounded-full items-center justify-center"
+          >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
           <Text className="text-3xl font-kumbhBold text-text">Channels</Text>
@@ -127,7 +143,9 @@ export default function ChannelsIndex() {
           <View className="w-7 h-7 rounded-lg bg-white items-center justify-center">
             <Plus size={18} color="#111827" />
           </View>
-          <Text className="text-base font-kumbhBold text-text">Create New Channels</Text>
+          <Text className="text-base font-kumbhBold text-text">
+            Create New Channels
+          </Text>
         </Pressable>
 
         {/* Search */}
@@ -143,14 +161,18 @@ export default function ChannelsIndex() {
           />
         </View>
 
-        <Text className="mt-6 mb-3 text-base font-kumbh text-text">Channels</Text>
+        <Text className="mt-6 mb-3 text-base font-kumbh text-text">
+          Channels
+        </Text>
       </View>
 
       {/* Content */}
       {initialLoading ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
-          <Text className="mt-2 text-gray-500 font-kumbh">Loading channels…</Text>
+          <Text className="mt-2 text-gray-500 font-kumbh">
+            Loading channels…
+          </Text>
         </View>
       ) : (
         <FlatList
@@ -160,7 +182,10 @@ export default function ChannelsIndex() {
           columnWrapperStyle={{ gap: 5, paddingHorizontal: 20 }}
           contentContainerStyle={{ paddingBottom: 24, gap: 5 }}
           refreshControl={
-            <RefreshControl refreshing={status === "loading" && channels.length > 0} onRefresh={onRefresh} />
+            <RefreshControl
+              refreshing={status === "loading" && channels.length > 0}
+              onRefresh={onRefresh}
+            />
           }
           renderItem={({ item, index }) => (
             <View style={{ flex: 1, position: "relative" }}>
@@ -170,7 +195,10 @@ export default function ChannelsIndex() {
                 description={item.description ?? undefined}
                 tint={getTint(item, index)}
                 onPress={() => {
-                  // router.push({ pathname: "/(admin)/channels/[id]", params: { id: item._id } });
+                  router.push({
+                    pathname: "/(admin)/chats/[channelId]",
+                    params: { channelId: item._id },
+                  });
                 }}
               />
               {/* Ellipsis button in top-right of the card */}
@@ -195,7 +223,9 @@ export default function ChannelsIndex() {
           ListEmptyComponent={
             <View className="px-5 py-16">
               <Text className="text-center text-gray-500 font-kumbh">
-                {status === "failed" && error ? `Error: ${error}` : "No channels found."}
+                {status === "failed" && error
+                  ? `Error: ${error}`
+                  : "No channels found."}
               </Text>
             </View>
           }
@@ -203,23 +233,47 @@ export default function ChannelsIndex() {
       )}
 
       {/* Simple modal menu */}
-      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={closeMenu}>
+      <Modal
+        transparent
+        visible={menuOpen}
+        animationType="fade"
+        onRequestClose={closeMenu}
+      >
         <Pressable
           onPress={closeMenu}
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-end" }}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.3)",
+            justifyContent: "flex-end",
+          }}
         >
-          <View style={{ backgroundColor: "#fff", padding: 16, borderTopLeftRadius: 16, borderTopRightRadius: 16 }}>
-            <Text className="text-center font-kumbhBold text-base mb-3">Channel Actions</Text>
+          <View
+            style={{
+              backgroundColor: "#fff",
+              padding: 16,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+            }}
+          >
+            <Text className="text-center font-kumbhBold text-base mb-3">
+              Channel Actions
+            </Text>
             <Pressable onPress={onEdit} className="py-3">
-              <Text className="text-center font-kumbh text-blue-700">Edit channel</Text>
+              <Text className="text-center font-kumbh text-blue-700">
+                Edit channel
+              </Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />
             <Pressable onPress={onDelete} className="py-3">
-              <Text className="text-center font-kumbh text-red-600">Delete channel</Text>
+              <Text className="text-center font-kumbh text-red-600">
+                Delete channel
+              </Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />
             <Pressable onPress={closeMenu} className="py-3">
-              <Text className="text-center font-kumbh text-gray-700">Cancel</Text>
+              <Text className="text-center font-kumbh text-gray-700">
+                Cancel
+              </Text>
             </Pressable>
           </View>
         </Pressable>
