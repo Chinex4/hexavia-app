@@ -23,6 +23,7 @@ import {
 } from "@/redux/channels/channels.selectors";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import SkeletonChannelCard from "@/components/staff/channels/SkeletonChannelCard";
+import HorizontalChannelList from "@/components/staff/channels/HorizontaChannelList";
 
 const PALETTE = [
   "#14D699",
@@ -48,17 +49,49 @@ function prettyRole(role?: string | null) {
   return role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const toStr = (v: any) => (v == null ? "" : String(v));
+const sameId = (a: any, b: any) => toStr(a) === toStr(b);
+
+const getCreatorId = (ch: any) =>
+  ch?.createdBy?._id ??
+  ch?.createdBy ?? // sometimes it's a string id
+  ch?.owner?._id ??
+  ch?.ownerId ??
+  null;
+
+const getMemberId = (m: any) =>
+  (typeof m === "string" && m) ||
+  m?._id ||
+  m?.id ||
+  m?.user?._id ||
+  m?.userId ||
+  m?.memberId ||
+  null;
+
+const hasUser = (ch: any, uid: string) => {
+  const members = Array.isArray(ch?.members) ? ch.members : [];
+  return (
+    sameId(getCreatorId(ch), uid) ||
+    members.some((m: any) => sameId(getMemberId(m), uid))
+  );
+};
+
 export default function StaffHome() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
   const user = useAppSelector(selectUser);
-  useEffect(() => {
-    dispatch(fetchProfile());
-  }, [dispatch]);
-  const userId = user?._id ?? null;
-  const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
+  const userId = toStr(user?._id);
+  const allChannels = useAppSelector(selectAllChannels) ?? [];
 
+  useEffect(() => {
+    if (!user) dispatch(fetchProfile());
+    dispatch(fetchChannels());
+  }, [dispatch]);
+  const channels = useMemo<any[]>(() => {
+    if (!userId) return [];
+    return allChannels.filter((ch) => hasUser(ch, userId));
+  }, [allChannels, userId]);
 
   const status = useAppSelector(selectStatus);
   // console.log("Channels:", channels);
@@ -93,6 +126,30 @@ export default function StaffHome() {
     [channels]
   );
 
+  type ChannelCardItem = {
+    id: string;
+    title: string;
+    subtitle: string;
+    logo?: string;
+    color: string;
+    code: string;
+  };
+
+  const channelItems: ChannelCardItem[] = useMemo(
+    () =>
+      listData
+        .filter((x: any) => x.kind === "channel")
+        .map((x: any) => ({
+          id: x.id,
+          title: x.title,
+          subtitle: x.subtitle,
+          code: x.code,
+          logo: x.logo,
+          color: x.color,
+        })),
+    [listData]
+  );
+
   const isLoading = status === "loading" && channels.length === 0;
   const skeletons = Array.from({ length: 4 }, (_, i) => ({
     kind: "skeleton" as const,
@@ -113,7 +170,7 @@ export default function StaffHome() {
       >
         {/* Top Bar */}
         <View className="flex-row items-center justify-between mt-8">
-          <Pressable onPress={() => router.push("/(staff)/(tabs)/profile")}>
+          <Pressable onPress={() => router.push("/(client)/(tabs)/profile")}>
             <AvatarPlaceholder avatar={user?.profilePicture} />
           </Pressable>
           <View className="flex-1 ml-3">
@@ -130,18 +187,17 @@ export default function StaffHome() {
           </View>
 
           <Pressable
-            onPress={() => router.push("/(staff)/notifications")}
+            onPress={() => router.push("/(client)/notifications")}
             className="h-11 w-11 items-center justify-center rounded-2xl bg-gray-100"
           >
             <Bell size={20} color="#111827" />
           </Pressable>
         </View>
-
         {/* Channels */}
         <View className="mt-6 flex-row items-center justify-between">
           <Text className="text-3xl text-gray-900 font-kumbh">Channels</Text>
           <Pressable
-            onPress={() => router.push("/(staff)/channels")}
+            onPress={() => router.push("/(client)/channels")}
             className="flex-row items-center"
           >
             <Text className="text-primary mr-1 font-sans">See all</Text>
@@ -149,58 +205,9 @@ export default function StaffHome() {
           </Pressable>
         </View>
 
-        <View style={{ marginTop: 16 }}>
-          <FlatList
-            data={listData as any}
-            horizontal
-            keyExtractor={(it: any) => `${it.kind}:${it.id}`}
-            renderItem={({ item }: any) =>
-              item.kind === "create" ? (
-                <CreateChannelCard
-                  width={CARD_WIDTH_NARROW}
-                  gap={GAP}
-                  onPress={() => setShowCreate(true)}
-                />
-              ) : item.kind === "skeleton" ? (
-                <SkeletonChannelCard width={CARD_WIDTH_NARROW} gap={GAP} />
-              ) : (
-                <ChannelCard width={CARD_WIDTH_NARROW} gap={GAP} item={item} />
-              )
-            }
-            ListEmptyComponent={
-              <View className="items-center mt-24">
-                <Ionicons
-                  name="chatbubbles-outline"
-                  size={28}
-                  color={"#9CA3AF"}
-                />
-                <Text className="mt-2 text-gray-500 font-kumbh">
-                  {status === "loading"
-                    ? "Loading channels…"
-                    : "No channels found"}
-                </Text>
-              </View>
-            }
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            alwaysBounceVertical={false}
-            overScrollMode="never"
-            // snapToInterval={SNAP}
-            // snapToAlignment="start"
-            decelerationRate="fast"
-            style={{ height: 200 + 16 }}
-            contentContainerStyle={{ paddingRight: 8 }}
-            getItemLayout={(_, index) => ({
-              length: SNAP,
-              offset: SNAP * index,
-              index,
-            })}
-          />
-        </View>
-
+        <HorizontalChannelList items={channelItems} />
         {/* Task */}
         <TaskOverview />
-
         {/* Sanction */}
         <SanctionCard />
       </ScrollView>

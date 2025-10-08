@@ -107,7 +107,7 @@ export const joinChannel = createAsyncThunk(
       const res = await showPromise(
         api.post<ApiEnvelope<{ channelId: string; channelName: string }>>(
           "/users/registration/join-channel",
-          { channelCode: body.channelCode.trim(), password: body.password }
+          { channelCode: body.channelCode.trim(), password: body.password, phoneNumber: body.phoneNumber }
         ),
         "Finalizing account…",
         "Channel joined and password set"
