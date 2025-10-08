@@ -141,9 +141,7 @@ export default function EditProfile() {
                 />
               ) : (
                 <Image
-                  source={{
-                    uri: "https://png.pngtree.com/png-vector/20220709/ourmid/pngtree-businessman-user-avatar-wearing-suit-with-red-tie-png-image_5809521.png",
-                  }}
+                  source={require('@/assets/images/default.jpg')}
                   className="h-24 w-24"
                   resizeMode="cover"
                 />

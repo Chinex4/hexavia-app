@@ -39,13 +39,37 @@ export const makeSelectChannelByCode = (codeInput: string) =>
     return id ? byId[id] : null;
   });
 
+
+  const toStr = (v: any) => (v == null ? "" : String(v));
+
+const sameId = (a: any, b: any) => toStr(a) === toStr(b);
+
+const getCreatorId = (ch: any) =>
+  ch?.createdBy?._id ??
+  ch?.createdBy ??           // handle plain string id
+  ch?.owner?._id ??
+  ch?.ownerId ??
+  null;
+
+const getMemberId = (m: any) =>
+  (typeof m === "string" && m) ||
+  m?._id ||
+  m?.id ||
+  m?.user?._id ||
+  m?.userId ||
+  m?.memberId ||
+  null;
+
+const userIsCreator = (ch: any, userId: string | number) =>
+  sameId(getCreatorId(ch), userId);
+
 const channelHasUser = (ch: Channel, userId: string | number) => {
   const members = (ch as any)?.members ?? [];
   return (
     Array.isArray(members) &&
     members.some((m: any) => {
       const id =
-        (typeof m === "string" && m) || m?._id || m?.userId || m?.user?._id;
+        (typeof m === "string" && m) || m?._id ;
       return id === userId;
     })
   );
@@ -54,10 +78,23 @@ export const selectMyChannelsByUserId = createSelector(
   [selectAllChannels, (_: RootState, userId: string | number | null) => userId],
   (channels, userId) => {
     if (!userId) return [];
+    console.log(channels[0].members)
     return channels.filter(
       (ch) =>
         (ch as any)?.createdBy?._id === userId || channelHasUser(ch, userId)
     );
   }
 );
+
+
+export const makeSelectMyChannelsByUserId = (userId?: string | number | null) =>
+  createSelector([selectAllChannels], (channels) => {
+    if (!userId) return [];
+    // guard to avoid crashing when empty
+    // console.log(channels[0]?.members); // only if channels[0] exists
+
+    return channels.filter(
+      (ch) => userIsCreator(ch, userId) || channelHasUser(ch, userId)
+    );
+  });
 
