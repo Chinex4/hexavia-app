@@ -3,6 +3,7 @@ import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
+  TextInput,
   Pressable,
   ScrollView,
   KeyboardAvoidingView,
@@ -10,75 +11,132 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ChevronDown } from "lucide-react-native";
+import { ArrowLeft, Plus } from "lucide-react-native";
 import clsx from "clsx";
+
 import Field from "@/components/admin/Field";
 import SectionTitle from "@/components/admin/SectionTitle";
-import AmountText from "@/components/admin/AmountText";
-import MenuItem from "@/components/admin/MenuItem";
-import Menu from "@/components/admin/Menu";
 import Dropdown from "@/components/admin/Dropdown";
+import Menu from "@/components/admin/Menu";
+import MenuItem from "@/components/admin/MenuItem";
 
-type PlanKey = "1_month" | "3_months" | "6_months";
+type PlanRow = { amount: string; due: string };
 
+const ENGAGEMENTS = ["Core Consulting", "Design & Build", "Advisory"];
 const PROJECTS = ["Project Alpha", "Project Beta", "HomeLet Revamp"];
-const PLANS: Record<PlanKey, { label: string; months: number }> = {
-  "1_month": { label: "1 Month", months: 1 },
-  "3_months": { label: "3 Months", months: 3 },
-  "6_months": { label: "6 Months", months: 6 },
-};
 
-const N = (v: number) =>
-  new Intl.NumberFormat("en-NG", {
+const N = (v: number | string) => {
+  const n = typeof v === "string" ? Number(String(v).replace(/[^\d]/g, "")) : v;
+  if (!Number.isFinite(n)) return "₦ 0";
+  return new Intl.NumberFormat("en-NG", {
     style: "currency",
     currency: "NGN",
     maximumFractionDigits: 0,
-  }).format(v);
+  }).format(n);
+};
 
 export default function ClientInstallments() {
   const router = useRouter();
 
-  // ---- dummy state ----
-  const [project, setProject] = useState(PROJECTS[0]);
+  // Header fields (dummy defaults to match screenshot)
+  const [name, setName] = useState("Adebayo Moda Ibrahim");
+  const [project, setProject] = useState("Project Alpha");
+  const [engagement, setEngagement] = useState("Core Consulting");
+
+  // Menus
   const [showProjectMenu, setShowProjectMenu] = useState(false);
+  const [showEngagementMenu, setShowEngagementMenu] = useState(false);
 
-  const [plan, setPlan] = useState<PlanKey>("3_months");
-  const [showPlanMenu, setShowPlanMenu] = useState(false);
+  // Amount summary
+  const [totalAmount, setTotalAmount] = useState("60000");
+  const [amountPaid, setAmountPaid] = useState("48000");
 
-  const totalAmount = 60000; // dummy
-  const perInstallment = useMemo(
-    () => Math.round(totalAmount / PLANS[plan].months),
-    [totalAmount, plan]
-  );
+  // Installment plan rows
+  const [rows, setRows] = useState<PlanRow[]>([
+    { amount: "5000", due: "01/02/2025" },
+    { amount: "", due: "" },
+  ]);
 
-  // Fake schedule for visual (replace with API later)
-  const schedule = useMemo(
-    () =>
-      Array.from({ length: PLANS[plan].months }, (_, i) => ({
-        idx: i + 1,
-        of: PLANS[plan].months,
-        dueLabel:
-          ["Sept 12", "Oct 12", "Nov 12", "Dec 12", "Jan 12", "Feb 12"][i] ??
-          "—",
-        amount: perInstallment,
-      })),
-    [plan, perInstallment]
-  );
+  const remaining = useMemo(() => {
+    const total = Number(totalAmount || 0);
+    const paid = Number(amountPaid || 0);
+    return Math.max(total - paid, 0);
+  }, [totalAmount, amountPaid]);
 
-  const paymentDue = [
-    { due: "Nov 12", amount: perInstallment, status: "paid" as const },
-    { due: "Nov 12", amount: perInstallment, status: "unpaid" as const },
-    { due: "Nov 12", amount: perInstallment, status: "unpaid" as const },
-  ];
-
-  const handleSave = () => {
-    // later: dispatch(saveInstallmentPlan(...))
+  const updateRow = (idx: number, patch: Partial<PlanRow>) => {
+    setRows((prev) => {
+      const copy = [...prev];
+      copy[idx] = { ...copy[idx], ...patch };
+      return copy;
+    });
   };
 
+  const addRow = () => setRows((p) => [...p, { amount: "", due: "" }]);
+
+  const handleSave = () => {
+    // wire this later:
+    // dispatch(saveInstallmentPlan({ name, project, engagement, totalAmount, amountPaid, rows }))
+    // For now just log:
+    console.log({
+      name,
+      project,
+      engagement,
+      totalAmount,
+      amountPaid,
+      remaining,
+      schedule: rows,
+    });
+  };
+
+  const FilledInput = ({
+    value,
+    onChangeText,
+    placeholder,
+    keyboardType = "default",
+    className,
+    prefix,
+  }: {
+    value: string;
+    onChangeText: (t: string) => void;
+    placeholder?: string;
+    keyboardType?: "default" | "numeric";
+    className?: string;
+    prefix?: string;
+  }) => (
+    <View
+      className={clsx("w-full rounded-2xl bg-gray-100 px-4 py-3", className)}
+    >
+      <TextInput
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#9CA3AF"
+        keyboardType={keyboardType}
+        className="font-kumbh text-[16px] text-[#111827]"
+      />
+      {prefix ? null : null}
+    </View>
+  );
+
+  const Labeled = ({
+    label,
+    children,
+    className,
+  }: {
+    label: string;
+    children: React.ReactNode;
+    className?: string;
+  }) => (
+    <View className={clsx("mb-4", className)}>
+      <Text className="mb-2 text-[13px] text-gray-700 font-kumbh">{label}</Text>
+      {children}
+    </View>
+  );
+
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
-      <View className="px-5 pt-6 pb-4 flex-row items-center justify-between">
+      <View className="px-5 pt-6 pb-3 flex-row items-center justify-between">
         <View className="flex-row items-center gap-4">
           <Pressable
             onPress={() => router.back()}
@@ -86,14 +144,13 @@ export default function ClientInstallments() {
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-2xl font-kumbhBold text-text">
+          <Text className="text-[22px] font-kumbhBold text-[#111827]">
             Installment Payment
           </Text>
         </View>
-
         <Pressable
           onPress={handleSave}
-          className="px-5 py-3 rounded-2xl bg-primary-500 active:opacity-90"
+          className="px-5 py-3 rounded-2xl bg-[#4C5FAB] active:opacity-90"
         >
           <Text className="text-white font-kumbhBold">Save</Text>
         </Pressable>
@@ -107,8 +164,17 @@ export default function ClientInstallments() {
         }
       >
         <ScrollView className="flex-1" contentContainerClassName="px-5 pb-10">
+          {/* Name */}
+          <Labeled label="Name">
+            <FilledInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter name"
+            />
+          </Labeled>
+
           {/* Project Name */}
-          <Field label="Project Name">
+          <Labeled label="Project Name">
             <Dropdown
               value={project}
               open={showProjectMenu}
@@ -130,104 +196,94 @@ export default function ClientInstallments() {
                 ))}
               </Menu>
             )}
-          </Field>
+          </Labeled>
 
-          {/* Total Amount */}
-          <Field label="Total Amount">
-            <AmountText>{N(totalAmount)}</AmountText>
-          </Field>
-
-          {/* Installment Plan */}
-          <Field label="Installment Plan">
+          {/* Engagement */}
+          <Labeled label="Engagement">
             <Dropdown
-              value={PLANS[plan].label}
-              open={showPlanMenu}
-              onToggle={() => setShowPlanMenu((s) => !s)}
+              value={engagement}
+              open={showEngagementMenu}
+              onToggle={() => setShowEngagementMenu((s) => !s)}
             />
-            {showPlanMenu && (
+            {showEngagementMenu && (
               <Menu>
-                {(Object.keys(PLANS) as PlanKey[]).map((key) => (
+                {ENGAGEMENTS.map((e) => (
                   <MenuItem
-                    key={key}
-                    active={key === plan}
+                    key={e}
+                    active={e === engagement}
                     onPress={() => {
-                      setPlan(key);
-                      setShowPlanMenu(false);
+                      setEngagement(e);
+                      setShowEngagementMenu(false);
                     }}
                   >
-                    {PLANS[key].label}
+                    {e}
                   </MenuItem>
                 ))}
               </Menu>
             )}
-          </Field>
+          </Labeled>
 
-          {/* Installment Amount */}
-          <Field label="Installment Amount">
-            <AmountText>{N(perInstallment)}</AmountText>
-          </Field>
-
-          {/* Date Due list */}
-          <SectionTitle>Date Due</SectionTitle>
-          <View className="mt-2">
-            {schedule.map((row) => (
-              <View
-                key={row.idx}
-                className="flex-row items-center justify-between py-3"
-              >
-                <View className="flex-row items-center gap-3">
-                  <View className="w-7 h-7 rounded-full border border-gray-400 items-center justify-center">
-                    <Text className="text-sm font-kumbhBold text-gray-700">
-                      {row.idx}
-                    </Text>
-                  </View>
-                  <Text className="text-base font-kumbh text-text">
-                    {row.idx} of {row.of} Installments
-                  </Text>
-                </View>
-
-                <View className="flex-row items-center gap-4">
-                  <Text className="text-base font-kumbh text-gray-600">
-                    Due: {row.dueLabel}
-                  </Text>
-                  <Text className="text-base font-kumbhBold text-text">
-                    {N(row.amount)}
-                  </Text>
-                </View>
-              </View>
-            ))}
+          {/* Amounts row */}
+          <View className="flex-row gap-3 mt-2">
+            <Labeled label="Total Amount" className="flex-1">
+              <FilledInput
+                value={N(totalAmount)}
+                onChangeText={(t) => setTotalAmount(t.replace(/[^\d]/g, ""))}
+                placeholder="₦ 0"
+                keyboardType="numeric"
+              />
+            </Labeled>
+            <Labeled label="Amount Paid" className="flex-1">
+              <FilledInput
+                value={N(amountPaid)}
+                onChangeText={(t) => setAmountPaid(t.replace(/[^\d]/g, ""))}
+                placeholder="₦ 0"
+                keyboardType="numeric"
+              />
+            </Labeled>
           </View>
 
-          {/* Payment Due */}
-          <SectionTitle className="mt-6">Payment Due</SectionTitle>
-          <View className="mt-2">
-            {paymentDue.map((p, i) => (
-              <View
-                key={i}
-                className="flex-row items-center justify-between py-3"
-              >
-                <Text className="text-base font-kumbh text-text">
-                  Due: {p.due} {N(p.amount)}
-                </Text>
+          {/* Installment Plan */}
+          <SectionTitle className="mt-4">Installment Plan</SectionTitle>
 
-                <View
-                  className={clsx(
-                    "px-3 py-1 rounded-lg",
-                    p.status === "paid" ? "bg-green-100" : "bg-green-100/40"
-                  )}
-                >
-                  <Text
-                    className={clsx(
-                      "text-sm font-kumbhBold",
-                      p.status === "paid" ? "text-green-700" : "text-green-700"
-                    )}
-                  >
-                    {p.status === "paid" ? "Paid" : "Unpaid"}
-                  </Text>
-                </View>
-              </View>
-            ))}
-          </View>
+          {/* First row (as in screenshot) */}
+          {rows.map((row, idx) => (
+            <View
+              key={idx}
+              className={clsx("flex-row gap-3", idx > 0 ? "mt-3" : "mt-3")}
+            >
+              <Labeled label="Payable Amount" className="flex-1">
+                <FilledInput
+                  value={
+                    row.amount
+                      ? `₦ ${Number(row.amount).toLocaleString("en-NG")}`
+                      : ""
+                  }
+                  onChangeText={(t) =>
+                    updateRow(idx, { amount: t.replace(/[^\d]/g, "") })
+                  }
+                  placeholder="₦ 5,000"
+                  keyboardType="numeric"
+                />
+              </Labeled>
+              <Labeled label="Date due" className="flex-1">
+                <FilledInput
+                  value={row.due}
+                  onChangeText={(t) => updateRow(idx, { due: t })}
+                  placeholder="DD/MM/YYYY"
+                />
+              </Labeled>
+            </View>
+          ))}
+
+          {/* Add button bar */}
+          <Pressable
+            onPress={addRow}
+            className="mt-6 h-14 rounded-2xl bg-[#4C5FAB] flex-row items-center justify-center active:opacity-90"
+          >
+            <Plus size={18} color="#fff" />
+            <Text className="ml-2 text-white font-kumbhBold">Add</Text>
+          </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

@@ -117,7 +117,7 @@ export default function ClientDetails() {
 
       {/* Admin actions */}
       <View className="px-6 mt-8 gap-3">
-        <Pressable
+        {/* <Pressable
           onPress={onToggleSuspension}
           className="flex-row items-center justify-center gap-3 bg-primary-50 border border-primary-200 rounded-2xl py-4"
         >
@@ -133,7 +133,7 @@ export default function ClientDetails() {
           <Text className="text-base font-kumbhBold text-text">
             Promote to Admin
           </Text>
-        </Pressable>
+        </Pressable> */}
 
         <Pressable
           onPress={onEdit}

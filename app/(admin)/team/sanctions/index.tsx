@@ -21,13 +21,14 @@ import {
   selectSanctionsError,
 } from "@/redux/sanctions/sanctions.slice";
 
-type RowStatus = "Active" | "Resolved" | "Pending";
+type RowStatus = "Active" | "Resolved" ;
 
 export default function SanctionsView() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  const rows = useAppSelector(selectSanctions);
+  const rawRows = useAppSelector(selectSanctions);
+  const rows = Array.isArray(rawRows) ? rawRows : [];
   const loading = useAppSelector(selectSanctionsLoading);
   const error = useAppSelector(selectSanctionsError) ?? null;
 
@@ -54,7 +55,7 @@ export default function SanctionsView() {
       .map((r) => ({
         id: r._id,
         date: r.createdAt ?? "",
-        recipient: r.user?.fullname || r.user?.name || r.userId || "Unknown",
+        recipient: r.user?.username || r.user?.fullname || "Unknown",
         reason: r.reason,
         status: (["warning", "penalty"].includes(r.type)
           ? "Active"
@@ -62,6 +63,7 @@ export default function SanctionsView() {
       }))
       .filter((r) => (filter === "All" ? true : r.status === filter));
   }, [rows, filter]);
+  // console.log(rows)
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -78,7 +80,7 @@ export default function SanctionsView() {
 
       {/* Filters */}
       <View className="px-5 flex-row gap-2">
-        {(["All", "Active", "Resolved", "Pending"] as const).map((tab) => (
+        {(["All", "Active", "Resolved"] as const).map((tab) => (
           <Pressable
             key={tab}
             onPress={() => setFilter(tab)}
@@ -129,7 +131,19 @@ export default function SanctionsView() {
                 <Text className="text-base text-gray-700 font-kumbh">
                   Status
                 </Text>
-                <StatusPill status={item.status} />
+                {/* <View className="flex-row items-center gap-2">
+                  <Pressable
+                    onPress={() =>
+                      router.push(`/(admin)/team/sanctions/${item.id}/edit`)
+                    }
+                    className="px-3 py-1 rounded-full bg-gray-100"
+                  >
+                    <Text className="text-sm font-kumbhBold text-gray-700">
+                      Edit
+                    </Text>
+                  </Pressable>
+                  <StatusPill status={item.status} />
+                </View> */}
               </View>
             </View>
           )}

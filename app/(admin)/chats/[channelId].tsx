@@ -374,7 +374,7 @@ export default function ChatScreen() {
 
   const handleOpenResources = () => {
     router.push({
-      pathname: "/(staff)/(tabs)/channels/[channelId]/resources" as any,
+      pathname: "/(admin)/channels/[channelId]/resources" as any,
       params: { channelId: channelId },
     });
   };

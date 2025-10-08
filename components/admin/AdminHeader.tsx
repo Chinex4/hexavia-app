@@ -2,9 +2,10 @@ import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import React, { useEffect } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import AvatarPlaceholder from "../staff/AvatarPlaceHolder";
 import { useRouter } from "expo-router";
+import { RootState } from "@/store";
 
 function firstNameOf(fullname?: string | null) {
   if (!fullname) return "User";
@@ -31,7 +32,17 @@ export default function AdminHeader({
   useEffect(() => {
     dispatch(fetchProfile());
   }, [dispatch]);
-  const userId = user?._id ?? null;
+
+  const { phase } = useAppSelector((s: RootState) => s.auth);
+
+  const loadingProfile = phase === "loading" || !user;
+  if (loadingProfile) {
+    return (
+      <View style={{ flex: 1, padding: 16 }}>
+        <ActivityIndicator style={{ marginTop: 24 }} />
+      </View>
+    );
+  }
 
   const greetingName = firstNameOf(user?.fullname);
   const roleText = prettyRole(user?.role || "Hexavia Staff");

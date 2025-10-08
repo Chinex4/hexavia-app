@@ -18,8 +18,23 @@ export const fetchSanctions = createAsyncThunk<
     const params: Record<string, string> = {};
     if (query?.userId) params.userId = query.userId;
 
-    const { data } = await api.get<ApiSanction[]>("/sanction", { params });
-    return { rows: data ?? [], userIdKey: query?.userId ?? "_all" };
+    const { data } = await api.get("/sanction", { params });
+
+    const rowsRaw = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.sanctions)
+        ? data.sanctions
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+    const rows: ApiSanction[] = rowsRaw.map((s: any) => ({
+      ...s,
+      createdAt: s.createdAt ?? s.date ?? undefined,
+      user: s.user ?? s.sanctionUser ?? undefined,
+    }));
+
+    return { rows, userIdKey: query?.userId ?? "_all" };
   } catch (err) {
     const e = err as AxiosError<any>;
     if (e.response?.status === 404) {
@@ -38,16 +53,19 @@ export const createSanction = createAsyncThunk<
   { rejectValue: string }
 >("sanctions/create", async (body, { rejectWithValue }) => {
   try {
-    const { data, status } = await showPromise(
-      api.post<ApiSanction>("/sanction/create", body),
+    const { data } = await showPromise(
+      api.post("/sanction/create", body),
       "Creating Sanction...",
       "Sanction given"
     );
-    console.log(data, status);
-    return data;
+    const created = (data as any)?.sanction ?? data;
+    return {
+      ...created,
+      createdAt: created.date ?? undefined,
+      user: created.sanctionUser ?? undefined,
+    } as ApiSanction;
   } catch (err) {
     const e = err as AxiosError<any>;
-    console.log(e);
     return rejectWithValue(e.response?.data?.message || e.message);
   }
 });
@@ -58,7 +76,12 @@ export const updateSanction = createAsyncThunk<
   { rejectValue: string }
 >("sanctions/update", async (body, { rejectWithValue }) => {
   try {
-    const { data } = await api.put<ApiSanction>("/sanction/update", body);
+    const { data } = await showPromise(
+      api.put<ApiSanction>("/sanction/update", body),
+      "Updating Sanction",
+      "Sanction Updated"
+    );
+
     return data;
   } catch (err) {
     const e = err as AxiosError<any>;

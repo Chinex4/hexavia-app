@@ -61,8 +61,8 @@ const sanctionsSlice = createSlice({
     });
     builder.addCase(createSanction.fulfilled, (state, action) => {
       state.creating = false;
-      // prepend newest
-      state.items = [action.payload, ...state.items];
+      if (!Array.isArray(state.items)) state.items = [];
+      state.items.unshift(action.payload);
     });
     builder.addCase(createSanction.rejected, (state, action) => {
       state.creating = false;
@@ -90,10 +90,25 @@ export const { resetSanctions } = sanctionsSlice.actions;
 export default sanctionsSlice.reducer;
 
 // Selectors
-export const selectSanctionsState = (s: any) => s.sanctions as SanctionsState;
-export const selectSanctions = (s: any) =>
-  (s.sanctions as SanctionsState).items;
+export const selectSanctionsState = (s: any): SanctionsState =>
+  (s?.sanctions as SanctionsState) ??
+  ({
+    items: [],
+    loading: false,
+    error: null,
+    creating: false,
+    updating: false,
+    fetchedFor: {},
+  } as SanctionsState);
+export const selectSanctions = (s: any) => s?.sanctions?.items ?? [];
 export const selectSanctionsLoading = (s: any) =>
-  (s.sanctions as SanctionsState).loading;
-export const selectSanctionsError = (s: any) =>
-  (s.sanctions as SanctionsState).error;
+  Boolean(s?.sanctions?.loading);
+
+export const selectSanctionById =
+  (id?: string) =>
+  (s: any) =>
+    Array.isArray(s?.sanctions?.items)
+      ? s.sanctions.items.find((x: any) => x._id === id) ?? null
+      : null;
+
+export const selectSanctionsError = (s: any) => s?.sanctions?.error ?? null;

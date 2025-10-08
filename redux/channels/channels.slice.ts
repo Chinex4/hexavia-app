@@ -229,6 +229,7 @@ export const selectAllChannels = createSelector(
 );
 export const selectChannelById = (id: ChannelId) => (s: RootState) =>
   s.channels.byId[id] ?? null;
+
 export const selectCurrentChannel = (s: RootState) =>
   s.channels.currentChannelId
     ? s.channels.byId[s.channels.currentChannelId]
