@@ -1,7 +1,6 @@
-// redux/sanctions/sanctions.thunks.ts
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { AxiosError } from "axios";
-import { api } from "@/api/axios"; // <-- adjust if your axios instance lives elsewhere
+import { api } from "@/api/axios";
 import {
   ApiSanction,
   CreateSanctionBody,
@@ -10,7 +9,6 @@ import {
 } from "./sanctions.type";
 import { showPromise } from "@/components/ui/toast";
 
-// GET /sanction?userId=...
 export const fetchSanctions = createAsyncThunk<
   { rows: ApiSanction[]; userIdKey: string | "_all" },
   SanctionsQuery | void,
@@ -34,7 +32,6 @@ export const fetchSanctions = createAsyncThunk<
   }
 });
 
-// POST /sanction/create
 export const createSanction = createAsyncThunk<
   ApiSanction,
   CreateSanctionBody,
@@ -43,7 +40,7 @@ export const createSanction = createAsyncThunk<
   try {
     const { data, status } = await showPromise(
       api.post<ApiSanction>("/sanction/create", body),
-      "Creating Sanction",
+      "Creating Sanction...",
       "Sanction given"
     );
     console.log(data, status);
@@ -55,7 +52,6 @@ export const createSanction = createAsyncThunk<
   }
 });
 
-// PUT /sanction/update
 export const updateSanction = createAsyncThunk<
   ApiSanction,
   UpdateSanctionBody,

@@ -26,10 +26,13 @@ import { createSanction } from "@/redux/sanctions/sanctions.thunks";
 import { showError, showSuccess } from "@/components/ui/toast";
 
 type StatusOpt = "Active" | "Resolved" | "Pending";
+type ApiType = "warning" | "suspension" | "penalty" | "other";
 
 export default function CreateSanction() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const [type, setType] = useState<ApiType>("warning"); // <- server enum
+  const [duration, setDuration] = useState<string>("1");
 
   // load staff to select recipient
   const allUsers = useAppSelector(selectAdminUsers);
@@ -52,17 +55,16 @@ export default function CreateSanction() {
     if (!recipientId) return showError("Select a staff to sanction");
     if (!reason.trim()) return showError("Enter a reason");
 
-    // map UI status to API type/isActive — using minimal mapping:
-    // You can change this mapping when you finalize server semantics.
-    const type = "query" as const; // or "warning" | "penalty" etc.
-    const duration = 1; // placeholder (required by API type)
+    const dur = Number.parseInt(duration, 10);
+    if (!Number.isFinite(dur) || dur < 1)
+      return showError("Duration must be a positive number");
 
     const res = await dispatch(
       createSanction({
         userId: recipientId,
         reason: reason.trim(),
         type,
-        duration,
+        // duration: dur,
       })
     );
 
@@ -134,28 +136,45 @@ export default function CreateSanction() {
             />
           </Field>
 
-          {/* Optional UI-only status (not required by your API create) */}
-          <Field label="Status (UI)">
-            <View className="flex-row gap-2">
-              {(["Active", "Resolved", "Pending"] as const).map((opt) => (
-                <Pressable
-                  key={opt}
-                  onPress={() => setStatus(opt)}
-                  className={`px-4 py-2 rounded-full border ${
-                    status === opt
-                      ? "bg-primary-500 border-primary-500"
-                      : "bg-white border-gray-200"
-                  }`}
-                >
-                  <Text
-                    className={`text-sm font-kumbhBold ${status === opt ? "text-white" : "text-text"}`}
-                  >
-                    {opt}
-                  </Text>
-                </Pressable>
-              ))}
+          <Field label="Type">
+            <View>
+              <Dropdown
+                value={type}
+                open={show}
+                onToggle={() => setShow((s) => !s)}
+              />
+              {show && (
+                <Menu>
+                  {(["warning", "suspension", "penalty", "other"] as const).map(
+                    (opt) => (
+                      <MenuItem
+                        key={opt}
+                        active={opt === type}
+                        onPress={() => {
+                          setType(opt);
+                          setShow(false);
+                        }}
+                      >
+                        {opt}
+                      </MenuItem>
+                    )
+                  )}
+                </Menu>
+              )}
             </View>
           </Field>
+
+          {/* Duration */}
+          {/* <Field label="Duration">
+            <TextInput
+              placeholder="Enter duration (days/hours, per server)"
+              placeholderTextColor="#9CA3AF"
+              value={duration}
+              onChangeText={setDuration}
+              keyboardType="numeric"
+              className="bg-gray-200 rounded-2xl px-4 py-4 font-kumbh text-text"
+            />
+          </Field> */}
 
           <Pressable
             onPress={handleSave}

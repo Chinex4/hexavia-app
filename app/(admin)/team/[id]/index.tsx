@@ -1,5 +1,5 @@
 // app/(admin)/team/[id]/index.tsx
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { View, Text, Pressable } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -8,7 +8,8 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { toggleUserSuspension, promoteUser } from "@/redux/admin/admin.thunks";
-import { selectAllChannels } from "@/redux/channels/channels.slice";
+import { selectAllChannels, selectChannelsForUser } from "@/redux/channels/channels.slice";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
 
 export default function StaffDetails() {
   const router = useRouter();
@@ -17,6 +18,11 @@ export default function StaffDetails() {
 
   const users = useAppSelector(selectAdminUsers);
   const channels = useAppSelector(selectAllChannels);
+  // console.log(channels[0]["members"]);
+
+  useEffect(() => {
+    dispatch(fetchChannels());
+  }, [dispatch]);
 
   const user = useMemo(() => users.find((u) => u._id === id), [users, id]) ?? {
     _id: String(id),
@@ -27,10 +33,13 @@ export default function StaffDetails() {
     suspended: false,
   };
 
-  const memberChannels = useMemo(() => {
-    if (!id) return [];
-    return channels.filter((ch: any) => isUserInChannel(ch?.members, id));
-  }, [channels, id]);
+  // const memberChannels = useMemo(() => {
+  //   if (!id) return [];
+  //   return channels.filter((ch: any) => isUserInChannel(ch?.members, id));
+  // }, [channels, id]);
+  const userId = String(id ?? "");
+  const memberChannels = useAppSelector(selectChannelsForUser(userId));
+  // console.log(memberChannels)
 
   const name = user.fullname || user.username || user.email || "Unknown";
   const joined = formatDate(user.createdAt);

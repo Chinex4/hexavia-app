@@ -55,7 +55,7 @@ export default function TeamIndex() {
       </View>
 
       {/* Sanction Grid Card */}
-      <View className="mx-5 mt-2 rounded-2xl bg-primary-50 p-4 border border-primary-100">
+      <View className="mx-5 mt-2 rounded-2xl bg-primary-50 mb-5 p-4 border border-primary-100">
         <Text className="text-2xl font-kumbhBold text-text">Sanction Grid</Text>
         <Text className="mt-1 text-gray-600 font-kumbh">Total : {totalSanctions}</Text>
 
