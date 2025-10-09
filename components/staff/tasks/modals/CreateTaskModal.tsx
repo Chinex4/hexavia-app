@@ -1,3 +1,4 @@
+// components/staff/tasks/modals/CreateTaskModal.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
@@ -7,21 +8,21 @@ import {
   View,
   ScrollView,
 } from "react-native";
-import { StatusKey, TAB_ORDER } from "@/features/staff/types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   createChannelTask,
   fetchChannels,
+  fetchChannelById,
 } from "@/redux/channels/channels.thunks";
 import {
-  selectAllChannels,
   selectCodeIndex,
   normalizeCode,
   selectMyChannelsByUserId,
 } from "@/redux/channels/channels.selectors";
-import { showError } from "@/components/ui/toast";
 import { selectUser } from "@/redux/user/user.slice";
-import { useTasks } from "@/features/staff/tasksStore";
+import { showError } from "@/components/ui/toast";
+import { StatusKey, TAB_ORDER } from "@/features/staff/types";
+import { toApiStatus } from "@/features/client/statusMap";
 
 export default function CreateTaskModal({
   visible,
@@ -34,9 +35,7 @@ export default function CreateTaskModal({
   const user = useAppSelector(selectUser);
   const userId = user?._id ?? null;
 
-  // const channels = useAppSelector(selectAllChannels);
   const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
-
   const codeIndex = useAppSelector(selectCodeIndex);
 
   const [title, setTitle] = useState("");
@@ -44,8 +43,6 @@ export default function CreateTaskModal({
   const [channelCode, setChannelCode] = useState("");
   const [status, setStatus] = useState<StatusKey>("in_progress");
   const [picking, setPicking] = useState(false);
-  const { addTask } = useTasks();
-
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null
   );
@@ -59,7 +56,6 @@ export default function CreateTaskModal({
   }, [visible, dispatch]);
 
   const normInput = normalizeCode(channelCode);
-
   const suggestions = useMemo(() => {
     if (!normInput) return [];
     return channels
@@ -79,14 +75,12 @@ export default function CreateTaskModal({
   const resolveChannelId = (codeRaw: string): string | null => {
     const norm = normalizeCode(codeRaw);
     if (!norm) return null;
-
     const viaMap = codeIndex.get(norm);
     if (viaMap) return viaMap;
-
     const found = (channels as any[]).find(
       (c) => normalizeCode(c?.code) === norm
     );
-    return found?.id ?? null;
+    return found?._id ?? found?.id ?? null;
   };
 
   const create = async () => {
@@ -106,26 +100,23 @@ export default function CreateTaskModal({
           channelId,
           name,
           description: desc.trim() || null,
-          status,
+          status: toApiStatus(status),
         })
       ).unwrap();
-      addTask({
-        title: title.trim(),
-        description: desc.trim(),
-        channelCode: channelCode.trim(),
-        status,
-      });
+
+      // refresh that channel to pull latest tasks
+      await dispatch(fetchChannelById(channelId));
 
       reset();
       onClose();
     } catch {
-      // toast already shown in thunk
+      /* toast handled in thunk */
     }
   };
 
   const chooseSuggestion = (c: any) => {
     setChannelCode(c.code ?? "");
-    setSelectedChannelId(c.id ?? null);
+    setSelectedChannelId(c._id ?? c.id ?? null);
     setPicking(false);
   };
 
@@ -159,14 +150,13 @@ export default function CreateTaskModal({
             multiline
           />
 
-          {/* Channel code input + suggestions */}
           <View className="mt-3">
             <TextInput
               value={channelCode}
               onChangeText={(t) => {
                 setChannelCode(t);
-                setSelectedChannelId(null); // typing invalidates previous selection
-                setPicking(true); // open suggestions while typing
+                setSelectedChannelId(null);
+                setPicking(true);
               }}
               placeholder="Channel code (e.g. #7190)"
               placeholderTextColor="#9CA3AF"
@@ -174,19 +164,17 @@ export default function CreateTaskModal({
               autoCapitalize="none"
               autoCorrect={false}
             />
-
-            {/* Tiny picker */}
             {picking && suggestions.length > 0 && (
               <View className="mt-2 rounded-xl border border-gray-200 bg-white max-h-44 overflow-hidden">
                 <ScrollView keyboardShouldPersistTaps="handled">
                   {suggestions.map((c: any) => (
                     <Pressable
-                      key={`${c._id ?? "noid"}:${(c.code ?? "").toLowerCase()}`} // ✅ unique + stable
+                      key={`${c._id ?? c.id}:${(c.code ?? "").toLowerCase()}`}
                       onPress={() => chooseSuggestion(c)}
                       className="px-4 py-3 border-b border-gray-100"
                     >
                       <Text className="font-kumbh text-[#111827]">
-                        {(c.code as string) ?? "#—"}
+                        {c.code ?? "#—"}
                       </Text>
                       <Text className="font-kumbh text-[12px] text-[#6B7280]">
                         {c.name}
@@ -198,7 +186,6 @@ export default function CreateTaskModal({
             )}
           </View>
 
-          {/* Status chips kept for future */}
           <View className="mt-4">
             <Text className="font-kumbh text-[#6B7280] mb-2">Status</Text>
             <View className="flex-row flex-wrap" style={{ gap: 8 }}>

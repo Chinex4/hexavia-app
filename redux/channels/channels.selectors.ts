@@ -21,6 +21,8 @@ export const selectAllChannels = createSelector(
   (byId, allIds) => allIds.map((id) => byId[id])
 );
 
+// console.log(selectAllChannels)
+
 export const makeSelectChannelById = (id: string) =>
   createSelector([selectById], (byId) => byId[id] ?? null);
 
@@ -39,14 +41,13 @@ export const makeSelectChannelByCode = (codeInput: string) =>
     return id ? byId[id] : null;
   });
 
-
-  const toStr = (v: any) => (v == null ? "" : String(v));
+const toStr = (v: any) => (v == null ? "" : String(v));
 
 const sameId = (a: any, b: any) => toStr(a) === toStr(b);
 
 const getCreatorId = (ch: any) =>
   ch?.createdBy?._id ??
-  ch?.createdBy ??           // handle plain string id
+  ch?.createdBy ?? // handle plain string id
   ch?.owner?._id ??
   ch?.ownerId ??
   null;
@@ -68,8 +69,7 @@ const channelHasUser = (ch: Channel, userId: string | number) => {
   return (
     Array.isArray(members) &&
     members.some((m: any) => {
-      const id =
-        (typeof m === "string" && m) || m?._id ;
+      const id = (typeof m === "string" && m) || m?._id;
       return id === userId;
     })
   );
@@ -78,14 +78,13 @@ export const selectMyChannelsByUserId = createSelector(
   [selectAllChannels, (_: RootState, userId: string | number | null) => userId],
   (channels, userId) => {
     if (!userId) return [];
-    console.log(channels[0].members)
+    // console.log(channels[0].members)
     return channels.filter(
       (ch) =>
         (ch as any)?.createdBy?._id === userId || channelHasUser(ch, userId)
     );
   }
 );
-
 
 export const makeSelectMyChannelsByUserId = (userId?: string | number | null) =>
   createSelector([selectAllChannels], (channels) => {
@@ -98,3 +97,40 @@ export const makeSelectMyChannelsByUserId = (userId?: string | number | null) =>
     );
   });
 
+type Strategy = "recent" | "members" | "alpha";
+
+export const makeSelectDefaultChannelId = (
+  userId?: string | number | null,
+  strategy: Strategy = "recent"
+) =>
+  createSelector(
+    [(s: RootState) => selectMyChannelsByUserId(s, userId ?? null)],
+    (mine) => {
+      if (!userId || !Array.isArray(mine) || mine.length === 0) return null;
+
+      const toId = (c: any) => String(c?._id ?? c?.id ?? "");
+
+      const ts = (c: any) => {
+        const v = c?.updatedAt ?? c?.createdAt ?? 0;
+        const n = typeof v === "string" ? Date.parse(v) : Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+
+      const membersCount = (c: any) =>
+        Array.isArray(c?.members)
+          ? c.members.length
+          : Number(c?.membersCount ?? 0);
+
+      const byAlpha = (a: any, b: any) =>
+        String(a?.name ?? "").localeCompare(String(b?.name ?? ""));
+
+      const arr = [...mine];
+      if (strategy === "recent") arr.sort((a, b) => ts(b) - ts(a));
+      else if (strategy === "members")
+        arr.sort((a, b) => membersCount(b) - membersCount(a));
+      else arr.sort(byAlpha); // "alpha"
+
+      const first = arr[0];
+      return first ? toId(first) : null;
+    }
+  );

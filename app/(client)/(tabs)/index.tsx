@@ -24,14 +24,16 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import SkeletonChannelCard from "@/components/staff/channels/SkeletonChannelCard";
 import HorizontalChannelList from "@/components/staff/channels/HorizontaChannelList";
+import HorizontalChannelSkeletonList from "@/components/staff/channels/HorizontalChannelSkeletonList";
 
 const PALETTE = [
-  "#14D699",
-  "#60A5FA",
-  "#F6A94A",
-  "#29C57A",
-  "#4C5FAB",
-  "#9B7BF3",
+  // "#14D699",
+  // "#60A5FA",
+  // "#F6A94A",
+  // "#29C57A",
+  // "#4C5FAB",
+  // "#9B7BF3",
+  "#4c5fab"
 ];
 const colorFor = (key: string) => {
   let hash = 0;
@@ -205,7 +207,11 @@ export default function StaffHome() {
           </Pressable>
         </View>
 
-        <HorizontalChannelList items={channelItems} />
+        {isLoading ? (
+          <HorizontalChannelSkeletonList outerPadding={20} />
+        ) : (
+          <HorizontalChannelList items={channelItems} />
+        )}
         {/* Task */}
         <TaskOverview />
         {/* Sanction */}

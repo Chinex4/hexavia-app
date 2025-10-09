@@ -22,6 +22,12 @@ api.interceptors.request.use(async (config) => {
     config.headers = config.headers ?? {};
     config.headers.Authorization = `Bearer ${token}`;
   }
+  // console.log("[request]", {
+  //   method: config.method,
+  //   url: config.url,
+  //   params: config.params,
+  //   headers: { Authorization: config.headers?.Authorization },
+  // });
   return config;
 });
 
@@ -35,7 +41,8 @@ api.interceptors.response.use(
       (err.response?.data as any)?.error ||
       err.message;
 
-    if (status === 401) {
+    // if (status === 401) {
+    if (status === 407) {
       await clearToken();
       await clearUser();
       _store?.dispatch(logout());

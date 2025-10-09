@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchSanctions } from "@/redux/sanctions/sanctions.thunks";
 import {
   selectSanctions,
+  selectSanctionsError,
   selectSanctionsLoading,
 } from "@/redux/sanctions/sanctions.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
@@ -117,10 +118,11 @@ export default function SanctionsScreen() {
   const userId = user?._id ?? null;
   const apiRows = useAppSelector(selectSanctions);
   const loading = useAppSelector(selectSanctionsLoading);
+  const error = useAppSelector(selectSanctionsError);
 
   useEffect(() => {
     if (userId) {
-      dispatch(fetchSanctions({ userId : userId as any })); // fetch for current user
+      dispatch(fetchSanctions({ userId: userId as any })); // fetch for current user
     } else {
       // fallback: fetch all if userId missing (optional)
       dispatch(fetchSanctions());
@@ -129,7 +131,7 @@ export default function SanctionsScreen() {
 
   // Map API rows -> table rows
   const rows: SanctionRow[] = useMemo(() => {
-    return apiRows.map((s) => {
+    return apiRows.map((s: any) => {
       const created = s.createdAt ? new Date(s.createdAt) : new Date();
       const dateStr = created.toLocaleDateString(undefined, {
         day: "2-digit",
@@ -183,6 +185,13 @@ export default function SanctionsScreen() {
               <Text className="mt-2 text-gray-500 font-kumbh text-sm">
                 Loading sanctions…
               </Text>
+            </View>
+          ) : error ? (
+            <View className="py-8 items-center">
+              <Text className="text-red-600 font-kumbh">
+                Failed to load sanctions.
+              </Text>
+              <Text className="text-gray-500 mt-1 text-xs">{error}</Text>
             </View>
           ) : (
             <>

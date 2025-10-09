@@ -1,7 +1,7 @@
 // components/staff/channels/HorizontalChannelList.tsx
 import React, { useMemo } from "react";
 import { FlatList, View } from "react-native";
-import ChannelCard from "@/components/staff/ChannelCard";
+import ChannelCard from "@/components/client/ChannelCard";
 import useChannelCardLayout from "@/hooks/useChannelCardLayout";
 
 type ChannelCardItem = {
@@ -33,7 +33,7 @@ export default function HorizontalChannelList({
 
   // remove the ScrollView’s left padding visually, but keep right padding
   return (
-    <View style={{ marginHorizontal: -outerPadding }}>
+    <View style={{ marginHorizontal: -outerPadding , marginTop: 10 }}>
       <FlatList
         horizontal
         data={items}
