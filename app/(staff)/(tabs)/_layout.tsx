@@ -3,6 +3,10 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { Text, View } from "react-native";
 import { TasksProvider } from "@/features/staff/tasksStore";
+import { useRouter } from "expo-router";
+import { useAppSelector } from "@/store/hooks";
+import { selectUser } from "@/redux/user/user.slice";
+import { makeSelectDefaultChannelId } from "@/redux/channels/channels.selectors";
 
 const PRIMARY = "#4C5FAB";
 const INACTIVE = "#9CA3AF";
@@ -50,6 +54,13 @@ function TabButton({
 }
 
 export default function StaffTabsLayout() {
+  const router = useRouter();
+  const user = useAppSelector(selectUser);
+  const userId = user?._id ?? null;
+
+  const defaultChannelId = useAppSelector(
+    makeSelectDefaultChannelId(userId, "recent")
+  );
   return (
     <Tabs
       screenOptions={{
@@ -97,6 +108,16 @@ export default function StaffTabsLayout() {
       />
       <Tabs.Screen
         name="chats/[channelId]"
+        listeners={{
+          tabPress: (e) => {
+            if (!defaultChannelId) return; // let it open normally if none
+            e.preventDefault();
+            router.push({
+              pathname: "/(client)/(tabs)/chats/[channelId]",
+              params: { channelId: defaultChannelId },
+            });
+          },
+        }}
         options={{
           tabBarIcon: ({ focused }) => (
             <TabButton
