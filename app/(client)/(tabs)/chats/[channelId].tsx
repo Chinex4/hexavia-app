@@ -378,6 +378,12 @@ export default function ChatScreen() {
       params: { channelId: channelId },
     });
   };
+  const handleOpenTask = () => {
+    router.push({
+      pathname: "/(admin)/channels/[channelId]/resources" as any,
+      params: { channelId: channelId },
+    });
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -386,6 +392,7 @@ export default function ChatScreen() {
         title={title}
         subtitle={subtitle}
         onPress={handleOpenResources}
+        onTaskOpen={handleOpenTask}
       />
 
       <FlatList
