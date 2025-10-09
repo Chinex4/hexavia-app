@@ -1,6 +1,8 @@
 // components/staff/channels/ChannelCard.tsx
+import { useRoute } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import React from "react";
-import { View, Text, Image } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 
 type CardChannel = {
   id: string;
@@ -17,10 +19,18 @@ function ChannelCard({
   item: CardChannel;
   colorOverride: string;
 }) {
+  const router = useRouter();
   return (
-    <View
+    <Pressable
+      // onPress={() =>
+      //   router.push({
+      //     pathname: "/(client)/(tabs)/chats/[channelId]" as any,
+      //     params: { channelId: item.id },
+      //   })
+      // }
+      android_ripple={{ color: "#eee" }}
       style={{ backgroundColor: colorOverride }}
-      className="mx-4 mt-4 rounded-3xl p-6 overflow-hidden"
+      className="mx-4 mt-4 rounded-2xl p-6 overflow-hidden"
     >
       <View className="flex-row">
         <View className="flex-1 pr-3">
@@ -63,7 +73,7 @@ function ChannelCard({
           </View>
         )}
       </View>
-    </View>
+    </Pressable>
   );
 }
 

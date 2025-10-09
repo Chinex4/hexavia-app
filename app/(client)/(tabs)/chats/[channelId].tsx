@@ -5,6 +5,10 @@ import ChatHeader from "@/components/staff/chat/ChatHeader";
 import Composer from "@/components/staff/chat/Composer";
 import MessageBubble from "@/components/staff/chat/MessageBubble";
 import useFakeChat from "@/hooks/useFakeChat";
+import { selectChannelById } from "@/redux/channels/channels.slice";
+import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import { Channel } from "@/redux/channels/channels.types";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type { AttachmentKind, Message, ReplyMeta } from "@/types/chat";
 import {
   AudioModule,
@@ -16,15 +20,21 @@ import {
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, InteractionManager, Platform, SafeAreaView, View } from "react-native";
+import {
+  FlatList,
+  InteractionManager,
+  Platform,
+  SafeAreaView,
+  View,
+} from "react-native";
 
 const ME = "me-001";
 
 export default function ChatScreen() {
-  const { channelId } = useLocalSearchParams<{ channelId: string }>();
+  const { channelId: rawId } = useLocalSearchParams<{ channelId: string }>();
   const { messages, send, isTyping, setMessages } = useFakeChat(ME);
   const [trayOpen, setTrayOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -35,8 +45,21 @@ export default function ChatScreen() {
   const [recordDurationMs, setRecordDurationMs] = useState(0);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(audioRecorder, 200);
-
   const recordRef = useRef<typeof audioRecorder | null>(null);
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  // sanitize param
+  const channelId = typeof rawId === "string" ? rawId : rawId?.[0];
+
+  const channelSel = useMemo(() => selectChannelById(channelId), [channelId]);
+  const channel = useAppSelector(channelSel);
+
+  useEffect(() => {
+    if (!channelId) return; // no id yet
+    if (channel) return; // already in store, don't refetch
+    dispatch(fetchChannelById(channelId)); // fire and forget; errors handled in thunk
+  }, [dispatch, channelId, !!channel]);
+
   useEffect(() => {
     setRecordDurationMs(recorderState.durationMillis ?? 0);
   }, [recorderState.durationMillis]);
@@ -109,9 +132,9 @@ export default function ChatScreen() {
     }
   };
 
-  const title = "Fin Team";
-  const subtitle = "Mr Chiboy and 5 Others…";
-  const avatar = "https://i.pravatar.cc/100?img=5";
+  const title = channel?.name ?? "Finance Team";
+  const subtitle = channel?.description ?? "Mr Chiboy and 5 Others…";
+  // const avatar = "https://i.pravatar.cc/100?img=5";
 
   const data = useMemo(() => {
     const items = [...messages];
@@ -349,10 +372,21 @@ export default function ChatScreen() {
     atBottomRef.current = distanceFromBottom < BOTTOM_THRESHOLD;
   };
 
+  const handleOpenResources = () => {
+    router.push({
+      pathname: "/(admin)/channels/[channelId]/resources" as any,
+      params: { channelId: channelId },
+    });
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
-      <ChatHeader title={title} subtitle={subtitle} avatar={avatar} />
+      <ChatHeader
+        title={title}
+        subtitle={subtitle}
+        onPress={handleOpenResources}
+      />
 
       <FlatList
         ref={listRef}

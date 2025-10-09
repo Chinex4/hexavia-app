@@ -93,6 +93,7 @@ export interface UpdateTaskBody {
   channelId: string | undefined;
   taskId: string;
   name?: string;
+  status?: string;
   description?: string | null;
 }
 export interface UpdateTaskResponse {

@@ -20,7 +20,7 @@ export default function SearchBar({
         <TextInput
           value={value}
           onChangeText={onChange}
-          placeholder="Search for channels"
+          placeholder="Search by name or enter channel code"
           placeholderTextColor="#9CA3AF"
           className="flex-1 ml-2 text-gray-800 font-kumbh"
           returnKeyType="search"

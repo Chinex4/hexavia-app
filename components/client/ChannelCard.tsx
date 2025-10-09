@@ -23,7 +23,7 @@ function ChannelCard({ item, width, gap }: Props) {
     <Pressable
       onPress={() =>
         router.push({
-          pathname: "/(staff)/channels/[channelId]/resources" as any,
+          pathname: "/(client)/(tabs)/chats/[channelId]" as any,
           params: { channelId: item.id },
         })
       }

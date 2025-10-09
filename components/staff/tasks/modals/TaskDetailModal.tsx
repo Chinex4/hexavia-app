@@ -1,10 +1,16 @@
-import React, { useMemo, useState, useEffect } from "react";
+// components/staff/tasks/modals/TaskDetailModal.tsx
+import React, { useEffect, useMemo, useState } from "react";
 import { Modal, Pressable, Text, TextInput, View } from "react-native";
-import { useTasks } from "@/features/staff/tasksStore";
-import { StatusKey, TAB_ORDER, Task } from "@/features/staff/types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { updateChannelTask, fetchChannels } from "@/redux/channels/channels.thunks";
+import {
+  updateChannelTask,
+  fetchChannels,
+  fetchChannelById,
+} from "@/redux/channels/channels.thunks";
 import { selectChannelIdByCode } from "@/redux/channels/channels.slice";
+import { StatusKey, TAB_ORDER, Task } from "@/features/staff/types";
+import { toApiStatus } from "@/features/client/statusMap";
+import { showError } from "@/components/ui/toast";
 
 export default function TaskDetailModal({
   visible,
@@ -16,23 +22,26 @@ export default function TaskDetailModal({
   task: Task;
 }) {
   const dispatch = useAppDispatch();
-  const { updateStatus } = useTasks();
-
   const channelIdFromCode = useAppSelector(
     selectChannelIdByCode(task.channelCode)
   );
-
-  // (Optional) ensure channels are loaded if id not found yet
   useEffect(() => {
-    if (!channelIdFromCode && visible) {
-      dispatch(fetchChannels());
-    }
+    if (!channelIdFromCode && visible) dispatch(fetchChannels());
   }, [channelIdFromCode, visible, dispatch]);
 
   const [name, setName] = useState<string>(task.title);
   const [desc, setDesc] = useState<string>(task.description ?? "");
   const [pending, setPending] = useState<StatusKey>(task.status);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (visible) {
+      // sync fields when reopened
+      setName(task.title);
+      setDesc(task.description ?? "");
+      setPending(task.status);
+    }
+  }, [visible, task]);
 
   const canSave = useMemo(() => {
     const changedText =
@@ -44,21 +53,20 @@ export default function TaskDetailModal({
 
   const save = async () => {
     if (!canSave || saving) return;
+    const channelId = channelIdFromCode ?? (task as any).channelId;
+    if (!channelId) return;
+
     try {
       setSaving(true);
 
+      // update text if changed
       const textChanged =
         name.trim() !== task.title ||
         (desc.trim() || "") !== (task.description?.trim() || "");
-
-      // Prefer id derived from code; fall back to any existing task.channelId if present
-      const finalChannelId =
-        channelIdFromCode ?? (task as any).channelId; // keep this fallback if Task sometimes carries it
-
-      if (textChanged && finalChannelId) {
+      if (textChanged) {
         await dispatch(
           updateChannelTask({
-            channelId: finalChannelId,
+            channelId,
             taskId: task.id,
             name: name.trim(),
             description: desc.trim() === "" ? null : desc.trim(),
@@ -66,13 +74,26 @@ export default function TaskDetailModal({
         ).unwrap();
       }
 
+      // update status if changed
       if (pending !== task.status) {
-        updateStatus(task.id, pending);
+        await dispatch(
+          updateChannelTask({
+            channelId,
+            taskId: task.id,
+            status: toApiStatus(pending),
+            name,
+            description: desc,
+          })
+        ).unwrap();
       }
 
+      // refresh the channel to get latest tasks
+      await dispatch(fetchChannelById(channelId));
+
       onClose();
-    } catch {
-      // errors are toasted in the thunk
+    } catch (msg) {
+      // err handled in thunk
+      showError(String(msg));
     } finally {
       setSaving(false);
     }
@@ -91,7 +112,6 @@ export default function TaskDetailModal({
             Task Details
           </Text>
 
-          {/* Name */}
           <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">Name</Text>
           <TextInput
             value={name}
@@ -100,27 +120,24 @@ export default function TaskDetailModal({
             className="font-kumbh text-[#111827] border border-[#E5E7EB] rounded-2xl px-4 py-3"
           />
 
-          {/* Description */}
           <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">
             Description
           </Text>
           <TextInput
             value={desc}
             onChangeText={setDesc}
-            placeholder="Add a short description"
             multiline
-            textAlignVertical="top"
             numberOfLines={4}
+            textAlignVertical="top"
+            placeholder="Add a short description"
             className="font-kumbh text-[#111827] border border-[#E5E7EB] rounded-2xl px-4 py-3"
             style={{ minHeight: 120 }}
           />
 
-          {/* Meta */}
           <Text className="font-kumbh text-[#6B7280] mt-3">
             Channel: {task.channelCode}
           </Text>
 
-          {/* Status */}
           <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">
             Change Status
           </Text>
@@ -145,7 +162,6 @@ export default function TaskDetailModal({
             })}
           </View>
 
-          {/* Actions */}
           <View
             className="flex-row justify-end items-center mt-6"
             style={{ gap: 12 }}

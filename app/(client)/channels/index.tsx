@@ -6,24 +6,29 @@ import { useDispatch, useSelector } from "react-redux";
 import BackHeader from "@/components/BackHeader";
 import SearchBar from "@/components/SearchBar";
 import ChannelCard from "@/components/staff/channels/ChannelCard";
+import JoinableChannelCard from "@/components/staff/channels/JoinableChannelCard"; // NEW
 import FilterModal, { Filters } from "@/components/FIlterModal";
 import useDebounced from "@/hooks/useDebounced";
 import { StatusBar } from "expo-status-bar";
 
 import type { RootState, AppDispatch } from "@/store";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
-import { selectMyChannelsByUserId } from "@/redux/channels/channels.selectors";
+import {
+  selectMyChannelsByUserId,
+  selectAllChannels,
+} from "@/redux/channels/channels.selectors"; // NOTE: bring selectAllChannels
 import { useAppSelector } from "@/store/hooks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 
 const PALETTE = [
-  "#37CC86",
-  "#48A7FF",
-  "#F6A94A",
-  "#29C57A",
-  "#4C5FAB",
-  "#9B7BF3",
+  // "#37CC86",
+  // "#48A7FF",
+  // "#F6A94A",
+  // "#29C57A",
+  // "#4C5FAB",
+  // "#9B7BF3",
+  "#4c5fab"
 ];
 const colorFor = (key: string) => {
   let hash = 0;
@@ -31,25 +36,35 @@ const colorFor = (key: string) => {
     hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
   return PALETTE[hash % PALETTE.length];
 };
-
 const INACTIVE = "#9CA3AF";
-
 const makeKey = (c: any) => String(c?.id ?? c?._id ?? c?.code ?? c?.name ?? "");
+
+// --- helpers to normalize “codes” (accept #, spaces, dashes, case-insensitive)
+const normalizeCodeLoose = (s: string) =>
+  s
+    .trim()
+    .replace(/^#/, "")
+    .replace(/[\s-]+/g, "")
+    .toLowerCase();
 
 export default function AllChannelsScreen() {
   const dispatch = useDispatch<AppDispatch>();
 
   const status = useSelector((s: RootState) => s.channels.status);
-  const allIds = useSelector((s: RootState) => s.channels.allIds);
-  const byId = useSelector((s: RootState) => s.channels.byId);
-  // const channels = useMemo(() => allIds.map((id) => byId[id]), [allIds, byId]);
   const user = useAppSelector(selectUser);
-    useEffect(() => {
-      dispatch(fetchProfile());
-    }, [dispatch]);
-  
-    const userId = user?._id ?? null;
-  const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
+
+  useEffect(() => {
+    dispatch(fetchProfile());
+  }, [dispatch]);
+
+  const userId = user?._id ?? null;
+
+  // My channels (existing list)
+  const myChannels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
+
+  // All channels (for the code-based search)
+  const allChannels = useAppSelector(selectAllChannels);
+  // console.log(allChannels)
 
   useEffect(() => {
     if (status === "idle") dispatch(fetchChannels());
@@ -69,8 +84,30 @@ export default function AllChannelsScreen() {
   });
   const [filterOpen, setFilterOpen] = useState(false);
 
+  // ----- code lookup across ALL channels (not just mine)
+  const codeMatch = useMemo(() => {
+    const q = normalizeCodeLoose(debouncedQuery);
+    if (!q) return null;
+
+    // Find by any plausible code field
+    const found = allChannels.find((c: any) => {
+      const codeCandidates = [c?.code].filter(Boolean) as string[];
+      return codeCandidates.some((cc) => normalizeCodeLoose(cc) === q);
+    });
+
+    return found ?? null;
+  }, [allChannels, debouncedQuery]);
+
+  const alreadyMember = useMemo(() => {
+    if (!codeMatch || !userId) return false;
+    const myIds = new Set(myChannels.map((c: any) => String(c?._id ?? c?.id)));
+    const targetId = String((codeMatch as any)?._id ?? (codeMatch as any)?.id);
+    return myIds.has(targetId);
+  }, [codeMatch, myChannels, userId]);
+
+  // ------- existing data list (for MY channels), still searchable by name
   const data = useMemo(() => {
-    const keyed = channels
+    const keyed = myChannels
       .filter(Boolean)
       .map((c) => ({ ...c, __key: makeKey(c) }))
       .filter((c) => c.__key.length > 0);
@@ -87,6 +124,7 @@ export default function AllChannelsScreen() {
     let list = deduped.slice();
     const q = debouncedQuery.trim().toLowerCase();
 
+    // keep existing behavior: name/desc/department search for MY list
     if (q) {
       list = list.filter((c) =>
         [c?.name ?? "", c?.description ?? "", (c as any)?.department ?? ""]
@@ -109,12 +147,22 @@ export default function AllChannelsScreen() {
       );
     }
     return list;
-  }, [channels, debouncedQuery, filters]);
+  }, [myChannels, debouncedQuery, filters]);
 
   const viewStyle = {
     flex: 1,
     marginTop: Platform.select({ ios: 60, android: 40 }),
   };
+
+  // click handler for the join button (temporary: just log)
+  const handleJoin = useCallback((channel: any) => {
+    console.log("[join-request] channel:", {
+      id: channel?._id ?? channel?.id,
+      name: channel?.name,
+      code: channel?.code,
+    });
+    // TODO: dispatch a thunk here when the backend endpoint is available
+  }, []);
 
   return (
     <View className="flex-1 bg-white">
@@ -127,6 +175,35 @@ export default function AllChannelsScreen() {
           onOpenFilter={() => setFilterOpen(true)}
         />
 
+        {/* --- CODE MATCH AREA: shows when user typed a code that matches any channel --- */}
+        {!!debouncedQuery && (
+          <View>
+            {codeMatch ? (
+              <JoinableChannelCard
+                item={{
+                  id: String((codeMatch as any)?._id ?? (codeMatch as any)?.id),
+                  name: (codeMatch as any)?.name,
+                  description: (codeMatch as any)?.description,
+                  code: (codeMatch as any)?.code,
+                }}
+                onJoin={handleJoin}
+                disabled={alreadyMember}
+              />
+            ) : (
+              <View className="mx-4 mt-4 px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200">
+                <Text className="text-gray-700 font-kumbh">
+                  No channel found with that code.
+                </Text>
+                <Text className="text-gray-500 mt-1 text-[12px] font-kumbh">
+                  Tip: Try pasting the exact code (with or without “#”, any
+                  case).
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* --- EXISTING LIST: my channels --- */}
         <FlatList
           data={data}
           keyExtractor={(item: any) => item.__key}
@@ -136,7 +213,7 @@ export default function AllChannelsScreen() {
               colorOverride={(item as any)?.color || colorFor(item.__key)}
             />
           )}
-          contentContainerStyle={{ paddingBottom: 24, paddingTop: 12 }}
+          contentContainerStyle={{ paddingBottom: 24, paddingTop: 0 }}
           refreshControl={
             <RefreshControl
               refreshing={status === "loading"}

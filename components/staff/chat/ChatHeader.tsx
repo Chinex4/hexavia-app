@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Image, Pressable, Platform } from "react-native";
-import { ChevronLeft, Cloud, File } from "lucide-react-native";
+import { ChevronLeft, Clipboard, Cloud, File } from "lucide-react-native";
 import { useRouter } from "expo-router";
 
 type Props = {
@@ -34,9 +34,14 @@ export default function ChatHeader({ title, subtitle, onPress }: Props) {
           </View>
         </View>
 
-        <View className="flex-row items-center space-x-3">
-          <Pressable onPress={onPress} className="h-10 w-10 rounded-2xl bg-gray-100 items-center justify-center">
-            <Cloud size={20} color="#111827" />
+        <View className="flex-row items-center gap-4">
+          <Pressable onPress={onPress} className="rounded-2xl flex-col items-center justify-center">
+            <Clipboard size={22} color="#111827" />
+            <Text className="text-sm font-kumbh">Tasks</Text>
+          </Pressable>
+          <Pressable onPress={onPress} className="rounded-2xl flex-col items-center justify-center">
+            <Cloud size={22} color="#111827" />
+            <Text className="text-sm font-kumbh">Resources</Text>
           </Pressable>
           
         </View>
