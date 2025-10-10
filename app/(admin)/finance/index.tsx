@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from "react";
-import { View, Text, Pressable, SectionList } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { ArrowLeft, Eye, ArrowUp, ArrowDown, Plus } from "lucide-react-native";
 import clsx from "clsx";
+import { useRouter } from "expo-router";
+import { ArrowDown, ArrowLeft, ArrowUp, Eye, Plus } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
+import { Pressable, SectionList, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type Flow = "Receivables" | "Expenses";
 type Txn = {
@@ -102,14 +102,15 @@ export default function FinanceIndex() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <View className="px-5 pt-6 pb-3">
-        <View className="flex-row items-center gap-4">
+        <View className="flex-row items-center justify-between gap-4">
           <Pressable
             onPress={() => router.back()}
             className="w-10 h-10 items-center justify-center"
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbhBold text-text">Finance</Text>
+          <Text className="text-3xl font-kumbh text-text">Finance</Text>
+          <View className="w-10" />
         </View>
 
         {/* Tabs */}
@@ -195,7 +196,7 @@ export default function FinanceIndex() {
       {/* Floating button */}
       <Pressable
         onPress={() => router.push("/(admin)/finance/form")}
-        className="absolute right-5 bottom-6 px-4 h-12 rounded-2xl bg-[#4C5FAB] flex-row items-center"
+        className="absolute right-5 bottom-10 px-4 h-12 rounded-2xl bg-[#4C5FAB] flex-row items-center"
         style={{ paddingHorizontal: 16 }}
       >
         <View className="w-6 h-6 rounded-full bg-white/15 items-center justify-center mr-2">

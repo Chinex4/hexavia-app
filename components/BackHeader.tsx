@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 export default function BackHeader({ title }: { title: string }) {
   const router = useRouter();
   return (
-    <View className="flex-row items-center px-4 pt-4 pb-2">
+    <View className="mt-2 flex-row items-center justify-between px-4 pt-4 pb-2">
       <Pressable
         onPress={() => router.back()}
         className="h-10 w-10 rounded-full items-center justify-center"
@@ -14,9 +14,10 @@ export default function BackHeader({ title }: { title: string }) {
       >
         <Ionicons name="chevron-back" size={24} color="#111827" />
       </Pressable>
-      <Text className="ml-2 text-2xl font-kumbhBold text-gray-900">
+      <Text className="ml-2 text-3xl font-kumbh text-gray-900">
         {title}
       </Text>
+      <View className="w-10" />
     </View>
   );
 }

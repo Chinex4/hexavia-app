@@ -28,7 +28,6 @@ type RowStatus = "Active" | "Resolved" | "Pending";
 type SanctionRow = {
   id: string;
   date: string;
-  recipient: string;
   reason: string;
   remarks: string;
   status: RowStatus;
@@ -37,7 +36,6 @@ type SanctionRow = {
 const PRIMARY = "#4C5FAB";
 const COLS = [
   { key: "date", title: "Date", width: 120 },
-  { key: "recipient", title: "Recipient", width: 150 },
   { key: "reason", title: "Reason", width: 180 },
   { key: "remarks", title: "Remarks", width: 240 },
   { key: "status", title: "Status", width: 120 },
@@ -87,7 +85,7 @@ const csvEscape = (v: unknown) => {
 async function exportCsv(rows: SanctionRow[]) {
   const header = COLS.map((c) => c.title).join(",");
   const lines = rows.map((r) =>
-    [r.date, r.recipient, r.reason, r.remarks, r.status]
+    [r.date, r.reason, r.remarks, r.status]
       .map(csvEscape)
       .join(",")
   );
@@ -130,15 +128,13 @@ export default function SanctionsScreen() {
 
   // Map API rows -> table rows
   const rows: SanctionRow[] = useMemo(() => {
-    return apiRows.map((s) => {
+    return apiRows.map((s: any) => {
       const created = s.createdAt ? new Date(s.createdAt) : new Date();
       const dateStr = created.toLocaleDateString(undefined, {
         day: "2-digit",
         month: "short",
         year: "numeric",
       });
-
-      const recipient = s.user?.fullname || s.user?.name || s.userId || "—";
 
       // Naive status derivation with available fields
       let status: RowStatus = "Pending";
@@ -149,7 +145,6 @@ export default function SanctionsScreen() {
       return {
         id: s._id,
         date: dateStr,
-        recipient,
         reason: s.reason,
         remarks: s.type.toUpperCase(), // use "type" as remarks until you add a server "remarks"
         status,
@@ -212,11 +207,10 @@ export default function SanctionsScreen() {
                       return (
                         <View className={`flex-row items-center ${zebra}`}>
                           <Td width={COLS[0].width}>{item.date}</Td>
-                          <Td width={COLS[1].width}>{item.recipient}</Td>
-                          <Td width={COLS[2].width}>{item.reason}</Td>
-                          <Td width={COLS[3].width}>{item.remarks}</Td>
+                          <Td width={COLS[1].width}>{item.reason}</Td>
+                          <Td width={COLS[2].width}>{item.remarks}</Td>
                           <View
-                            style={{ width: COLS[4].width }}
+                            style={{ width: COLS[3].width }}
                             className="py-2 px-3"
                           >
                             <StatusBadge value={item.status} />
