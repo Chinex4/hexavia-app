@@ -61,16 +61,17 @@ export default function ClientsIndex() {
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
       <View className="px-5 pt-6 pb-4">
-        <View className="flex-row items-center gap-4">
+        <View className="flex-row items-center justify-between gap-4">
           <Pressable
             onPress={() => router.back()}
             className="w-10 h-10 rounded-full items-center justify-center"
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbhBold text-text">
+          <Text className="text-3xl font-kumbh text-text">
             Hexavia Clients
           </Text>
+          <View className="w-10"/>
         </View>
 
         {/* Add client (navigates to your create screen) */}
@@ -81,7 +82,7 @@ export default function ClientsIndex() {
           <View className="w-7 h-7 rounded-lg bg-white items-center justify-center">
             <Plus size={18} color="#111827" />
           </View>
-          <Text className="text-base font-kumbhBold text-text">
+          <Text className="text-base font-kumbh text-text">
             Add a new Client
           </Text>
         </Pressable>

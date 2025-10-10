@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { View, Text, ScrollView, Image } from "react-native";
+import { View, Text, ScrollView, Image, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -81,13 +81,15 @@ export default function AdminDashboard() {
 
         {/* Create report card */}
         <SectionCard className="mx-5 mt-5" noTitle>
-          <View className="flex-row items-center justify-between">
+          <Pressable onPress={() => {
+            router.push('/(admin)/report')
+          }} className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-3">
               <View className="w-12 h-12 rounded-2xl bg-primary-100 items-center justify-center">
                 <BarChart3 size={22} color="#4c5fab" />
               </View>
               <View>
-                <Text className="text-[20px] font-kumbhBold text-text">
+                <Text className="text-[20px] font-kumbh text-text">
                   Create report
                 </Text>
                 <Text className="text-sm text-gray-500 mt-1 max-w-[200px] font-kumbh">
@@ -97,7 +99,7 @@ export default function AdminDashboard() {
               </View>
             </View>
             <ChevronRight size={22} color="#111827" />
-          </View>
+          </Pressable>
         </SectionCard>
 
         {/* Finance summary */}

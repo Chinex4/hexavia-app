@@ -49,7 +49,7 @@ export default function CreateClient() {
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbhBold text-text">
+          <Text className="text-3xl font-kumbh text-text">
             Add New Client
           </Text>
         </View>

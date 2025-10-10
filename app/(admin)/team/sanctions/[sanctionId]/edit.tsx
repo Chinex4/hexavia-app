@@ -1,29 +1,29 @@
-import React, { useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-  Switch,
-  ActivityIndicator,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    Switch,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import Field from "@/components/admin/Field";
 import Dropdown from "@/components/admin/Dropdown";
+import Field from "@/components/admin/Field";
 import Menu from "@/components/admin/Menu";
 import MenuItem from "@/components/admin/MenuItem";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchSanctions, updateSanction } from "@/redux/sanctions/sanctions.thunks";
-import { selectSanctionById } from "@/redux/sanctions/sanctions.slice";
 import { showError, showSuccess } from "@/components/ui/toast";
+import { selectSanctionById } from "@/redux/sanctions/sanctions.slice";
+import { fetchSanctions, updateSanction } from "@/redux/sanctions/sanctions.thunks";
 import { getToken } from "@/storage/auth";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 type ApiType = "warning" ;
 
@@ -98,7 +98,7 @@ export default function EditSanction() {
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-3xl font-kumbhBold text-text">Edit Sanction</Text>
+        <Text className="text-3xl font-kumbh text-text">Edit Sanction</Text>
       </View>
 
       {loadingBootstrap ? (

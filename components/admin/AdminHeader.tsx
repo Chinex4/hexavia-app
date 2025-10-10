@@ -1,11 +1,11 @@
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import React, { useEffect } from "react";
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
-import AvatarPlaceholder from "../staff/AvatarPlaceHolder";
-import { useRouter } from "expo-router";
 import { RootState } from "@/store";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useRouter } from "expo-router";
+import React, { useEffect } from "react";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import AvatarPlaceholder from "../staff/AvatarPlaceHolder";
 
 function firstNameOf(fullname?: string | null) {
   if (!fullname) return "User";
@@ -55,7 +55,7 @@ export default function AdminHeader({
           <AvatarPlaceholder avatar={user?.profilePicture} />
         </Pressable>
         <View>
-          <Text className="text-3xl font-kumbhBold text-text">
+          <Text className="text-3xl font-kumbh text-text">
             {greetingName ? `Hi ${greetingName}` : "Hi there!"}
           </Text>
           {roleText ? (

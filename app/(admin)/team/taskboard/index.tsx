@@ -12,7 +12,7 @@ type ApiTask = {
   _id: string;
   name?: string;
   description?: string;
-  status?: string; 
+  status?: string;
 };
 
 export default function TaskBoard() {
@@ -26,7 +26,8 @@ export default function TaskBoard() {
 
   const users = useAppSelector(selectAdminUsers);
   const staff = users.find((u) => u._id === staffId);
-  const staffName = staff?.fullname || staff?.username || staff?.email || "Staff";
+  const staffName =
+    staff?.fullname || staff?.username || staff?.email || "Staff";
 
   const channelsForUser = useAppSelector(
     selectChannelsForUser(String(staffId ?? ""))
@@ -56,8 +57,18 @@ export default function TaskBoard() {
     for (const t of all) {
       const s = t.status || "";
       if (["done", "completed", "resolved"].includes(s)) bucket.done.push(t);
-      else if (["canceled", "cancelled", "archived"].includes(s)) bucket.canceled.push(t);
-      else if (["doing", "in_progress", "in-progress", "progress", "active", "working"].includes(s))
+      else if (["canceled", "cancelled", "archived"].includes(s))
+        bucket.canceled.push(t);
+      else if (
+        [
+          "doing",
+          "in_progress",
+          "in-progress",
+          "progress",
+          "active",
+          "working",
+        ].includes(s)
+      )
         bucket.doing.push(t);
       else bucket.todo.push(t); // default/fallback (todo, pending, new, etc)
     }
@@ -67,13 +78,17 @@ export default function TaskBoard() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="px-5 pt-6 pb-4 flex-row items-center gap-4">
-        <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
+      <View className="px-5 pt-6 pb-4 flex-row items-center justify-between gap-4">
+        <Pressable
+          onPress={() => router.back()}
+          className="w-10 h-10 items-center justify-center"
+        >
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-3xl font-kumbhBold text-text">
+        <Text className="text-2xl font-kumbh text-text">
           {staffName}: Task Board
         </Text>
+        <View className="w-10" />
       </View>
 
       <ScrollView
@@ -81,9 +96,9 @@ export default function TaskBoard() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
       >
-        <Column title="To Do" items={todo} />
+        <Column title="Not Started" items={todo} />
         <Column title="In Progress" items={doing} />
-        <Column title="Done" items={done} />
+        <Column title="Completed" items={done} />
         <Column title="Canceled" items={canceled} />
       </ScrollView>
     </SafeAreaView>
@@ -96,9 +111,13 @@ function Column({ title, items }: { title: string; items: ApiTask[] }) {
       <Text className="text-base font-kumbhBold text-text mb-3">{title}</Text>
       {items.map((t) => (
         <View key={t._id} className="mb-3 rounded-xl bg-gray-100 p-3">
-          <Text className="font-kumbh text-text">{t.name || "(Untitled Task)"}</Text>
+          <Text className="font-kumbh text-text">
+            {t.name || "(Untitled Task)"}
+          </Text>
           {t.description ? (
-            <Text className="mt-1 text-xs text-gray-600 font-kumbh">{t.description}</Text>
+            <Text className="mt-1 text-xs text-gray-600 font-kumbh">
+              {t.description}
+            </Text>
           ) : null}
         </View>
       ))}

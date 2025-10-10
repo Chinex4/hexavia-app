@@ -26,7 +26,7 @@ import { createSanction } from "@/redux/sanctions/sanctions.thunks";
 import { showError, showSuccess } from "@/components/ui/toast";
 
 type StatusOpt = "Active" | "Resolved" | "Pending";
-type ApiType = "warning" ;
+type ApiType = "warning";
 
 export default function CreateSanction() {
   const router = useRouter();
@@ -76,14 +76,15 @@ export default function CreateSanction() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
-      <View className="px-5 pt-6 pb-2 flex-row items-center gap-4">
+      <View className="px-5 pt-6 pb-2 flex-row items-center justify-between gap-4">
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 items-center justify-center"
         >
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-3xl font-kumbhBold text-text">Add Sanction</Text>
+        <Text className="text-3xl font-kumbh text-text">Add Sanction</Text>
+        <View className="w-10" />
       </View>
 
       <KeyboardAvoidingView
@@ -145,20 +146,18 @@ export default function CreateSanction() {
               />
               {show && (
                 <Menu>
-                  {(["warning"] as const).map(
-                    (opt) => (
-                      <MenuItem
-                        key={opt}
-                        active={opt === type}
-                        onPress={() => {
-                          setType(opt);
-                          setShow(false);
-                        }}
-                      >
-                        {opt}
-                      </MenuItem>
-                    )
-                  )}
+                  {(["warning"] as const).map((opt) => (
+                    <MenuItem
+                      key={opt}
+                      active={opt === type}
+                      onPress={() => {
+                        setType(opt);
+                        setShow(false);
+                      }}
+                    >
+                      {opt}
+                    </MenuItem>
+                  ))}
                 </Menu>
               )}
             </View>

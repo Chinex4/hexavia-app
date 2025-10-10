@@ -1,23 +1,23 @@
 // app/(admin)/team/[id]/edit.tsx
-import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import {
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import Field from "@/components/admin/Field";
 import HexButton from "@/components/ui/HexButton";
-import { useAppSelector } from "@/store/hooks";
-import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { showError, showSuccess } from "@/components/ui/toast";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
+import { useAppSelector } from "@/store/hooks";
 
 export default function EditStaff() {
   const router = useRouter();
@@ -54,7 +54,7 @@ export default function EditStaff() {
         >
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-3xl font-kumbhBold text-text">Edit Staff</Text>
+        <Text className="text-3xl font-kumbh text-text">Edit Staff</Text>
       </View>
 
       <KeyboardAvoidingView

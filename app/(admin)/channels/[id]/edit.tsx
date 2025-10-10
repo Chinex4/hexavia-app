@@ -48,14 +48,16 @@ export default function EditChannel() {
   return (
     <SafeAreaView className="flex-1 bg-background">
       {/* Header */}
-      <View className="px-5 pt-6 pb-2 flex-row items-center gap-4">
+      <View className="px-5 pt-6 pb-2 flex-row items-center justify-between gap-4">
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 rounded-full items-center justify-center"
         >
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-3xl font-kumbhBold text-text">Edit Channel</Text>
+        <Text className="text-3xl font-kumbh text-text">Edit Channel</Text>
+                  <View className="w-10"/>
+        
       </View>
 
       <KeyboardAvoidingView

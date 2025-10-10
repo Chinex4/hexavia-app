@@ -113,7 +113,7 @@ export default function StaffTabsLayout() {
             if (!defaultChannelId) return; // let it open normally if none
             e.preventDefault();
             router.push({
-              pathname: "/(client)/(tabs)/chats/[channelId]",
+              pathname: "/(staff)/(tabs)/chats/[channelId]",
               params: { channelId: defaultChannelId },
             });
           },

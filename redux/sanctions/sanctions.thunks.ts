@@ -18,7 +18,7 @@ export const fetchSanctions = createAsyncThunk<
     const params: Record<string, string> = {};
     if (query?.userId) params.userId = query.userId;
 
-    const { data } = await showPromise(api.get("/sanction", { params }), "Loading Sanctions...", "");
+    const { data } = await api.get("/sanction", { params });
 
     const rowsRaw = Array.isArray(data)
       ? data

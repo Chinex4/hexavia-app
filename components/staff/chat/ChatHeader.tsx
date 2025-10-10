@@ -28,7 +28,7 @@ export default function ChatHeader({ title, subtitle, onPress, onTaskOpen }: Pro
             className="h-9 w-9 rounded-full mr-3"
           /> */}
           <View>
-            <Text className="font-kumbhBold text-[20px] text-gray-900">
+            <Text className="font-kumbh text-[20px] text-gray-900">
               {title}
             </Text>
             <Text className="text-[12px] text-gray-500 font-kumbh">{subtitle}</Text>
