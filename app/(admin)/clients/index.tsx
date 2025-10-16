@@ -1,61 +1,166 @@
-// app/(admin)/clients/index.tsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
-  View,
-  Text,
-  Pressable,
-  FlatList,
   ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
   RefreshControl,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Plus } from "lucide-react-native";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
 import {
-  selectAdminUsers,
-  selectAdminLoading,
-  selectAdminErrors,
-} from "@/redux/admin/admin.slice";
-import type { AdminUser } from "@/redux/admin/admin.types";
+  ArrowLeft,
+  Filter as FilterIcon,
+  Plus,
+  Search,
+} from "lucide-react-native";
 
-// local tabs aligned with API fields
-type TabKey = "all" | "active" | "suspended";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  selectAllClients,
+  selectClientsLoading,
+  selectClientPagination,
+  selectClientFilters,
+} from "@/redux/client/client.selectors";
+import { fetchClients } from "@/redux/client/client.thunks";
+import { setClientFilters } from "@/redux/client/client.slice";
+import type { Client, ClientFilters } from "@/redux/client/client.types";
+const STATUS_OPTS = ["current", "pending", "completed"] as const;
+const ENGAGEMENT_OPTS = ["Full-time", "Part-time", "Contract"] as const;
+const SORTBY_OPTS = ["createdAt", "payableAmount"] as const;
+const ORDER_OPTS = ["desc", "asc"] as const;
+const LIMIT_OPTS = [10, 20, 50, 100] as const;
+type TabKey = "all" | "current" | "pending" | "completed";
+
+function useDebounced<T>(value: T, ms: number) {
+  const [deb, setDeb] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDeb(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return deb;
+}
 
 export default function ClientsIndex() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  const users = useAppSelector(selectAdminUsers);
-  const loading = useAppSelector(selectAdminLoading);
-  const lastError = useAppSelector(selectAdminErrors);
+  const clients = useAppSelector(selectAllClients);
+  const loading = useAppSelector(selectClientsLoading);
+  const pagination = useAppSelector(selectClientPagination);
+  const filters = useAppSelector(selectClientFilters);
 
   const [tab, setTab] = useState<TabKey>("all");
   const [refreshing, setRefreshing] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [query, setQuery] = useState("");
 
-  // fetch ONLY clients on mount
+  const [form, setForm] = useState<ClientFilters>({
+    status: undefined,
+    industry: undefined,
+    engagement: undefined,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+    limit: 10,
+    page: 1,
+  });
+
   useEffect(() => {
-    dispatch(fetchAdminUsers({ role: "client" }));
-  }, [dispatch]);
+    setForm({
+      status: filters.status,
+      industry: filters.industry,
+      engagement: filters.engagement,
+      sortBy: (filters.sortBy as any) ?? "createdAt",
+      sortOrder: filters.sortOrder ?? "desc",
+      limit: filters.limit ?? 10,
+      page: filters.page ?? 1,
+    });
+  }, [filters, showFilters]);
+
+  const fetchKey = JSON.stringify({
+    status: filters.status,
+    industry: filters.industry,
+    engagement: filters.engagement,
+    page: filters.page,
+    limit: filters.limit,
+    sortBy: filters.sortBy,
+    sortOrder: filters.sortOrder,
+  });
+  const debouncedKey = useDebounced(fetchKey, 300);
+  const lastKeyRef = useRef<string>("");
+
+  useEffect(() => {
+    if (debouncedKey && debouncedKey !== lastKeyRef.current) {
+      lastKeyRef.current = debouncedKey;
+      dispatch(fetchClients(filters));
+    }
+  }, [debouncedKey, dispatch]);
+
+  const switchTab = useCallback(
+    (next: TabKey) => {
+      setTab(next);
+      const status = next === "all" ? undefined : next;
+      const nextFilters: ClientFilters = { ...filters, status, page: 1 };
+      const nextKey = JSON.stringify(nextFilters);
+      const currentKey = JSON.stringify(filters);
+      if (nextKey !== currentKey) dispatch(setClientFilters(nextFilters));
+    },
+    [dispatch, filters]
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchAdminUsers({ role: "client" })).unwrap();
+      await dispatch(fetchClients(filters)).unwrap();
+      lastKeyRef.current = fetchKey;
     } finally {
       setRefreshing(false);
     }
-  }, [dispatch]);
+  }, [dispatch, filters, fetchKey]);
 
-  // filter per tab
-  const data = useMemo(() => {
-    // console.log(users)
-    let arr = users.filter((u) => u.role === "client");
-    if (tab === "active") arr = arr.filter((u) => !u.isSuspended);
-    if (tab === "suspended") arr = arr.filter((u) => !!u.isSuspended);
+  const list = useMemo(() => {
+    if (!query.trim()) return clients;
+    const q = query.trim().toLowerCase();
+    return clients.filter((c: any) =>
+      [
+        c.name,
+        c.projectName,
+        c.industry,
+        c.status,
+        String(c.payableAmount ?? ""),
+      ]
+        .join(" ")
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [clients, query]);
+
+  const canPrev = (pagination?.currentPage ?? 1) > 1;
+  const canNext =
+    (pagination?.currentPage ?? 1) < (pagination?.totalPages ?? 1);
+
+  const gotoPage = (page: number) => {
+    const next = { ...filters, page };
+    if (page !== (filters.page ?? 1)) dispatch(setClientFilters(next));
+  };
+
+  const dynamicIndustryOpts = useMemo(() => {
+    const set = new Set<string>();
+    clients.forEach((c: any) => c.industry && set.add(c.industry));
+    const arr = Array.from(set);
+    if (arr.length === 0)
+      return ["Technology", "Finance", "Health", "Education", "Other"];
     return arr;
-  }, [users, tab]);
+  }, [clients]);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -68,52 +173,65 @@ export default function ClientsIndex() {
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbh text-text">
-            Hexavia Clients
-          </Text>
-          <View className="w-10"/>
+
+          <Text className="text-3xl font-kumbh text-text">Hexavia Clients</Text>
+
+          <Pressable
+            onPress={() => setShowFilters(true)}
+            className="w-10 h-10 rounded-full items-center justify-center"
+          >
+            <FilterIcon size={22} color="#111827" />
+          </Pressable>
         </View>
 
-        {/* Add client (navigates to your create screen) */}
-        <Pressable
-          onPress={() => router.push("/(admin)/clients/create")}
-          className="mt-6 self-center flex-row items-center gap-3 rounded-2xl bg-primary-50 px-6 py-4 border border-primary-100"
-        >
-          <View className="w-7 h-7 rounded-lg bg-white items-center justify-center">
-            <Plus size={18} color="#111827" />
+        {/* Search + Add */}
+        <View className="mt-5 flex-row items-center gap-3">
+          <View className="flex-1 flex-row items-center gap-2 bg-white border border-gray-200 rounded-2xl px-3 h-12">
+            <Search size={18} color="#6B7280" />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Search name, project, industry, status"
+              className="flex-1 text-[15px] font-kumbh text-gray-800"
+              returnKeyType="search"
+            />
           </View>
-          <Text className="text-base font-kumbh text-text">
-            Add a new Client
-          </Text>
-        </Pressable>
 
-        {/* Tabs: All / Active / Suspended */}
+          <Pressable
+            onPress={() => router.push("/(admin)/clients/create")}
+            className="flex-row items-center gap-2 bg-primary-50 border border-primary-100 rounded-2xl px-4 h-12"
+          >
+            <Plus size={18} color="#111827" />
+            <Text className="text-sm font-kumbh text-text">Add</Text>
+          </Pressable>
+        </View>
+
+        {/* Tabs */}
         <View className="mt-6 flex-row items-center gap-8 px-1">
-          {(["all", "active", "suspended"] as const).map((t) => (
+          {(["all", "current", "pending", "completed"] as const).map((t) => (
             <Pressable
               key={t}
-              onPress={() => setTab(t)}
+              onPress={() => switchTab(t)}
               className="items-center"
             >
               <Text
                 className={`text-base font-kumbh ${
-                  tab === t ? "text-blue-500 font-kumbhBold" : "text-gray-600"
+                  tab === t ? "text-blue-600 font-kumbhBold" : "text-gray-600"
                 }`}
               >
                 {labelForTab(t)}
               </Text>
               {tab === t ? (
-                <View className="h-[3px] w-28 bg-blue-300 rounded-full mt-2" />
+                <View className="h-[3px] w-16 bg-blue-300 rounded-full mt-2" />
               ) : (
-                <View className="h-[3px] w-28 mt-2" />
+                <View className="h-[3px] w-16 mt-2" />
               )}
             </Pressable>
           ))}
         </View>
       </View>
 
-      {/* Body */}
-      {loading && users.length === 0 ? (
+      {loading && clients.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
           <Text className="mt-2 text-gray-500 font-kumbh">
@@ -121,36 +239,115 @@ export default function ClientsIndex() {
           </Text>
         </View>
       ) : (
-        <FlatList
-          data={data}
-          keyExtractor={(item) => item._id}
-          contentContainerClassName="px-5 pb-10"
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-          ItemSeparatorComponent={() => (
-            <View className="h-[1px] bg-gray-200 my-4" />
-          )}
-          renderItem={({ item }) => (
-            <ClientRow
-              item={item}
-              onPress={(id) =>
-                router.push({
-                  pathname: "/(admin)/clients/[id]",
-                  params: { id },
-                })
-              }
-            />
-          )}
-          ListEmptyComponent={
-            <View className="px-5 py-12">
-              <Text className="text-center text-gray-500 font-kumbh">
-                {lastError ? `Error: ${lastError}` : "No clients in this tab."}
-              </Text>
+        <>
+          <FlatList
+            data={list}
+            keyExtractor={(item) => item._id}
+            contentContainerClassName="px-5 pb-24"
+            keyboardShouldPersistTaps="handled"
+            removeClippedSubviews
+            initialNumToRender={10}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ItemSeparatorComponent={() => (
+              <View className="h-[1px] bg-gray-200 my-4" />
+            )}
+            renderItem={({ item }) => (
+              <ClientRow
+                item={item}
+                onPress={(id) =>
+                  router.push({
+                    pathname: "/(admin)/clients/[id]",
+                    params: { id },
+                  })
+                }
+              />
+            )}
+            ListEmptyComponent={
+              <View className="px-5 py-16">
+                <Text className="text-center text-gray-500 font-kumbh">
+                  No clients found.
+                </Text>
+              </View>
+            }
+          />
+
+          {pagination && pagination.totalPages > 1 && (
+            <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-5 py-3">
+              <View className="flex-row items-center justify-between">
+                <Pressable
+                  disabled={!canPrev}
+                  onPress={() => gotoPage((pagination.currentPage ?? 1) - 1)}
+                  className={`px-4 py-2 rounded-xl border ${
+                    canPrev ? "bg-white" : "bg-gray-100"
+                  }`}
+                >
+                  <Text
+                    className={`font-kumbh ${
+                      canPrev ? "text-gray-800" : "text-gray-400"
+                    }`}
+                  >
+                    Prev
+                  </Text>
+                </Pressable>
+
+                <Text className="font-kumbh text-gray-700">
+                  Page {pagination.currentPage} / {pagination.totalPages} •{" "}
+                  {pagination.totalClients} clients
+                </Text>
+
+                <Pressable
+                  disabled={!canNext}
+                  onPress={() => gotoPage((pagination.currentPage ?? 1) + 1)}
+                  className={`px-4 py-2 rounded-xl border ${
+                    canNext ? "bg-white" : "bg-gray-100"
+                  }`}
+                >
+                  <Text
+                    className={`font-kumbh ${
+                      canNext ? "text-gray-800" : "text-gray-400"
+                    }`}
+                  >
+                    Next
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          }
-        />
+          )}
+        </>
       )}
+
+      <FilterModal
+        open={showFilters}
+        form={form}
+        industryOptions={dynamicIndustryOpts}
+        onClose={() => setShowFilters(false)}
+        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+        onApply={() => {
+          const next: ClientFilters = { ...filters, ...form, page: 1 };
+          if (!next.status) delete next.status;
+          if (JSON.stringify(next) !== JSON.stringify(filters)) {
+            dispatch(setClientFilters(next));
+          }
+          setShowFilters(false);
+        }}
+        onClear={() => {
+          const cleared: ClientFilters = {
+            page: 1,
+            limit: 10,
+            sortOrder: "desc",
+            sortBy: "createdAt",
+            status: undefined,
+            industry: undefined,
+            engagement: undefined,
+          };
+          if (JSON.stringify(cleared) !== JSON.stringify(filters)) {
+            dispatch(setClientFilters(cleared));
+          }
+          setShowFilters(false);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -159,22 +356,27 @@ function ClientRow({
   item,
   onPress,
 }: {
-  item: AdminUser;
+  item: Client;
   onPress: (id: string) => void;
 }) {
-  const name = getDisplayName(item);
-  const joined = formatDate(item.createdAt);
-  const badgeText = item.isSuspended ? "Suspended" : "Active";
-  const badgeStyle = item.isSuspended
-    ? "bg-red-100 text-red-700"
-    : "bg-green-100 text-green-700";
+  const name = item.name || "Unknown";
+  const badgeText = item.status ? capitalize(item.status) : "—";
+  const badgeStyle =
+    item.status === "completed"
+      ? "bg-green-100 text-green-700"
+      : item.status === "pending"
+        ? "bg-yellow-100 text-yellow-700"
+        : item.status === "current"
+          ? "bg-blue-100 text-blue-700"
+          : "bg-gray-100 text-gray-700";
 
   return (
     <Pressable onPress={() => onPress(item._id)} className="py-1">
       <Row label="Name" value={name} />
-      <Row label="Email" value={item.email ?? "—"} />
-      <Row label="Role" value={item.role} />
-      <Row label="Joined" value={joined} />
+      <Row label="Project" value={item.projectName ?? "—"} />
+      <Row label="Industry" value={item.industry ?? "—"} />
+      <Row label="Engagement" value={item.engagement ?? "—"} />
+      <Row label="Payable" value={formatMoney(item.payableAmount)} />
       <View className="flex-row items-center justify-between py-2">
         <Text className="text-base text-gray-700 font-kumbh">Status</Text>
         <View className={`px-3 py-1 rounded-full ${badgeStyle}`}>
@@ -193,20 +395,228 @@ function Row({ label, value }: { label: string; value: string }) {
     </View>
   );
 }
-function getDisplayName(u: Partial<AdminUser>) {
-  return (u.fullname || u.username || u.email || "Unknown").toString();
+
+function FilterModal({
+  open,
+  form,
+  industryOptions,
+  onClose,
+  onChange,
+  onApply,
+  onClear,
+}: {
+  open: boolean;
+  form: ClientFilters;
+  industryOptions: string[];
+  onClose: () => void;
+  onChange: (patch: Partial<ClientFilters>) => void;
+  onApply: () => void;
+  onClear: () => void;
+}) {
+  return (
+    <Modal
+      visible={open}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View className="flex-1 bg-black/30">
+        <View className="mt-auto bg-white rounded-t-3xl p-5">
+          <View className="items-center mb-4">
+            <View className="w-12 h-1.5 bg-gray-300 rounded-full" />
+          </View>
+          <Text className="text-xl font-kumbhBold text-gray-900 mb-3">
+            Filter Clients
+          </Text>
+
+          <Field label="Status">
+            <PillGroup
+              options={["All", ...STATUS_OPTS]}
+              value={form.status ?? "All"}
+              onChange={(v) =>
+                onChange({ status: v === "All" ? undefined : (v as any) })
+              }
+            />
+          </Field>
+
+          <Field label="Industry">
+            <PillGroup
+              options={["Any", ...industryOptions]}
+              value={form.industry ?? "Any"}
+              onChange={(v) =>
+                onChange({ industry: v === "Any" ? undefined : v })
+              }
+              scrollable
+            />
+          </Field>
+
+          <Field label="Engagement">
+            <PillGroup
+              options={["Any", ...ENGAGEMENT_OPTS]}
+              value={form.engagement ?? "Any"}
+              onChange={(v) =>
+                onChange({ engagement: v === "Any" ? undefined : v })
+              }
+            />
+          </Field>
+
+          <Field label="Sort by">
+            <PillGroup
+              options={[...SORTBY_OPTS]}
+              value={(form.sortBy as any) ?? "createdAt"}
+              onChange={(v) => onChange({ sortBy: v as any })}
+            />
+          </Field>
+
+          <Field label="Order">
+            <PillGroup
+              options={[...ORDER_OPTS]}
+              value={form.sortOrder ?? "desc"}
+              onChange={(v) => onChange({ sortOrder: v as "asc" | "desc" })}
+            />
+          </Field>
+
+          <Field label="Limit">
+            <PillGroup
+              options={LIMIT_OPTS.map(String)}
+              value={String(form.limit ?? 10)}
+              onChange={(v) => onChange({ limit: parseInt(v, 10) })}
+            />
+          </Field>
+
+          {/* Actions */}
+          <View className="flex-row items-center justify-between mt-5">
+            <Pressable
+              onPress={onClear}
+              className="px-4 py-3 rounded-2xl border border-gray-300"
+            >
+              <Text className="font-kumbh text-gray-700">Clear</Text>
+            </Pressable>
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={onClose}
+                className="px-4 py-3 rounded-2xl border border-gray-300"
+              >
+                <Text className="font-kumbh text-gray-700">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={onApply}
+                className="px-5 py-3 rounded-2xl bg-blue-600"
+              >
+                <Text className="font-kumbh text-white">Apply</Text>
+              </Pressable>
+            </View>
+          </View>
+
+          <View className="h-3" />
+        </View>
+      </View>
+    </Modal>
+  );
 }
-function formatDate(d?: string) {
-  if (!d) return "—";
-  try {
-    const dt = new Date(d);
-    return dt.toLocaleDateString();
-  } catch {
-    return d;
-  }
+
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <View className="mb-3">
+      <Text className="text-[13px] font-kumbh text-gray-600 mb-1">{label}</Text>
+      {children}
+    </View>
+  );
 }
+
+function PillGroup({
+  options,
+  value,
+  onChange,
+  scrollable,
+}: {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  scrollable?: boolean;
+}) {
+  const content = (
+    <View className="flex-row flex-wrap gap-2">
+      {options.map((opt) => {
+        const active = opt === value;
+        return (
+          <Pressable
+            key={opt}
+            onPress={() => onChange(opt)}
+            className={`px-3 py-2 rounded-full border ${
+              active
+                ? "bg-blue-600 border-blue-600"
+                : "bg-white border-gray-300"
+            }`}
+          >
+            <Text
+              className={`text-xs font-kumbh ${active ? "text-white" : "text-gray-800"}`}
+            >
+              {opt}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+
+  if (!scrollable) return content;
+
+  return (
+    <FlatList
+      data={options}
+      keyExtractor={(x) => x}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerClassName="gap-2"
+      renderItem={({ item }) => {
+        const active = item === value;
+        return (
+          <Pressable
+            onPress={() => onChange(item)}
+            className={`px-3 py-2 rounded-full border ${
+              active
+                ? "bg-blue-600 border-blue-600"
+                : "bg-white border-gray-300"
+            }`}
+          >
+            <Text
+              className={`text-xs font-kumbh ${active ? "text-white" : "text-gray-800"}`}
+            >
+              {item}
+            </Text>
+          </Pressable>
+        );
+      }}
+    />
+  );
+}
+
 function labelForTab(t: TabKey) {
   if (t === "all") return "All";
-  if (t === "active") return "Active";
-  return "Suspended";
+  if (t === "current") return "Current";
+  if (t === "pending") return "Pending";
+  return "Completed";
+}
+function capitalize(s?: string) {
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function formatMoney(n?: number) {
+  if (typeof n !== "number") return "—";
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "NGN",
+      maximumFractionDigits: 0,
+    }).format(n);
+  } catch {
+    return String(n);
+  }
 }

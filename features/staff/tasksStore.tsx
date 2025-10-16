@@ -1,15 +1,15 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, {
   createContext,
+  ReactNode,
   useContext,
+  useEffect,
   useMemo,
   useState,
-  useEffect,
-  ReactNode,
 } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type StatusKey =
-  | "in_progress"
+  | "in-progress"
   | "not_started"
   | "completed"
   | "canceled";

@@ -1,34 +1,34 @@
 // components/staff/tasks/TasksOverviewCard.tsx
-import React, { useEffect, useMemo } from "react";
-import { Image, Pressable, Text, View, FlatList } from "react-native";
 import { router } from "expo-router";
+import React, { useEffect, useMemo } from "react";
+import { FlatList, Image, Pressable, Text, View } from "react-native";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectUser } from "@/redux/user/user.slice";
-import { fetchProfile } from "@/redux/user/user.thunks";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
 import {
   makeSelectDefaultChannelId,
   selectStatus as selectChannelsStatus,
 } from "@/redux/channels/channels.selectors";
 import { selectChannelById } from "@/redux/channels/channels.slice";
+import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { fetchProfile } from "@/redux/user/user.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 // backend -> UI status mapping (same as used elsewhere)
 const fromApiStatus = (s?: string | null) => {
   const v = (s ?? "").toLowerCase().replace(/_/g, "-");
-  if (v === "in-progress") return "in_progress";
+  if (v === "in-progress") return "in-progress";
   if (v === "not-started" || v === "pending" || v === "todo")
     return "not_started";
   if (v === "completed" || v === "done") return "completed";
   if (v === "canceled" || v === "cancelled") return "canceled";
-  return "in_progress";
+  return "in-progress";
 };
 
 type UiTask = {
   id: string;
   title: string;
   description?: string | null;
-  status: "in_progress" | "completed" | "not_started" | "canceled";
+  status: "in-progress" | "completed" | "not_started" | "canceled";
   channelCode?: string | null;
   createdAt: number;
 };

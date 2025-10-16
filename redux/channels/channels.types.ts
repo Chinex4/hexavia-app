@@ -17,7 +17,7 @@ export interface Channel {
     description?: string | null;
     createdAt: string;
     updatedAt?: string;
-    status: "not_started" | "in_progress" | "completed";
+    status: "not_started" | "in-progress" | "completed" | "canceled";
   }>;
   resources: Array<{
     _id: string;

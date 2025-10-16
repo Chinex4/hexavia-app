@@ -173,24 +173,24 @@ export default function ChannelResourcesScreen() {
     }
   };
 
-  const downloadResource = async (r: ChannelResource) => {
-    try {
-      const fileExt = ext(r.name || r.resourceUpload) || "bin";
-      const fileName = (r.name && slugifyFilename(r.name)) || `resource.${fileExt}`;
-      const baseDir : string = (FileSystem.documentDirectory ?? FileSystem.cacheDirectory)!;
-      const target = `${baseDir}${fileName}`;
-      const url = ensureHttpUrl(r.resourceUpload);
-      console.log("Downloading", { url, target });
-      const { uri } = await FileSystem.downloadAsync(url, target);
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri);
-      } else {
-        showSuccess("Downloaded to app documents");
-      }
-    } catch {
-      showError("Download failed");
-    }
-  };
+  // const downloadResource = async (r: ChannelResource) => {
+  //   try {
+  //     const fileExt = ext(r.name || r.resourceUpload) || "bin";
+  //     const fileName = (r.name && slugifyFilename(r.name)) || `resource.${fileExt}`;
+  //     const baseDir : string = (FileSystem.documentDirectory ?? FileSystem.cacheDirectory)!;
+  //     const target = `${baseDir}${fileName}`;
+  //     const url = ensureHttpUrl(r.resourceUpload);
+  //     console.log("Downloading", { url, target });
+  //     const { uri } = await FileSystem.downloadAsync(url, target);
+  //     if (await Sharing.isAvailableAsync()) {
+  //       await Sharing.shareAsync(uri);
+  //     } else {
+  //       showSuccess("Downloaded to app documents");
+  //     }
+  //   } catch {
+  //     showError("Download failed");
+  //   }
+  // };
 
   const copyLink = async (r: ChannelResource) => {
     try {

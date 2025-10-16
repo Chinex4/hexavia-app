@@ -1,15 +1,15 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   Text,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, Stack, useLocalSearchParams } from "expo-router";
 
 import BoardCard from "@/components/client/tasks/BoardCard";
 import FabCreate from "@/components/staff/tasks/FabCreate";
@@ -17,22 +17,22 @@ import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import TaskDetailModal from "@/components/staff/tasks/modals/TaskDetailModal";
 import { STATUS_META, StatusKey, Task } from "@/features/staff/types";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectUser } from "@/redux/user/user.slice";
-import { fetchProfile } from "@/redux/user/user.thunks";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import { fromApiStatus } from "@/features/client/statusMap";
 import {
   makeSelectDefaultChannelId,
   selectStatus as selectChannelsStatus,
 } from "@/redux/channels/channels.selectors";
 import { selectChannelById } from "@/redux/channels/channels.slice";
-import { fromApiStatus } from "@/features/client/statusMap";
+import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { fetchProfile } from "@/redux/user/user.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const PRIMARY = "#4C5FAB";
 
 export default function StatusScreen() {
   const params = useLocalSearchParams<{ status: StatusKey }>();
-  const statusKey = (params.status || "in_progress") as StatusKey;
+  const statusKey = (params.status || "in-progress") as StatusKey;
 
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
@@ -95,16 +95,17 @@ export default function StatusScreen() {
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View className="flex-row items-center px-4 pt-2 pb-3 mt-5">
+      <View className="flex-row items-center justify-between px-4 pt-2 pb-3 mt-5">
         <Pressable
           onPress={() => router.push("/(client)/(tabs)/tasks")}
           className="h-9 w-9 rounded-full items-center justify-center"
         >
           <Ionicons name="chevron-back" size={22} color="#111827" />
         </Pressable>
-        <Text className="font-kumbhBold text-[22px] ml-3 text-[#111827]">
+        <Text className="font-kumbhBold text-2xl ml-3 text-[#111827]">
           Task Boards
         </Text>
+        <View className="w-10" />
       </View>
 
       {isLoading ? (
@@ -130,7 +131,7 @@ export default function StatusScreen() {
           )}
           ListEmptyComponent={
             <View className="px-4">
-              <Text className="font-kumbh text-[#9CA3AF]">
+              <Text className="font-kumbh text-center mt-4 text-[#9CA3AF]">
                 No tasks in this category yet.
               </Text>
             </View>
