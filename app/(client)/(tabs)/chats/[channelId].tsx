@@ -44,7 +44,8 @@ export default function ChatScreen() {
   const router = useRouter();
 
   const user = useAppSelector(selectUser);
-  const meId = user?._id ?? "me-001";
+  const meId = user?._id;
+  // console.log(meId)
 
   const channelId = typeof rawId === "string" ? rawId : rawId?.[0];
 
@@ -52,7 +53,10 @@ export default function ChatScreen() {
   const channel = useAppSelector(channelSel);
 
   useEffect(() => {
-    if (!meId) return;
+    if (!meId) {
+      console.warn("[chat] No valid meId yet – not connecting socket.");
+      return;
+    }
     dispatch({ type: "chat/connect", payload: { meId } });
     return () => {
       dispatch({ type: "chat/disconnect" });
@@ -63,7 +67,7 @@ export default function ChatScreen() {
     if (!channelId) return;
     if (channel) return;
     dispatch(fetchChannelById(channelId));
-  }, [dispatch, channelId, !!channel]);
+  }, [dispatch, channelId, channel]);
 
   useEffect(() => {
     if (!channelId || !meId) return;
@@ -290,7 +294,7 @@ export default function ChatScreen() {
     try {
       if (kind === "gallery") {
         const res = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
           quality: 0.7,
           allowsEditing: false,
         });
@@ -452,13 +456,18 @@ export default function ChatScreen() {
 
   const markVisibleAsRead = () => {
     if (!meId || !channelId || !messagesFromRedux?.length) return;
-    const unread = messagesFromRedux
-      .filter((m: any) => !m.isRead)
+    const unreadFromOthers = messagesFromRedux
+      .filter((m: any) => !m.isRead && m.senderId !== meId)
       .map((m: any) => m.id);
-    if (unread.length) {
+    if (unreadFromOthers.length) {
       dispatch({
         type: "chat/markAsRead",
-        payload: { meId, messageIds: unread, kind: "community", channelId },
+        payload: {
+          meId,
+          messageIds: unreadFromOthers,
+          kind: "community",
+          channelId,
+        },
       });
     }
   };

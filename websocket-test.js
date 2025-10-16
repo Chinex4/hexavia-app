@@ -6,7 +6,7 @@ const io = require('socket.io-client');
 // ========================================
 // CONFIGURATION - UPDATE THESE VALUES
 // ========================================
-const SERVER_URL = 'http://localhost:5000'; 
+const SERVER_URL = 'https://hexavia.onrender.com'; 
 const TEST_USER_1_ID = '68dd5a5d7f5cb9460b3717cc'; 
 const TEST_USER_2_ID = '68dd5b1203f02b905b38bcac'; 
 const TEST_CHANNEL_ID = '68db30744aded2adc6ad1cef'; 

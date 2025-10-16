@@ -9,7 +9,19 @@ export function getSocket() {
 
 export function connectSocket() {
   if (socket?.connected) return socket;
-  socket = io(WS_URL, { transports: ['websocket'], autoConnect: true });
+
+  if (!WS_URL) {
+    console.warn("[chat] WS_URL is missing!");
+  }
+
+  socket = io(WS_URL, {
+    transports: ["websocket"],
+    autoConnect: true,
+    // path: WS_PATH ?? "/socket.io",
+    reconnection: true,
+    reconnectionAttempts: Infinity,
+    reconnectionDelay: 500,
+  });
 
   return socket;
 }

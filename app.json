@@ -12,7 +12,12 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.heischinex.hexavia",
-      "icon": "./assets/images/logo-icon.png"
+      "icon": "./assets/images/logo-icon.png",
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "We use the mic for sending voice notes.",
+        "NSCameraUsageDescription": "We use the camera for sharing photos in chat.",
+        "NSPhotoLibraryUsageDescription": "We need access to your photos to share images."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -21,7 +26,8 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.heischinex.hexavia",
-      "softwareKeyboardLayoutMode": "resize"
+      "softwareKeyboardLayoutMode": "resize",
+      "permissions": ["RECORD_AUDIO", "CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
     },
     "web": {
       "bundler": "metro",

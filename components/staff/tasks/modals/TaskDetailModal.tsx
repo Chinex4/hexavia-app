@@ -1,6 +1,14 @@
 // components/staff/tasks/modals/TaskDetailModal.tsx
 import React, { useEffect, useMemo, useState } from "react";
-import { Modal, Pressable, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Pressable,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   updateChannelTask,
@@ -11,6 +19,8 @@ import { selectChannelIdByCode } from "@/redux/channels/channels.slice";
 import { StatusKey, TAB_ORDER, Task } from "@/features/staff/types";
 import { toApiStatus } from "@/features/client/statusMap";
 import { showError } from "@/components/ui/toast";
+import { Keyboard } from "react-native";
+import { Platform } from "react-native";
 
 export default function TaskDetailModal({
   visible,
@@ -106,85 +116,96 @@ export default function TaskDetailModal({
       transparent
       onRequestClose={onClose}
     >
-      <View className="flex-1 bg-black/40 justify-end">
-        <View className="bg-white rounded-t-3xl px-5 py-8">
-          <Text className="font-kumbhBold text-[20px] text-[#111827]">
-            Task Details
-          </Text>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={0} // bump this if you have a custom header
+      >
+        {/* tap outside to dismiss keyboard */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View className="flex-1 bg-black/40 justify-end">
+            <View className="bg-white rounded-t-3xl px-5 py-8">
+              <Text className="font-kumbhBold text-[20px] text-[#111827]">
+                Task Details
+              </Text>
 
-          <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">Name</Text>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Enter task name"
-            className="font-kumbh text-[#111827] border border-[#E5E7EB] rounded-2xl px-4 py-3"
-          />
+              <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">Name</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Enter task name"
+                className="font-kumbh text-[#111827] border border-[#E5E7EB] rounded-2xl px-4 py-3"
+              />
 
-          <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">
-            Description
-          </Text>
-          <TextInput
-            value={desc}
-            onChangeText={setDesc}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-            placeholder="Add a short description"
-            className="font-kumbh text-[#111827] border border-[#E5E7EB] rounded-2xl px-4 py-3"
-            style={{ minHeight: 120 }}
-          />
+              <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">
+                Description
+              </Text>
+              <TextInput
+                value={desc}
+                onChangeText={setDesc}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                placeholder="Add a short description"
+                className="font-kumbh text-[#111827] border border-[#E5E7EB] rounded-2xl px-4 py-3"
+                style={{ minHeight: 120 }}
+              />
 
-          <Text className="font-kumbh text-[#6B7280] mt-3">
-            Channel: {task.channelCode}
-          </Text>
+              <Text className="font-kumbh text-[#6B7280] mt-3">
+                Channel: {task.channelCode}
+              </Text>
 
-          <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">
-            Change Status
-          </Text>
-          <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-            {TAB_ORDER.map((s) => {
-              const selected = pending === s;
-              return (
+              <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">
+                Change Status
+              </Text>
+              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                {TAB_ORDER.map((s) => {
+                  const selected = pending === s;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => setPending(s)}
+                      className="rounded-full px-4 py-2"
+                      style={{
+                        backgroundColor: selected ? "#111827" : "#E5E7EB",
+                      }}
+                    >
+                      <Text
+                        className="font-kumbh text-[12px]"
+                        style={{ color: selected ? "#fff" : "#111827" }}
+                      >
+                        {s.replace("-", " ")}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <View
+                className="flex-row justify-end items-center mt-6"
+                style={{ gap: 12 }}
+              >
+                <Pressable disabled={saving} onPress={onClose}>
+                  <Text className="font-kumbh text-[#6B7280]">Close</Text>
+                </Pressable>
                 <Pressable
-                  key={s}
-                  onPress={() => setPending(s)}
-                  className="rounded-full px-4 py-2"
-                  style={{ backgroundColor: selected ? "#111827" : "#E5E7EB" }}
+                  onPress={save}
+                  disabled={!canSave || saving}
+                  className="rounded-xl px-5 py-3"
+                  style={{
+                    backgroundColor: !canSave || saving ? "#9CA3AF" : "#4C5FAB",
+                    opacity: saving ? 0.8 : 1,
+                  }}
                 >
-                  <Text
-                    className="font-kumbh text-[12px]"
-                    style={{ color: selected ? "#fff" : "#111827" }}
-                  >
-                    {s.replace("-", " ")}
+                  <Text className="font-kumbh text-white">
+                    {saving ? "Saving…" : "Save"}
                   </Text>
                 </Pressable>
-              );
-            })}
+              </View>
+            </View>
           </View>
-
-          <View
-            className="flex-row justify-end items-center mt-6"
-            style={{ gap: 12 }}
-          >
-            <Pressable disabled={saving} onPress={onClose}>
-              <Text className="font-kumbh text-[#6B7280]">Close</Text>
-            </Pressable>
-            <Pressable
-              onPress={save}
-              disabled={!canSave || saving}
-              className="rounded-xl px-5 py-3"
-              style={{
-                backgroundColor: !canSave || saving ? "#9CA3AF" : "#4C5FAB",
-                opacity: saving ? 0.8 : 1,
-              }}
-            >
-              <Text className="font-kumbh text-white">
-                {saving ? "Saving…" : "Save"}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-      </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
