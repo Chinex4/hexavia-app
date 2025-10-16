@@ -9,3 +9,4 @@ export const selectMessagesForCurrent = createSelector(selectChatState, (s) => {
   const t = s.currentThreadId ? s.threads[s.currentThreadId] : null;
   return t ? t.messages.map((id) => s.messages[id]).filter(Boolean) : [];
 });
+

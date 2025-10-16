@@ -23,7 +23,7 @@ function ChannelCard({ item, width, gap }: Props) {
     <Pressable
       onPress={() =>
         router.push({
-          pathname: "/(staff)/channels/[channelId]/resources" as any,
+          pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
           params: { channelId: item.id },
         })
       }
@@ -56,7 +56,7 @@ function ChannelCard({ item, width, gap }: Props) {
         {/* Bottom (no member avatars to keep it clean & light) */}
         <View className="mt-4 flex-row justify-between items-center">
           <Text
-            className="text-white/90 leading-5 text-[13px] font-kumbh truncate"
+            className="text-white/90 w-[89px] leading-5 text-[13px] font-kumbh"
             numberOfLines={3}
           >
             {item.subtitle}
