@@ -1,15 +1,15 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Pressable,
   Text,
   View,
-  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { router, Stack, useLocalSearchParams } from "expo-router";
 
 import BoardCard from "@/components/client/tasks/BoardCard";
 import FabCreate from "@/components/staff/tasks/FabCreate";
@@ -17,22 +17,22 @@ import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import TaskDetailModal from "@/components/staff/tasks/modals/TaskDetailModal";
 import { STATUS_META, StatusKey, Task } from "@/features/staff/types";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectUser } from "@/redux/user/user.slice";
-import { fetchProfile } from "@/redux/user/user.thunks";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import { fromApiStatus } from "@/features/client/statusMap";
 import {
   makeSelectDefaultChannelId,
   selectStatus as selectChannelsStatus,
 } from "@/redux/channels/channels.selectors";
 import { selectChannelById } from "@/redux/channels/channels.slice";
-import { fromApiStatus } from "@/features/client/statusMap";
+import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { fetchProfile } from "@/redux/user/user.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const PRIMARY = "#4C5FAB";
 
 export default function StatusScreen() {
   const params = useLocalSearchParams<{ status: StatusKey }>();
-  const statusKey = (params.status || "in_progress") as StatusKey;
+  const statusKey = (params.status || "in-progress") as StatusKey;
 
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);

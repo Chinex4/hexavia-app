@@ -1,21 +1,20 @@
+import { StatusBar } from "expo-status-bar";
 import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { StatusBar } from "expo-status-bar";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
+import { makeSelectChannelById, makeSelectDefaultChannelId, selectStatus as selectChannelsStatus } from "@/redux/channels/channels.selectors";
 import { fetchChannelById } from "@/redux/channels/channels.thunks";
-import { makeSelectChannelById, selectStatus as selectChannelsStatus } from "@/redux/channels/channels.selectors";
-import { makeSelectDefaultChannelId } from "@/redux/channels/channels.selectors";
 
 import { STATUS_META, StatusKey } from "@/features/staff/types";
 // UI
+import StatusCard from "@/components/client/tasks/StatusCard";
 import FabCreate from "@/components/staff/tasks/FabCreate";
 import SearchBar from "@/components/staff/tasks/SearchBar";
-import StatusCard from "@/components/client/tasks/StatusCard";
 import StatusTabs from "@/components/staff/tasks/StatusTabs";
 import TaskCard from "@/components/staff/tasks/TaskCard";
 import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
@@ -26,12 +25,12 @@ const PRIMARY = "#4C5FAB";
 /** Normalize backend → UI statuses */
 function fromApiStatus(s: string | null | undefined): StatusKey {
   const v = (s ?? "").toLowerCase().replace(/_/g, "-");
-  if (v === "in-progress") return "in_progress";
+  if (v === "in-progress") return "in-progress";
   if (v === "not-started" || v === "pending" || v === "todo") return "not_started";
   if (v === "completed" || v === "done") return "completed";
   if (v === "canceled" || v === "cancelled") return "canceled";
   // sensible fallback
-  return "in_progress";
+  return "in-progress";
 }
 
 type UiTask = {
@@ -82,7 +81,7 @@ export default function TaskScreen() {
 
   // Local UI state (search, filters, active tab)
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState<StatusKey>("in_progress");
+  const [active, setActive] = useState<StatusKey>("in-progress");
   const [showCreate, setShowCreate] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filters, setFilters] = useState<FilterState>({
@@ -145,7 +144,7 @@ export default function TaskScreen() {
       <View className="px-4 mt-6">
         <View className="flex-row" style={{ gap: 8 }}>
           <View style={{ flex: 1, gap: 8 }}>
-            <StatusCard status="in_progress" />
+            <StatusCard status="in-progress" />
             <StatusCard status="completed" />
           </View>
           <View style={{ flex: 1, gap: 8 }}>
@@ -213,15 +212,15 @@ export default function TaskScreen() {
         />
       )}
 
-      <FabCreate onPress={() => {/* optional: open create modal scoped to this channel */}} />
+      <FabCreate onPress={() => setShowCreate(true)} />
 
       {/* Modals */}
       <CreateTaskModal
-        visible={false /* hook up when ready */}
-        onClose={() => {}}
+        visible={showCreate}
+        onClose={() => setShowCreate(false)}
       />
       <FilterModal
-        visible={false /* showFilter */}
+        visible={showFilter}
         initial={filters}
         onClose={() => setShowFilter(false)}
         onApply={(f) => {

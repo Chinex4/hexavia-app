@@ -1,12 +1,12 @@
-import React, { useEffect, useMemo } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
+import { selectChannelsForUser } from "@/redux/channels/channels.slice";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectAdminUsers } from "@/redux/admin/admin.slice";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
-import { selectChannelsForUser } from "@/redux/channels/channels.slice";
+import React, { useEffect, useMemo } from "react";
+import { Pressable, ScrollView, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type ApiTask = {
   _id: string;
@@ -62,7 +62,7 @@ export default function TaskBoard() {
       else if (
         [
           "doing",
-          "in_progress",
+          "in-progress",
           "in-progress",
           "progress",
           "active",

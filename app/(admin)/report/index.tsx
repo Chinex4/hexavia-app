@@ -1,5 +1,5 @@
 // app/(app)/reports/CreateReportScreen.tsx
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
   View,
@@ -17,20 +17,24 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
 import { yupResolver } from "@hookform/resolvers/yup";
+import { selectAllChannels } from "@/redux/channels/channels.slice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+
+type Channel = { _id: string; name: string };
 
 type FormValues = {
   projectName: string;
-  channel: string;
+  channelId: string;
   task: string;
   duration: string;
   date: Date | null;
 };
 
-// ✅ Stop epoch casting: keep null as null, then validate manually
 const schema: yup.ObjectSchema<FormValues> = yup
   .object({
     projectName: yup.string().trim().required("Project name is required"),
-    channel: yup.string().trim().required("Please select a channel"),
+    channelId: yup.string().trim().required("Please select a channel"),
     task: yup.string().trim().required("Task is required"),
     duration: yup.string().trim().required("Enter duration (e.g. 4 weeks)"),
     date: yup
@@ -57,17 +61,19 @@ export default function CreateReportScreen() {
     resolver: yupResolver(schema),
     defaultValues: {
       projectName: "",
-      channel: "",
+      channelId: "",
       task: "",
       duration: "",
       date: null, // stays null until user selects
     },
     mode: "onBlur",
   });
+  const channelId = watch("channelId");
 
   // Date picker state
   const [showDate, setShowDate] = useState(false);
   const [tempDate, setTempDate] = useState<Date | null>(null); // iOS live buffer
+  const dispatch = useAppDispatch();
 
   const openDatePicker = (current?: Date | null) => {
     setTempDate(current ?? new Date());
@@ -81,12 +87,17 @@ export default function CreateReportScreen() {
 
   const dateValue = watch("date");
 
-  // channel picker modal
   const [channelOpen, setChannelOpen] = useState(false);
-  const channels = useMemo(
-    () => ["General", "Finance", "Sales", "Marketing", "Engineering", "HR"],
-    []
-  );
+
+  const channels = useAppSelector(selectAllChannels) as Channel[];
+
+  const selectedChannelName = useMemo(() => {
+    return channels.find((c) => c._id === channelId)?.name ?? "";
+  }, [channels, channelId]);
+
+  useEffect(() => {
+    dispatch(fetchChannels());
+  }, [dispatch]);
 
   const onSubmit = (values: FormValues) => {
     console.log("Report form:", values);
@@ -133,7 +144,7 @@ export default function CreateReportScreen() {
         <Controller
           control={control}
           name="projectName"
-          render={({ field: { onChange, onBlur, value} }) => (
+          render={({ field: { onChange, onBlur, value } }) => (
             <TextInput
               className="mt-2 h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 font-kumbh text-[16px] text-black"
               placeholder="Enter Project Name"
@@ -151,29 +162,29 @@ export default function CreateReportScreen() {
         )}
 
         {/* Select Channel */}
-        <Text className="mt-5 text-lg font-kumbh text-black">Select Channel</Text>
+        <Text className="mt-5 text-lg font-kumbh text-black">
+          Select Channel
+        </Text>
         <Controller
           control={control}
-          name="channel"
+          name="channelId"
           render={({ field: { value } }) => (
             <Pressable
               onPress={() => setChannelOpen(true)}
               className="mt-2 h-14 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4"
             >
               <Text
-                className={`font-kumbh text-[16px] ${
-                  value ? "text-black" : "text-gray-400"
-                }`}
+                className={`font-kumbh text-[16px] ${value ? "text-black" : "text-gray-400"}`}
               >
-                {value || "Select Channel"}
+                {selectedChannelName || "Select Channel"}
               </Text>
               <ChevronDown size={20} color="#6B7280" />
             </Pressable>
           )}
         />
-        {errors.channel && (
+        {errors.channelId && (
           <Text className="mt-1 font-kumbh text-sm text-red-500">
-            {errors.channel.message}
+            {errors.channelId.message}
           </Text>
         )}
 
@@ -288,17 +299,25 @@ export default function CreateReportScreen() {
           </Text>
           <FlatList
             data={channels}
-            keyExtractor={(i) => i}
-            ItemSeparatorComponent={() => <View className="h-[1px] bg-gray-100" />}
+            keyExtractor={(i) => i._id}
+            ItemSeparatorComponent={() => (
+              <View className="h-[1px] bg-gray-100" />
+            )}
             renderItem={({ item }) => (
               <Pressable
                 onPress={() => {
-                  setValue("channel", item, { shouldValidate: true });
+                  setValue("channelId", item._id, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  });
                   setChannelOpen(false);
                 }}
                 className="py-3"
               >
-                <Text className="font-kumbh text-[16px] text-black">{item}</Text>
+                <Text className="font-kumbh text-[16px] text-black">
+                  {item.name}
+                </Text>
               </Pressable>
             )}
           />
@@ -333,7 +352,9 @@ export default function CreateReportScreen() {
                 <Text className="font-kumbh text-primary">Cancel</Text>
               </Pressable>
               <Pressable onPress={confirmDate}>
-                <Text className="font-kumbh font-semibold text-primary">Done</Text>
+                <Text className="font-kumbh font-semibold text-primary">
+                  Done
+                </Text>
               </Pressable>
             </View>
 

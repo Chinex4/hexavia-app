@@ -1,28 +1,28 @@
 // components/staff/tasks/modals/CreateTaskModal.tsx
+import { showError } from "@/components/ui/toast";
+import { toApiStatus } from "@/features/client/statusMap";
+import { StatusKey, TAB_ORDER } from "@/features/staff/types";
+import {
+  normalizeCode,
+  selectCodeIndex,
+  selectMyChannelsByUserId,
+} from "@/redux/channels/channels.selectors";
+import {
+  createChannelTask,
+  fetchChannelById,
+  fetchChannels,
+} from "@/redux/channels/channels.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Modal,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
-  ScrollView,
 } from "react-native";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  createChannelTask,
-  fetchChannels,
-  fetchChannelById,
-} from "@/redux/channels/channels.thunks";
-import {
-  selectCodeIndex,
-  normalizeCode,
-  selectMyChannelsByUserId,
-} from "@/redux/channels/channels.selectors";
-import { selectUser } from "@/redux/user/user.slice";
-import { showError } from "@/components/ui/toast";
-import { StatusKey, TAB_ORDER } from "@/features/staff/types";
-import { toApiStatus } from "@/features/client/statusMap";
 
 export default function CreateTaskModal({
   visible,
@@ -41,7 +41,7 @@ export default function CreateTaskModal({
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
   const [channelCode, setChannelCode] = useState("");
-  const [status, setStatus] = useState<StatusKey>("in_progress");
+  const [status, setStatus] = useState<StatusKey>("in-progress");
   const [picking, setPicking] = useState(false);
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null
@@ -67,7 +67,7 @@ export default function CreateTaskModal({
     setTitle("");
     setDesc("");
     setChannelCode("");
-    setStatus("in_progress");
+    setStatus("in-progress");
     setPicking(false);
     setSelectedChannelId(null);
   };
@@ -204,7 +204,7 @@ export default function CreateTaskModal({
                       className="font-kumbh text-[12px]"
                       style={{ color: selected ? "#FFFFFF" : "#111827" }}
                     >
-                      {s.replace("_", " ")}
+                      {s.replace("-", " ")}
                     </Text>
                   </Pressable>
                 );

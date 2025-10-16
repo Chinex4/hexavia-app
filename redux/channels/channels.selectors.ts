@@ -21,7 +21,7 @@ export const selectAllChannels = createSelector(
   (byId, allIds) => allIds.map((id) => byId[id])
 );
 
-// console.log(selectAllChannels)
+// console.log(selectAllChannels);
 
 export const makeSelectChannelById = (id: string) =>
   createSelector([selectById], (byId) => byId[id] ?? null);
@@ -78,10 +78,10 @@ export const selectMyChannelsByUserId = createSelector(
   [selectAllChannels, (_: RootState, userId: string | number | null) => userId],
   (channels, userId) => {
     if (!userId) return [];
-    // console.log(channels[0].members)
+    // console.log(channels., userId)
     return channels.filter(
       (ch) =>
-        (ch as any)?.createdBy?._id === userId || channelHasUser(ch, userId)
+        (ch as any)?.createdBy?._id === userId || channelHasUser(ch, userId) || (ch as any)?.createdBy === userId
     );
   }
 );
@@ -133,4 +133,57 @@ export const makeSelectDefaultChannelId = (
       const first = arr[0];
       return first ? toId(first) : null;
     }
+  );
+
+
+
+  // If you already exported this, reuse it
+export const selectChannelById = (id: string) => (s: RootState) =>
+  id ? s.channels.byId[id] ?? null : null;
+
+export type ChannelStatusKey = "not-started" | "in-progress" | "completed" | "canceled";
+
+export const normalizeTaskStatus = (raw?: string | null): ChannelStatusKey => {
+  const s = String(raw ?? "").toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+  if (["not-started", "notstart", "todo", "to_do", "pending"].includes(s)) return "not-started";
+  if (["in-progress", "inprogress", "doing", "ongoing"].includes(s)) return "in-progress";
+  if (["completed", "done", "finished", "resolved"].includes(s)) return "completed";
+  if (["canceled", "cancelled", "archived", "void"].includes(s)) return "canceled";
+  return "not-started";
+};
+
+export type ChannelTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: ChannelStatusKey;
+  channelCode: string;
+  channelId?: string;
+  createdAt: number;
+};
+
+// All Channel tasks for a channel (normalized)
+export const makeSelectChannelTasksByChannelId = (channelId?: string | null) =>
+  createSelector([(s: RootState) => (channelId ? selectChannelById(channelId)(s) : null)], (channel) => {
+    const rawTasks: any[] = Array.isArray((channel as any)?.tasks) ? (channel as any).tasks : [];
+    return rawTasks.map<ChannelTask>((t) => ({
+      id: String(t?._id ?? t?.id ?? Math.random()),
+      title: String(t?.name ?? t?.title ?? "Untitled task"),
+      description: t?.description ?? null,
+      status: normalizeTaskStatus(t?.status),
+      channelCode: String((channel as any)?.code ?? ""),
+      channelId: t?.channelId ? String(t.channelId) : undefined,
+      createdAt:
+        typeof t?.createdAt === "number"
+          ? t.createdAt
+          : t?.createdAt
+          ? Date.parse(t.createdAt)
+          : Date.now(),
+    }));
+  });
+
+// Tasks for a channel filtered by a status
+export const makeSelectChannelTasksByStatus = (channelId?: string | null, status?: ChannelStatusKey) =>
+  createSelector([makeSelectChannelTasksByChannelId(channelId)], (tasks) =>
+    status ? tasks.filter((t) => t.status === status) : tasks
   );

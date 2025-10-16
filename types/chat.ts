@@ -13,7 +13,7 @@ export type Message = {
   senderId: string;
   senderName: string;
   avatar?: string;
-  status?: MessageStatus;
+  status?: string;
   seenBy?: string[];
   replyTo?: ReplyMeta; // <- NEW
   // optional attachment prototypes

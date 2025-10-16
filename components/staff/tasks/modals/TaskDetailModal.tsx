@@ -155,7 +155,7 @@ export default function TaskDetailModal({
                     className="font-kumbh text-[12px]"
                     style={{ color: selected ? "#fff" : "#111827" }}
                   >
-                    {s.replace("_", " ")}
+                    {s.replace("-", " ")}
                   </Text>
                 </Pressable>
               );

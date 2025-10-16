@@ -109,8 +109,8 @@ export default function AllChannelsScreen() {
   const data = useMemo(() => {
     const keyed = myChannels
       .filter(Boolean)
-      .map((c) => ({ ...c, __key: makeKey(c) }))
-      .filter((c) => c.__key.length > 0);
+      .map((c: any) => ({ ...c, __key: makeKey(c) }))
+      .filter((c: any) => c.__key.length > 0);
 
     const seen = new Set<string>();
     const deduped: any[] = [];

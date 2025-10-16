@@ -1,9 +1,4 @@
 // app/(staff)/(tabs)/tasks/index.tsx
-import { useTasks } from "@/features/staff/tasksStore";
-import { STATUS_META, StatusKey } from "@/features/staff/types";
-import React, { useMemo, useState } from "react";
-import { FlatList, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import FabCreate from "@/components/staff/tasks/FabCreate";
 import SearchBar from "@/components/staff/tasks/SearchBar";
 import StatusCard from "@/components/staff/tasks/StatusCard";
@@ -11,11 +6,16 @@ import StatusTabs from "@/components/staff/tasks/StatusTabs";
 import TaskCard from "@/components/staff/tasks/TaskCard";
 import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import FilterModal, { FilterState } from "@/components/staff/tasks/modals/FIlterModal";
+import { useTasks } from "@/features/staff/tasksStore";
+import { STATUS_META, StatusKey } from "@/features/staff/types";
 import { StatusBar } from "expo-status-bar";
+import React, { useMemo, useState } from "react";
+import { FlatList, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function TaskScreen() {
   const [query, setQuery] = useState("");
-  const [active, setActive] = useState<StatusKey>("in_progress");
+  const [active, setActive] = useState<StatusKey>("in-progress");
   const [showCreate, setShowCreate] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
   const [filters, setFilters] = useState<FilterState>({ channelCode: "", statuses: [] });
@@ -41,7 +41,7 @@ export default function TaskScreen() {
       <View className="px-4 mt-6">
         <View className="flex-row" style={{ gap: 8 }}>
           <View style={{ flex: 1, gap: 8 }}>
-            <StatusCard status="in_progress" />
+            <StatusCard status="in-progress" />
             <StatusCard status="completed" />
           </View>
           <View style={{ flex: 1, gap: 8 }}>

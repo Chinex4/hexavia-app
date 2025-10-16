@@ -81,9 +81,12 @@ export default function AdminDashboard() {
 
         {/* Create report card */}
         <SectionCard className="mx-5 mt-5" noTitle>
-          <Pressable onPress={() => {
-            router.push('/(admin)/report')
-          }} className="flex-row items-center justify-between">
+          <Pressable
+            onPress={() => {
+              router.push("/(admin)/report");
+            }}
+            className="flex-row items-center justify-between"
+          >
             <View className="flex-row items-center gap-3">
               <View className="w-12 h-12 rounded-2xl bg-primary-100 items-center justify-center">
                 <BarChart3 size={22} color="#4c5fab" />

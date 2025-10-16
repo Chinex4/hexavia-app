@@ -1,41 +1,130 @@
 // app/(admin)/clients/create.tsx
+import { yupResolver } from "@hookform/resolvers/yup";
+import clsx from "clsx";
+import { useRouter } from "expo-router";
+import { ArrowLeft, Bell, ChevronDown, Plus } from "lucide-react-native";
 import React, { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
+  ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
+  Text,
   TouchableWithoutFeedback,
-  Keyboard,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { ArrowLeft, ChevronDown, Bell, Plus } from "lucide-react-native";
-import clsx from "clsx";
+import * as yup from "yup";
+
 import Field from "@/components/admin/Field";
 import Input from "@/components/admin/Input";
 
+import { selectClientMutationLoading } from "@/redux/client/client.selectors";
+import { createClient } from "@/redux/client/client.thunks";
+import type { ClientCreateInput } from "@/redux/client/client.types";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+
+type FormValues = {
+  name: string;
+  projectName: string;
+  industry?: string;
+  staffSize?: string; // text; coerced to number
+  description?: string;
+  problems?: string;
+  engagement?: string;
+  deliverables?: string;
+  payableAmount?: string; // text; coerced to number
+  status: "pending" | "current" | "completed";
+};
+
+const schema: yup.ObjectSchema<FormValues> = yup.object({
+  name: yup.string().trim().required("Client name is required"),
+  projectName: yup.string().trim().required("Project name is required"),
+  industry: yup.string().trim().optional(),
+  staffSize: yup
+    .string()
+    .matches(/^\d*$/, "Staff size must be a number")
+    .optional(),
+  description: yup.string().trim().optional(),
+  problems: yup.string().trim().optional(),
+  engagement: yup.string().trim().optional(),
+  deliverables: yup.string().trim().optional(),
+  payableAmount: yup
+    .string()
+    .matches(/^\d*$/, "Amount must be a number")
+    .optional(),
+  status: yup
+    .mixed<"pending" | "current" | "completed">()
+    .oneOf(["pending", "current", "completed"])
+    .required(),
+});
+
+const STATUS_OPTIONS: Array<FormValues["status"]> = [
+  "pending",
+  "current",
+  "completed",
+];
+
 export default function CreateClient() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const loading = useAppSelector(selectClientMutationLoading);
 
-  // form state (dummy)
-  const [name, setName] = useState("");
-  const [business, setBusiness] = useState("");
-  const [industry, setIndustry] = useState("");
-  const [staffSize, setStaffSize] = useState("");
-  const [description, setDescription] = useState("");
-  const [problems, setProblems] = useState("");
-  const [engagement, setEngagement] = useState("");
-  const [deliverables, setDeliverables] = useState("");
-  const [amount, setAmount] = useState("");
-  const [status, setStatus] = useState<"active" | "inactive">("active");
   const [showStatusMenu, setShowStatusMenu] = useState(false);
 
-  const handleAdd = () => {
-    // later: dispatch(createClient(...))
+  const {
+    control,
+    handleSubmit,
+    formState: { errors, isValid },
+  } = useForm<FormValues>({
+    mode: "onChange",
+    resolver: yupResolver(schema),
+    defaultValues: {
+      name: "",
+      projectName: "",
+      industry: "",
+      staffSize: "",
+      description: "",
+      problems: "",
+      engagement: "",
+      deliverables: "",
+      payableAmount: "",
+      status: "pending",
+    },
+  });
+
+  const onSubmit = async (values: FormValues) => {
+    const payload: ClientCreateInput = {
+      name: values.name.trim(),
+      projectName: values.projectName.trim(),
+      engagement: values.engagement?.trim() || undefined,
+      industry: values.industry?.trim() || undefined,
+      staffSize: values.staffSize ? Number(values.staffSize) : undefined,
+      description: values.description?.trim() || undefined,
+      problems: values.problems?.trim() || undefined,
+      deliverables: values.deliverables?.trim() || undefined,
+      payableAmount: values.payableAmount
+        ? Number(values.payableAmount)
+        : undefined,
+      status: values.status,
+    };
+
+    try {
+      const created = await dispatch(createClient(payload)).unwrap();
+      if (created?._id) {
+        router.push({
+          pathname: "/(admin)/clients/[id]",
+          params: { id: created._id },
+        });
+      } else {
+        router.back();
+      }
+    } catch {
+      // showError already handled in thunk
+    }
   };
 
   return (
@@ -46,21 +135,30 @@ export default function CreateClient() {
           <Pressable
             onPress={() => router.back()}
             className="w-10 h-10 rounded-full items-center justify-center"
+            disabled={loading}
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbh text-text">
-            Add New Client
-          </Text>
+          <Text className="text-3xl font-kumbh text-text">Add New Client</Text>
         </View>
 
-        {/* Add button (top-right) */}
+        {/* Add (top-right) */}
         <Pressable
-          onPress={handleAdd}
-          className="flex-row items-center gap-2 bg-primary-500 px-4 py-2 rounded-xl active:opacity-90"
+          onPress={handleSubmit(onSubmit)}
+          disabled={!isValid || loading}
+          className={clsx(
+            "flex-row items-center gap-2 px-4 py-2 rounded-xl active:opacity-90",
+            !isValid || loading ? "bg-gray-300" : "bg-primary-500"
+          )}
         >
-          <Plus size={16} color="#fff" />
-          <Text className="text-white font-kumbhBold">Add</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Plus size={16} color="#fff" />
+          )}
+          <Text className="text-white font-kumbhBold">
+            {loading ? "Adding..." : "Add"}
+          </Text>
         </Pressable>
       </View>
 
@@ -77,143 +175,266 @@ export default function CreateClient() {
             contentContainerClassName="px-5 pb-10"
             keyboardShouldPersistTaps="handled"
           >
-            {/* Form */}
+            {/* Name */}
             <Field label="Name">
-              <Input
-                placeholder="Enter Name"
-                value={name}
-                onChangeText={setName}
+              <Controller
+                control={control}
+                name="name"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    placeholder="Enter Name"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
               />
             </Field>
+            {errors.name?.message ? (
+              <ErrorText msg={errors.name.message} />
+            ) : null}
 
-            <Field label="Business Name">
-              <Input
-                placeholder="Enter Business Name"
-                value={business}
-                onChangeText={setBusiness}
+            {/* Project Name */}
+            <Field label="Project Name">
+              <Controller
+                control={control}
+                name="projectName"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    placeholder="Enter Project Name"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
               />
             </Field>
+            {errors.projectName?.message ? (
+              <ErrorText msg={errors.projectName.message} />
+            ) : null}
 
+            {/* Industry + Staff size */}
             <View className="flex-row gap-3">
-              <Field label="Industry" className="flex-1">
-                <Input
-                  placeholder="Enter Industry"
-                  value={industry}
-                  onChangeText={setIndustry}
-                />
-              </Field>
-              <Field label="Staff Size" className="flex-1">
-                <Input
-                  placeholder="Enter Staff size"
-                  value={staffSize}
-                  onChangeText={setStaffSize}
-                  keyboardType="numeric"
-                />
-              </Field>
+              <View className="flex-1">
+                <Field label="Industry">
+                  <Controller
+                    control={control}
+                    name="industry"
+                    render={({ field: { value, onChange } }) => (
+                      <Input
+                        placeholder="Enter Industry"
+                        value={value}
+                        onChangeText={onChange}
+                      />
+                    )}
+                  />
+                </Field>
+                {errors.industry?.message ? (
+                  <ErrorText msg={errors.industry.message} />
+                ) : null}
+              </View>
+
+              <View className="flex-1">
+                <Field label="Staff Size">
+                  <Controller
+                    control={control}
+                    name="staffSize"
+                    render={({ field: { value, onChange } }) => (
+                      <Input
+                        placeholder="Enter Staff size"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="numeric"
+                      />
+                    )}
+                  />
+                </Field>
+                {errors.staffSize?.message ? (
+                  <ErrorText msg={errors.staffSize.message} />
+                ) : null}
+              </View>
             </View>
 
+            {/* Description */}
             <Field label="Description">
-              <Input
-                multiline
-                placeholder="Enter Description"
-                value={description}
-                onChangeText={setDescription}
+              <Controller
+                control={control}
+                name="description"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    multiline
+                    placeholder="Enter Description"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
               />
             </Field>
+            {errors.description?.message ? (
+              <ErrorText msg={errors.description.message} />
+            ) : null}
 
+            {/* Problems */}
             <Field label="Problems Faced">
-              <Input
-                multiline
-                placeholder="Enter Problems"
-                value={problems}
-                onChangeText={setProblems}
+              <Controller
+                control={control}
+                name="problems"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    multiline
+                    placeholder="Enter Problems"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
               />
             </Field>
+            {errors.problems?.message ? (
+              <ErrorText msg={errors.problems.message} />
+            ) : null}
 
+            {/* Engagement */}
             <Field label="Engagement Offered">
-              <Input
-                placeholder="Enter Engagement Offered"
-                value={engagement}
-                onChangeText={setEngagement}
+              <Controller
+                control={control}
+                name="engagement"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    placeholder='e.g. "Full-time", "Part-time"'
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
               />
             </Field>
+            {errors.engagement?.message ? (
+              <ErrorText msg={errors.engagement.message} />
+            ) : null}
 
+            {/* Deliverables */}
             <Field label="Deliverables">
-              <Input
-                multiline
-                placeholder="Enter Deliverables"
-                value={deliverables}
-                onChangeText={setDeliverables}
+              <Controller
+                control={control}
+                name="deliverables"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    multiline
+                    placeholder="Enter Deliverables"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
               />
             </Field>
+            {errors.deliverables?.message ? (
+              <ErrorText msg={errors.deliverables.message} />
+            ) : null}
 
+            {/* Amount + Status */}
             <View className="flex-row gap-3">
-              {/* Payable Amount */}
-              <Field label="Payable Amount" className="flex-1">
-                <Input
-                  placeholder="Enter Amount"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="numeric"
-                />
-              </Field>
+              <View className="flex-1">
+                <Field label="Payable Amount">
+                  <Controller
+                    control={control}
+                    name="payableAmount"
+                    render={({ field: { value, onChange } }) => (
+                      <Input
+                        placeholder="Enter Amount"
+                        value={value}
+                        onChangeText={onChange}
+                        keyboardType="numeric"
+                      />
+                    )}
+                  />
+                </Field>
+                {errors.payableAmount?.message ? (
+                  <ErrorText msg={errors.payableAmount.message} />
+                ) : null}
+              </View>
 
-              {/* Status dropdown */}
-              <Field label="Status" className="flex-1">
-                <View>
-                  <Pressable
-                    onPress={() => setShowStatusMenu((s) => !s)}
-                    className="flex-row items-center justify-between bg-gray-200 rounded-2xl px-4 py-4"
-                  >
-                    <Text className="text-gray-700 font-kumbh">
-                      {status === "active" ? "Active" : "Inactive"}
-                    </Text>
-                    <ChevronDown size={18} color="#111827" />
-                  </Pressable>
-
-                  {showStatusMenu ? (
-                    <View className="mt-2 rounded-2xl bg-white border border-gray-200 overflow-hidden">
-                      {(["active", "inactive"] as const).map((opt) => (
+              <View className="flex-1">
+                <Field label="Status">
+                  <Controller
+                    control={control}
+                    name="status"
+                    render={({ field: { value, onChange } }) => (
+                      <View>
                         <Pressable
-                          key={opt}
-                          onPress={() => {
-                            setStatus(opt);
-                            setShowStatusMenu(false);
-                          }}
-                          className={clsx(
-                            "px-4 py-3",
-                            status === opt ? "bg-primary-50" : "bg-white"
-                          )}
+                          disabled={loading}
+                          onPress={() => setShowStatusMenu((s) => !s)}
+                          className="flex-row items-center justify-between bg-gray-200 rounded-2xl px-4 py-4"
                         >
-                          <Text
-                            className={clsx(
-                              "font-kumbh",
-                              status === opt ? "text-primary-700" : "text-text"
-                            )}
-                          >
-                            {opt === "active" ? "Active" : "Inactive"}
+                          <Text className="text-gray-700 font-kumbh">
+                            {capitalize(value)}
                           </Text>
+                          <ChevronDown size={18} color="#111827" />
                         </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              </Field>
+
+                        {showStatusMenu ? (
+                          <View className="mt-2 rounded-2xl bg-white border border-gray-200 overflow-hidden">
+                            {STATUS_OPTIONS.map((opt) => (
+                              <Pressable
+                                key={opt}
+                                onPress={() => {
+                                  onChange(opt);
+                                  setShowStatusMenu(false);
+                                }}
+                                className={clsx(
+                                  "px-4 py-3",
+                                  value === opt ? "bg-primary-50" : "bg-white"
+                                )}
+                              >
+                                <Text
+                                  className={clsx(
+                                    "font-kumbh",
+                                    value === opt
+                                      ? "text-primary-700"
+                                      : "text-text"
+                                  )}
+                                >
+                                  {capitalize(opt)}
+                                </Text>
+                              </Pressable>
+                            ))}
+                          </View>
+                        ) : null}
+                      </View>
+                    )}
+                  />
+                </Field>
+                {errors.status?.message ? (
+                  <ErrorText msg={errors.status.message} />
+                ) : null}
+              </View>
             </View>
 
-            {/* Bottom actions */}
+            {/* Bottom actions – left as requested (disabled while loading) */}
             <View className="mt-8">
-              {/* Primary */}
-              <Pressable className="flex-row items-center justify-center gap-3 bg-primary-500 rounded-2xl py-4 active:opacity-90">
+              <Pressable
+                disabled={loading}
+                className={clsx(
+                  "flex-row items-center justify-center gap-3 rounded-2xl py-4 active:opacity-90",
+                  loading ? "bg-gray-300" : "bg-primary-500"
+                )}
+              >
                 <View className="w-6 h-6 rounded-md bg-primary-400 items-center justify-center">
                   <Bell size={14} color="white" />
                 </View>
                 <Text className="text-white font-kumbhBold">Send Invoice</Text>
               </Pressable>
 
-              {/* Secondary */}
-              <Pressable className="mt-3 rounded-2xl border border-primary-300 py-4 items-center">
-                <Text className="text-primary-700 font-kumbhBold">
+              <Pressable
+                disabled={loading}
+                className={clsx(
+                  "mt-3 rounded-2xl py-4 items-center",
+                  "border",
+                  loading ? "border-gray-300" : "border-primary-300"
+                )}
+              >
+                <Text
+                  className={clsx(
+                    "font-kumbhBold",
+                    loading ? "text-gray-400" : "text-primary-700"
+                  )}
+                >
                   Generate Invoice
                 </Text>
               </Pressable>
@@ -223,4 +444,12 @@ export default function CreateClient() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
+}
+
+/* ------------ helpers ------------- */
+function capitalize(s: string) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+function ErrorText({ msg }: { msg: string }) {
+  return <Text className="text-xs text-red-600 mt-1">{msg}</Text>;
 }
