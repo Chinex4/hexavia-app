@@ -14,7 +14,7 @@ type Props = {
 export default function ChatHeader({ title, subtitle, onPress, onTaskOpen }: Props) {
   const router = useRouter();
   return (
-    <View style={{marginTop: Platform.select({android: 45, ios: 0})}} className="px-5 pt-2 pb-3 bg-white">
+    <View style={{marginTop: Platform.select({android: 10, ios: 0})}} className="px-5 pt-2 pb-3 bg-white">
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center">
           <Pressable

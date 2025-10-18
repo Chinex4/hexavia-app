@@ -11,7 +11,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.heischinex.hexavia",
+      "bundleIdentifier": "com.chinexx.hexavia",
       "icon": "./assets/images/logo-icon.png",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "We use the mic for sending voice notes.",
@@ -25,9 +25,16 @@
         "backgroundColor": "#4C5FAB"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.heischinex.hexavia",
+      "package": "com.chinexx.hexavia",
       "softwareKeyboardLayoutMode": "resize",
-      "permissions": ["RECORD_AUDIO", "CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
+      "permissions": [
+        "RECORD_AUDIO",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -42,7 +49,11 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "buildArchs": ["arm64-v8a", "armeabi-v7a"]
+            "buildArchs": [
+              "arm64-v8a",
+              "armeabi-v7a"
+            ],
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ],
@@ -64,10 +75,11 @@
     "experiments": {
       "typedRoutes": true
     },
+    "owner": "chinexx",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "15e58a48-f947-468a-8b05-591e85f8a437"
+        "projectId": "9fc2dc7e-748f-4416-9cbe-8653dc584903"
       }
     }
   }

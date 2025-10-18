@@ -23,6 +23,7 @@ import {
 } from "@/redux/channels/channels.selectors";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import SkeletonChannelCard from "@/components/staff/channels/SkeletonChannelCard";
+import { StaffHeader } from "@/components/common/UserHeader";
 
 const PALETTE = [
   "#14D699",
@@ -60,7 +61,6 @@ export default function StaffHome() {
   const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
   // const channels = useAppSelector(selectAllChannels);
   // console.log(channels)
-
 
   const status = useAppSelector(selectStatus);
   // console.log("Channels:", channels);
@@ -114,30 +114,7 @@ export default function StaffHome() {
         alwaysBounceVertical={false}
       >
         {/* Top Bar */}
-        <View className="flex-row items-center justify-between mt-8">
-          <Pressable onPress={() => router.push("/(staff)/(tabs)/profile")}>
-            <AvatarPlaceholder avatar={user?.profilePicture} />
-          </Pressable>
-          <View className="flex-1 ml-3">
-            <Text className="text-3xl text-gray-900 font-kumbhBold">
-              {greetingName ? `Hi ${greetingName}` : "Hi there!"}
-            </Text>
-            {roleText ? (
-              <View className="self-start mt-2 rounded-full border border-emerald-300 px-3 py-1">
-                <Text className="text-emerald-600 text-[12px] font-kumbhBold">
-                  {roleText}
-                </Text>
-              </View>
-            ) : null}
-          </View>
-
-          <Pressable
-            onPress={() => router.push("/(staff)/notifications")}
-            className="h-11 w-11 items-center justify-center rounded-2xl bg-gray-100"
-          >
-            <Bell size={20} color="#111827" />
-          </Pressable>
-        </View>
+        <StaffHeader rightIcon={<Bell size={20} color="#111827" />} />
 
         {/* Channels */}
         <View className="mt-6 flex-row items-center justify-between">

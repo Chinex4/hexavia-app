@@ -23,18 +23,29 @@ import {
 import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import * as WebBrowser from "expo-web-browser";
 import * as Sharing from "expo-sharing";
+import { useAppSelector } from "@/store/hooks";
+import { selectUserById } from "@/redux/user/user.selectors";
+import { selectUser } from "@/redux/user/user.slice";
+import { renderWithMentionsAndLinks } from "./linkify";
 function renderWithMentions(text: string) {
   const parts = text.split(/(\@\w+)/g);
-  return parts.map((p, i) =>
-    p.startsWith("@") ? (
-      <Text key={i} className="text-primary font-kumbhBold text-[15px]">
-        {p}
-      </Text>
-    ) : (
-      <Text key={i} className="text-gray-800 text-[15px] font-kumbh">
-        {p}
-      </Text>
-    )
+  return (
+    <Text
+      className="text-[15px] font-kumbh text-gray-800"
+      style={{ flexShrink: 1 }}
+    >
+      {parts.map((p, i) =>
+        p.startsWith("@") ? (
+          <Text key={i} className="text-primary font-kumbhBold">
+            {p}
+          </Text>
+        ) : (
+          <Text key={i} className="font-kumbh">
+            {p}
+          </Text>
+        )
+      )}
+    </Text>
   );
 }
 
@@ -234,6 +245,13 @@ export default function MessageBubble({
   onLongPress?: (m: Message) => void;
 }) {
   const [imgOpen, setImgOpen] = useState(false);
+  const me = useAppSelector(selectUser);
+  const other = useAppSelector((s: any) => selectUserById(s, msg.senderId));
+
+  const displayName = isMe ? "You" : msg.senderName || other?.name || "Member";
+
+  const avatar = isMe ? me?.profilePicture : msg.avatar || other?.avatarUrl;
+  // console.log(displayName, avatar);
 
   const BubbleCore = (
     <>
@@ -270,8 +288,11 @@ export default function MessageBubble({
         <DocumentPill msg={msg} />
       ) : null}
 
+      {!isMe && (
+        <Text className="text-[11px] text-gray-500 mb-1">{displayName}</Text>
+      )}
       {!!msg.text && (
-        <Text className="text-gray-800">{renderWithMentions(msg.text)}</Text>
+        <Text className="text-gray-800">{renderWithMentionsAndLinks(msg.text)}</Text>
       )}
     </>
   );
@@ -307,9 +328,24 @@ export default function MessageBubble({
   return (
     <View className="px-5 mb-3 items-start">
       <View className="flex-row items-start">
-        <View className="h-9 w-9 rounded-full bg-emerald-700 mr-3" />
-        <Pressable onLongPress={() => onLongPress?.(msg)}>
-          <View className="bg-gray-200 rounded-3xl px-5 py-3 max-w-[82%]">
+        {avatar ? (
+          <Image
+            source={{ uri: avatar }}
+            className="h-9 w-9 rounded-full mr-3 flex-shrink-0"
+          />
+        ) : (
+          <View className="h-9 w-9 rounded-full bg-emerald-700 mr-3 flex-shrink-0" />
+        )}
+
+        <Pressable
+          onLongPress={() => onLongPress?.(msg)}
+          style={{ maxWidth: "82%", flexShrink: 1 }}
+        >
+          {/* <Text className="text-[11px] text-gray-500 mb-1">{displayName}</Text> */}
+          <View
+            className="bg-gray-200 rounded-3xl px-5 py-3"
+            style={{ flexShrink: 1 }}
+          >
             {BubbleCore}
           </View>
           <Text className="text-[11px] text-gray-400 mt-1">
