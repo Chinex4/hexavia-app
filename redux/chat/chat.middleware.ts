@@ -1,4 +1,3 @@
-// redux/chat/chat.middleware.ts
 import type { Middleware, AnyAction } from "@reduxjs/toolkit";
 import { nanoid } from "nanoid";
 import {
@@ -17,6 +16,10 @@ import {
 import { connectSocket, closeSocket, getSocket } from "@/realtime/socket";
 import type { RootState } from "@/store";
 import type { ChatMessage } from "@/types/chat-model";
+import * as Notifications from "expo-notifications";
+
+let lastEmitAt = 0;
+const EMIT_GAP = 250;
 
 export const chatMiddleware: Middleware<{}, RootState> =
   (store) => (next) => (action) => {
@@ -35,13 +38,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
         if (!(socket as any).__hasOnAny) {
           (socket as any).__hasOnAny = true;
           socket.onAny((event, ...args) => {
-            if (
-              event !== "receiveChannelMessage" &&
-              event !== "receiveDirectMessage" &&
-              event !== "messagesRead"
-            ) {
-              console.log("[chat] onAny:", event, args?.[0]);
-            }
+            console.log("[chat] onAny:", event, args?.[0]); // <— do NOT filter
           });
           socket.on("error", (e: any) => console.log("[chat] socket error", e));
         }
@@ -85,7 +82,20 @@ export const chatMiddleware: Middleware<{}, RootState> =
           store.dispatch(addMessageToThread({ threadId, message: msg }));
         });
 
-        socket.on("receiveChannelMessage", (data: any) => {
+        socket.on("receiveChannelMessage", async (data: any) => {
+          console.log("[chat] receiveChannelMessage", {
+            meId: store.getState().chat.meId,
+            from: data.sender,
+            channelId: data.channelId,
+            id: data._id,
+            hasAttachment: !!data.attachment,
+          });
+          const isUrl =
+            typeof data.message === "string" &&
+            /^https?:\/\//i.test(data.message);
+          const looksImage =
+            isUrl && /\.(png|jpe?g|gif|webp)(\?|$)/i.test(data.message);
+
           const msg: ChatMessage = {
             id: data._id,
             text: data.message,
@@ -95,10 +105,36 @@ export const chatMiddleware: Middleware<{}, RootState> =
             avatar: data.profilePicture,
             isRead: !!data.read,
             status: data.read ? "seen" : "delivered",
+
+            mediaUri:
+              data.attachment?.mediaUri ??
+              (looksImage ? data.message : undefined),
+            mimeType:
+              data.attachment?.mimeType ??
+              (looksImage ? "image/jpeg" : undefined),
+            durationMs: data.attachment?.durationMs,
           };
+
           const threadId = data.channelId as string;
           store.dispatch(ensureThread({ id: threadId, kind: "community" }));
           store.dispatch(addMessageToThread({ threadId, message: msg }));
+
+          const state = store.getState();
+          const currentThreadId = state.chat.currentThreadId;
+
+          const isFromMe = data.sender === state.chat.meId;
+          const isOnThread = currentThreadId === threadId;
+
+          if (!isFromMe && !isOnThread) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: data.username ?? "New message",
+                body: msg.mediaUri ? "📷 Image" : data.message || "New message",
+                data: { channelId: threadId },
+              },
+              trigger: null,
+            });
+          }
         });
 
         socket.on("messagesRead", (data: any) => {
@@ -127,19 +163,27 @@ export const chatMiddleware: Middleware<{}, RootState> =
           channelId: string;
         };
         const socket = getSocket();
+        console.log("[chat] joinChannel action", {
+          meId,
+          channelId,
+          socketConnected: !!socket?.connected,
+        });
 
-        // track locally
+        // local track + join
         store.dispatch(ensureThread({ id: channelId, kind: "community" }));
         store.dispatch(joinedChannel(channelId));
 
         const emitJoin = () => {
-          console.log("[chat] joinChannel → emit", { meId, channelId });
+          console.log("[chat] joinChannel → emit", {
+            meId,
+            channelId,
+            sid: socket?.id,
+          });
           socket!.emit("joinChannel", { userId: meId, channelId });
         };
 
-        if (socket?.connected) {
-          emitJoin();
-        } else {
+        if (socket?.connected) emitJoin();
+        else {
           console.log("[chat] joinChannel queued (not connected)", {
             channelId,
           });
@@ -147,6 +191,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
             console.log("[chat] joinChannel → emit (after connect)", {
               meId,
               channelId,
+              sid: socket?.id,
             });
             emitJoin();
             socket!.off("connect", onConnectOnce);
@@ -219,10 +264,15 @@ export const chatMiddleware: Middleware<{}, RootState> =
       }
 
       case "chat/sendChannel": {
-        const { meId, channelId, text } = a.payload as {
+        const { meId, channelId, text, attachment } = a.payload as {
           meId: string;
           channelId: string;
           text: string;
+          attachment?: {
+            mediaUri: string;
+            mimeType: string;
+            durationMs?: number;
+          };
         };
         const socket = getSocket();
         const tempId = `temp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
@@ -239,19 +289,73 @@ export const chatMiddleware: Middleware<{}, RootState> =
               senderId: meId,
               senderName: "You",
               status: "sending",
+              mediaUri: attachment?.mediaUri,
+              mimeType: attachment?.mimeType,
+              durationMs: attachment?.durationMs,
             },
           })
         );
 
+        const now = Date.now();
+        if (now - lastEmitAt < EMIT_GAP) {
+          setTimeout(() => store.dispatch(a), EMIT_GAP - (now - lastEmitAt));
+          return result; // stop current; will be re-dispatched
+        }
+        lastEmitAt = now;
+
         if (socket?.connected) {
-          // 🔎 attach listener BEFORE emit
+          socket.emit("joinChannel", { userId: meId, channelId });
+          console.log("[chat] sendChannel → start", {
+            channelId,
+            meId,
+            hasAttachment: !!attachment,
+            textLen: text?.length,
+          });
+
+          socket.emit(
+            "sendChannelMessage",
+            {
+              senderId: meId,
+              channelId,
+              message: text,
+              attachment, // let server persist this if supported
+            },
+            (ack?: { _id?: string; read?: boolean }) => {
+              console.log("[chat] sendChannel → ack", {
+                channelId,
+                ok: !!ack?._id,
+                ack,
+              });
+              if (ack?._id) {
+                store.dispatch(replaceTempId({ tempId, realId: ack._id }));
+                store.dispatch(
+                  setMessageStatus({
+                    id: ack._id,
+                    status: ack.read ? "seen" : "delivered",
+                    isRead: !!ack.read,
+                  })
+                );
+              } else {
+                store.dispatch(
+                  setMessageStatus({ id: tempId, status: "failed" })
+                );
+              }
+            }
+          );
+
           const once = (data: any) => {
+            console.log("[chat] receiveChannelMessage (echo?)", {
+              meId,
+              from: data.sender,
+              channelId: data.channelId,
+              id: data._id,
+            });
             if (data.channelId === channelId && data.sender === meId) {
               store.dispatch(replaceTempId({ tempId, realId: data._id }));
               store.dispatch(
                 setMessageStatus({
                   id: data._id,
-                  status: "delivered",
+                  status: data.read ? "seen" : "delivered",
                   isRead: !!data.read,
                 })
               );
@@ -260,19 +364,6 @@ export const chatMiddleware: Middleware<{}, RootState> =
           };
           socket.on("receiveChannelMessage", once);
 
-          // ✅ (re)join as a safety net
-          console.log("[chat] joinChannel (pre-send safety) → emit", {
-            channelId,
-          });
-          socket.emit("joinChannel", { userId: meId, channelId });
-
-          console.log("[chat] sendChannel → emit", { channelId });
-          socket.emit("sendChannelMessage", {
-            senderId: meId,
-            channelId,
-            message: text,
-          });
-
           setTimeout(() => {
             const state = store.getState();
             if (state.chat.messages[tempId]?.status === "sending") {
@@ -280,10 +371,6 @@ export const chatMiddleware: Middleware<{}, RootState> =
                 setMessageStatus({ id: tempId, status: "failed" })
               );
               socket.off("receiveChannelMessage", once);
-              console.log("[chat] sendChannel → timeout; marked failed", {
-                channelId,
-                tempId,
-              });
             }
           }, 10000);
         } else {

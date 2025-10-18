@@ -7,7 +7,7 @@ export type ChatMessage = {
   senderName?: string;
   avatar?: string | null;
   isRead?: boolean;
-  status?: 'sending' | 'sent' | 'delivered' | 'seen' | 'failed';
+  status?: "sending" | "sent" | "delivered" | "seen" | "failed";
   mediaUri?: string;
   mimeType?: string;
   durationMs?: number;
@@ -18,7 +18,7 @@ export type ThreadId = string;
 
 export type Thread = {
   id: ThreadId;
-  kind: 'direct' | 'community';
+  kind: "direct" | "community";
   title?: string;
   subtitle?: string;
   members?: string[];
@@ -37,4 +37,8 @@ export type ChatState = {
   connecting: boolean;
   connected: boolean;
   error?: string | null;
+
+  loadingByThread?: Record<string, boolean>;
+  hasMoreByThread?: Record<string, boolean>;
+  nextSkipByThread?: Record<string, number>;
 };

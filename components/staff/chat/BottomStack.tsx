@@ -7,8 +7,12 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-type Props = { tray?: React.ReactNode; composer: React.ReactNode };
-export default function BottomStack({ tray, composer }: Props) {
+type Props = {
+  tray?: React.ReactNode;
+  composer: React.ReactNode;
+  isAdmin: boolean;
+};
+export default function BottomStack({ tray, composer, isAdmin = false }: Props) {
   const { bottom } = useSafeAreaInsets();
   const kb = useAnimatedKeyboard();
 
@@ -21,7 +25,7 @@ export default function BottomStack({ tray, composer }: Props) {
       };
     }
     const needsTranslate = h > 0;
-    const translateY = needsTranslate ? -h + 75 : 0;
+    const translateY = needsTranslate ? -h + (isAdmin ? 0 : 75) : 0;
 
     return {
       transform: [{ translateY: withTiming(translateY, { duration: 0 }) }],

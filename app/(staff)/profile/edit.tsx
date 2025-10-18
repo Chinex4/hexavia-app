@@ -1,27 +1,26 @@
 // app/(staff)/profile/edit.tsx
-import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  Image,
-  Alert,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from "react-native";
-import { useSelector } from "react-redux";
-import { useAppDispatch } from "@/store/hooks";
+import { selectUpload } from "@/redux/upload/upload.slice";
+import { uploadSingle } from "@/redux/upload/upload.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { updateProfile } from "@/redux/user/user.thunks";
-import { uploadSingle } from "@/redux/upload/upload.thunks";
-import { selectUpload } from "@/redux/upload/upload.slice";
+import { useAppDispatch } from "@/store/hooks";
 import * as ImagePicker from "expo-image-picker";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRouter } from "expo-router";
 import { ChevronLeft } from "lucide-react-native";
+import React, { useMemo, useState } from "react";
+import {
+    ActivityIndicator,
+    Alert,
+    Image,
+    KeyboardAvoidingView,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { useSelector } from "react-redux";
 
 export default function EditProfile() {
   const router = useRouter();

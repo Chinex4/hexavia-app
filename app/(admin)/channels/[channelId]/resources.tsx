@@ -1,37 +1,37 @@
+import ResourceCard from "@/components/resources/ResourceCard";
+import SkeletonCard from "@/components/resources/SkeletonCard";
+import UploadChooser from "@/components/resources/UploadChooser";
+import { showError, showSuccess } from "@/components/ui/toast";
+import { selectChannelById } from "@/redux/channels/channels.slice";
+import { fetchChannelById, uploadChannelResources } from "@/redux/channels/channels.thunks";
+import type { ChannelResource, UploadResourcesBody } from "@/redux/channels/resources.types";
+import { CATEGORY_ORDER, detectCategory, ext, prettyCategory } from "@/redux/channels/resources.utils";
+import { reset as resetUpload, selectUpload } from "@/redux/upload/upload.slice";
+import { uploadSingle } from "@/redux/upload/upload.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { toApiResources } from "@/utils/buildApiResources";
+import { getMimeFromName } from "@/utils/getMime";
+import { normalizeCloudinaryUrl, slugifyFilename } from "@/utils/slugAndCloudinary";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system";
+import * as ImagePicker from "expo-image-picker";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
+import { ChevronLeft, CloudUpload } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
+  Linking,
   Pressable,
   SectionList,
   Text,
   View,
-  Alert,
-  Linking,
 } from "react-native";
-import { StatusBar } from "expo-status-bar";
-import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import * as WebBrowser from "expo-web-browser";
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { ChevronLeft, CloudDownload, CloudUpload } from "lucide-react-native";
-import { fetchChannelById, uploadChannelResources } from "@/redux/channels/channels.thunks";
-import { selectChannelById } from "@/redux/channels/channels.slice";
-import { uploadSingle } from "@/redux/upload/upload.thunks";
-import { selectUpload, reset as resetUpload } from "@/redux/upload/upload.slice";
-import SkeletonCard from "@/components/resources/SkeletonCard";
-import UploadChooser from "@/components/resources/UploadChooser";
-import ResourceCard from "@/components/resources/ResourceCard";
-import * as ImagePicker from "expo-image-picker";
-import * as DocumentPicker from "expo-document-picker";
-import { getMimeFromName } from "@/utils/getMime";
-import { showSuccess, showError } from "@/components/ui/toast";
-import { toApiResources } from "@/utils/buildApiResources";
-import { slugifyFilename, normalizeCloudinaryUrl } from "@/utils/slugAndCloudinary";
-import type { ChannelResource, UploadResourcesBody } from "@/redux/channels/resources.types";
-import { CATEGORY_ORDER, detectCategory, prettyCategory, ext } from "@/redux/channels/resources.utils";
 
 function ensureHttpUrl(u?: string | null) {
   if (!u) return "";

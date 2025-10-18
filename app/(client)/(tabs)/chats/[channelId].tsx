@@ -23,20 +23,32 @@ import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   FlatList,
   InteractionManager,
+  KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
+  // SafeAreaView,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { ensureThread, setCurrentThread } from "@/redux/chat/chat.slice";
-import { selectMessagesForCurrent } from "@/redux/chat/chat.selectors";
-import { selectUser } from "@/redux/user/user.slice";
-import { uploadSingle } from "@/redux/upload/upload.thunks";
+import { useKeyboardSpacer } from "@/hooks/useKeyboardSpacer";
 import { uploadChannelResources } from "@/redux/channels/channels.thunks";
+import { selectMessagesForCurrent } from "@/redux/chat/chat.selectors";
+import { ensureThread, setCurrentThread } from "@/redux/chat/chat.slice";
+import { uploadSingle } from "@/redux/upload/upload.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { fetchMessages } from "@/redux/chat/chat.thunks";
+const TYPE: "community" | "direct" = "community";
 
 export default function ChatScreen() {
   const { channelId: rawId } = useLocalSearchParams<{ channelId: string }>();
@@ -207,14 +219,6 @@ export default function ChatScreen() {
     sendChannel(textToSend);
   };
 
-  const handleSend = (text: string) => {
-    const meta = replyTo;
-    sendWithReply(text, meta);
-    setReplyTo(null);
-    setTrayOpen(false);
-    scrollToEnd();
-  };
-
   const openSheetFor = (m: Message) => {
     setSelected(m);
     setSheetOpen(true);
@@ -276,6 +280,14 @@ export default function ChatScreen() {
     }
   }, [data]);
 
+  useEffect(() => {
+    if (!channelId || !meId) return;
+    dispatch(ensureThread({ id: channelId, kind: "community" }));
+    dispatch(setCurrentThread(channelId));
+    // (re)join on mount/focus
+    dispatch({ type: "chat/joinChannel", payload: { meId, channelId } });
+  }, [dispatch, channelId, meId]);
+
   const scrollToEnd = () => {
     requestAnimationFrame(() =>
       listRef.current?.scrollToEnd({ animated: true })
@@ -285,6 +297,8 @@ export default function ChatScreen() {
   const handleScroll = ({
     nativeEvent: { contentOffset, contentSize, layoutMeasurement },
   }: any) => {
+    const y = contentOffset.y;
+    if (y < 40) loadOlder();
     const distanceFromBottom =
       contentSize.height - (contentOffset.y + layoutMeasurement.height);
     atBottomRef.current = distanceFromBottom < BOTTOM_THRESHOLD;
@@ -326,7 +340,20 @@ export default function ChatScreen() {
               );
             }
 
-            handleSend(`${url}`);
+            // handleSend(`${url}`);
+            dispatch({
+              type: "chat/sendChannel",
+              payload: {
+                meId,
+                channelId,
+                text: "Image resource uploaded",
+                attachment: {
+                  mediaUri: url,
+                  mimeType: "image/jpeg", // or detected from upload
+                  isImage: true,
+                },
+              },
+            });
             scrollToEnd();
           }
         }
@@ -366,7 +393,16 @@ export default function ChatScreen() {
               );
             }
 
-            handleSend(`[Photo captured] ${url}`);
+            // handleSend(`[Photo captured] ${url}`);
+            dispatch({
+              type: "chat/sendChannel",
+              payload: {
+                meId,
+                channelId,
+                text: "Image resource uploaded",
+                attachment: { mediaUri: url, mimeType: "image/jpeg" },
+              },
+            });
             scrollToEnd();
           }
         }
@@ -404,7 +440,16 @@ export default function ChatScreen() {
               );
             }
 
-            handleSend(`[Document: ${name}] ${url}`);
+            // handleSend(`[Document: ${name}] ${url}`);
+            dispatch({
+              type: "chat/sendChannel",
+              payload: {
+                meId,
+                channelId,
+                text: `Document resource uploaded`,
+                attachment: { mediaUri: url, mimeType: type },
+              },
+            });
             scrollToEnd();
           }
         }
@@ -442,7 +487,20 @@ export default function ChatScreen() {
               );
             }
 
-            handleSend(`[Audio file: ${name}] ${url}`);
+            // handleSend(`[Audio file: ${name}] ${url}`);
+            dispatch({
+              type: "chat/sendChannel",
+              payload: {
+                meId,
+                channelId,
+                text: `Image resource uploaded`,
+                attachment: {
+                  mediaUri: url,
+                  mimeType: type,
+                  durationMs: undefined,
+                },
+              },
+            });
             scrollToEnd();
           }
         }
@@ -485,105 +543,165 @@ export default function ChatScreen() {
     });
   };
 
+  const insets = useSafeAreaInsets();
+  const HEADER_HEIGHT = 44;
+  const kb = useKeyboardSpacer();
+  const baseBottom = trayOpen ? 220 : 100;
+  const paddingBottom = baseBottom + kb;
+
+  useEffect(() => {
+    if (!channelId) return;
+    // dispatch(fetchMessages({ id: channelId, type: TYPE, limit: 50, skip: 0 }));
+  }, [channelId, dispatch]);
+
+  const onEndReachedCalledDuringMomentum = useRef(false);
+
+  const loadingOlder = useAppSelector(
+    (s) => s.chat.loadingByThread?.[channelId!]
+  );
+  const hasMore = useAppSelector((s) => s.chat.hasMoreByThread?.[channelId!]);
+
+  const nextSkip = useAppSelector((s) => s.chat.nextSkipByThread?.[channelId!]);
+
+  const loadOlder = useCallback(() => {
+    if (!channelId || loadingOlder || hasMore === false) return;
+    const limit = 50;
+    const skip = nextSkip ?? messagesFromRedux?.length ?? 0;
+    dispatch(fetchMessages({ id: channelId, type: TYPE, limit, skip }));
+  }, [
+    channelId,
+    loadingOlder,
+    hasMore,
+    nextSkip,
+    messagesFromRedux?.length,
+    dispatch,
+  ]);
+
+  const lastSendRef = useRef(0);
+  const MIN_INTERVAL_MS = 350;
+
+  const handleSend = (text: string) => {
+    const now = Date.now();
+    if (now - lastSendRef.current < MIN_INTERVAL_MS) return; // throttle
+    lastSendRef.current = now;
+
+    const meta = replyTo;
+    sendWithReply(text, meta);
+    setReplyTo(null);
+    setTrayOpen(false);
+    scrollToEnd();
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
-      <ChatHeader
-        title={title}
-        subtitle={subtitle}
-        onPress={handleOpenResources}
-        onTaskOpen={handleOpenTasks}
-      />
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={
+          Platform.OS === "ios" ? insets.top + HEADER_HEIGHT : 0
+        }
+        style={{ flex: 1 }}
+      >
+        <ChatHeader
+          title={title}
+          subtitle={subtitle}
+          onPress={handleOpenResources}
+          onTaskOpen={handleOpenTasks}
+        />
 
-      <FlatList
-        ref={listRef}
-        contentContainerStyle={{
-          paddingTop: 16,
-          paddingBottom: trayOpen ? 220 : 100,
-        }}
-        data={data}
-        keyExtractor={(m) => m.id}
-        renderItem={({ item }) => {
-          if (item.id === "typing") {
+        <FlatList
+          ref={listRef}
+          contentContainerStyle={{
+            paddingTop: 16,
+            paddingBottom,
+          }}
+          data={data}
+          keyExtractor={(m) => m.id}
+          renderItem={({ item }) => {
+            if (item.id === "typing") {
+              return (
+                <View className="px-5 mb-3">
+                  <View className="h-4 w-12 rounded-full bg-gray-200" />
+                </View>
+              );
+            }
             return (
-              <View className="px-5 mb-3">
-                <View className="h-4 w-12 rounded-full bg-gray-200" />
-              </View>
+              <MessageBubble
+                msg={item}
+                isMe={item.senderId === meId}
+                onLongPress={openSheetFor}
+              />
             );
-          }
-          return (
-            <MessageBubble
-              msg={item}
-              isMe={item.senderId === meId}
-              onLongPress={openSheetFor}
-            />
-          );
-        }}
-        onLayout={scrollToEnd}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        onScrollBeginDrag={() => {
-          isInteractingRef.current = true;
-        }}
-        onScrollEndDrag={() => {
-          isInteractingRef.current = false;
-          markVisibleAsRead();
-        }}
-        onMomentumScrollEnd={() => {
-          isInteractingRef.current = false;
-          markVisibleAsRead();
-        }}
-        onContentSizeChange={(w, h) => {
-          contentHeightRef.current = h;
+          }}
+          onLayout={scrollToEnd}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          onScrollBeginDrag={() => {
+            isInteractingRef.current = true;
+          }}
+          onScrollEndDrag={() => {
+            isInteractingRef.current = false;
+            markVisibleAsRead();
+          }}
+          onMomentumScrollEnd={() => {
+            isInteractingRef.current = false;
+            markVisibleAsRead();
+          }}
+          onContentSizeChange={(w, h) => {
+            contentHeightRef.current = h;
 
-          if (pendingAutoScrollRef.current) {
-            pendingAutoScrollRef.current = false;
-            requestAnimationFrame(() => {
-              listRef.current?.scrollToEnd({ animated: true });
-              if (Platform.OS === "android") {
-                InteractionManager.runAfterInteractions(() => {
-                  listRef.current?.scrollToOffset({
-                    offset: Math.max(0, contentHeightRef.current),
-                    animated: true,
+            if (pendingAutoScrollRef.current) {
+              pendingAutoScrollRef.current = false;
+              requestAnimationFrame(() => {
+                listRef.current?.scrollToEnd({ animated: true });
+                if (Platform.OS === "android") {
+                  InteractionManager.runAfterInteractions(() => {
+                    listRef.current?.scrollToOffset({
+                      offset: Math.max(0, contentHeightRef.current),
+                      animated: true,
+                    });
                   });
-                });
-              }
-            });
+                }
+              });
+            }
+          }}
+          refreshing={!!loadingOlder}
+          onRefresh={loadOlder}
+        />
+        <BottomStack
+          tray={
+            trayOpen ? (
+              <AttachmentTray
+                onPick={(kind) => {
+                  handlePick(kind);
+                }}
+              />
+            ) : null
           }
-        }}
-      />
-      <BottomStack
-        tray={
-          trayOpen ? (
-            <AttachmentTray
-              onPick={(kind) => {
-                handlePick(kind);
-              }}
+          composer={
+            <Composer
+              onSend={handleSend}
+              trayOpen={trayOpen}
+              onToggleTray={() => setTrayOpen((v) => !v)}
+              replyTo={replyTo}
+              onCancelReply={() => setReplyTo(null)}
+              isRecording={isRecording}
+              recordDurationMs={recordDurationMs}
+              onMicPress={handleMicPress}
+              onCancelRecording={() => stopRecording(true)}
             />
-          ) : null
-        }
-        composer={
-          <Composer
-            onSend={handleSend}
-            trayOpen={trayOpen}
-            onToggleTray={() => setTrayOpen((v) => !v)}
-            replyTo={replyTo}
-            onCancelReply={() => setReplyTo(null)}
-            isRecording={isRecording}
-            recordDurationMs={recordDurationMs}
-            onMicPress={handleMicPress}
-            onCancelRecording={() => stopRecording(true)}
-          />
-        }
-      />
+          }
+          isAdmin={false}
+        />
 
-      <ActionSheet
-        visible={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        items={items}
-      />
+        <ActionSheet
+          visible={sheetOpen}
+          onClose={() => setSheetOpen(false)}
+          items={items}
+        />
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
