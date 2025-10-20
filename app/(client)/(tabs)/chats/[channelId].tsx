@@ -4,13 +4,10 @@ import BottomStack from "@/components/staff/chat/BottomStack";
 import ChatHeader from "@/components/staff/chat/ChatHeader";
 import Composer from "@/components/staff/chat/Composer";
 import MessageBubble from "@/components/staff/chat/MessageBubble";
-
 import { selectChannelById } from "@/redux/channels/channels.slice";
 import { fetchChannelById } from "@/redux/channels/channels.thunks";
-
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type { AttachmentKind, Message, ReplyMeta } from "@/types/chat";
-
 import {
   AudioModule,
   RecordingPresets,
@@ -35,19 +32,20 @@ import {
   InteractionManager,
   KeyboardAvoidingView,
   Platform,
-  // SafeAreaView,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 import { useKeyboardSpacer } from "@/hooks/useKeyboardSpacer";
 import { uploadChannelResources } from "@/redux/channels/channels.thunks";
 import { selectMessagesForCurrent } from "@/redux/chat/chat.selectors";
 import { ensureThread, setCurrentThread } from "@/redux/chat/chat.slice";
 import { uploadSingle } from "@/redux/upload/upload.thunks";
 import { selectUser } from "@/redux/user/user.slice";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { fetchMessages } from "@/redux/chat/chat.thunks";
+
 const TYPE: "community" | "direct" = "community";
 
 export default function ChatScreen() {
@@ -57,18 +55,13 @@ export default function ChatScreen() {
 
   const user = useAppSelector(selectUser);
   const meId = user?._id;
-  // console.log(meId)
-
   const channelId = typeof rawId === "string" ? rawId : rawId?.[0];
 
   const channelSel = useMemo(() => selectChannelById(channelId), [channelId]);
   const channel = useAppSelector(channelSel);
 
   useEffect(() => {
-    if (!meId) {
-      console.warn("[chat] No valid meId yet – not connecting socket.");
-      return;
-    }
+    if (!meId) return;
     dispatch({ type: "chat/connect", payload: { meId } });
     return () => {
       dispatch({ type: "chat/disconnect" });
@@ -80,6 +73,18 @@ export default function ChatScreen() {
     if (channel) return;
     dispatch(fetchChannelById(channelId));
   }, [dispatch, channelId, channel]);
+
+  // console.log(channel.members.map(m => m._id), meId)
+
+  // if (channel && !channel.members?.includes("68ceca05823d6f4b18f00f7f" as any)) {
+  //   console.warn("[chat] Not a member of channel", { channelId, meId });
+  // }
+  // useEffect(() => {
+  //   if (!channelId) return;
+  //   dispatch(
+  //     fetchMessages({ id: channelId, type: "community", limit: 50, skip: 0 })
+  //   );
+  // }, [channelId, dispatch]);
 
   useEffect(() => {
     if (!channelId || !meId) return;
@@ -126,90 +131,67 @@ export default function ChatScreen() {
   }, [recorderState.durationMillis]);
 
   const startRecording = async () => {
-    try {
-      const perm = await AudioModule.requestRecordingPermissionsAsync();
-      if (!perm.granted) return;
-
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-        shouldPlayInBackground: false,
-      });
-
-      await audioRecorder.prepareToRecordAsync();
-      audioRecorder.record();
-
-      recordRef.current = audioRecorder;
-      setIsRecording(true);
-      setRecordDurationMs(0);
-    } catch (e) {
-      console.warn(e);
-    }
+    const perm = await AudioModule.requestRecordingPermissionsAsync();
+    if (!perm.granted) return;
+    await setAudioModeAsync({
+      allowsRecording: true,
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+    });
+    await audioRecorder.prepareToRecordAsync();
+    audioRecorder.record();
+    recordRef.current = audioRecorder;
+    setIsRecording(true);
+    setRecordDurationMs(0);
   };
 
   const stopRecording = async (cancel = false) => {
-    try {
-      const rec = recordRef.current ?? audioRecorder;
-      if (!recorderState.isRecording) return;
+    const rec = recordRef.current ?? audioRecorder;
+    if (!recorderState.isRecording) return;
+    await rec.stop();
+    const uri = rec.uri ?? undefined;
+    recordRef.current = null;
+    setIsRecording(false);
 
-      await rec.stop();
-      const uri = rec.uri ?? undefined;
-
-      recordRef.current = null;
-      setIsRecording(false);
-
-      if (!cancel && uri) {
-        const name = `voice_${Date.now()}.m4a`;
-        const type = "audio/m4a";
-        const uploadAction = await dispatch(uploadSingle({ uri, name, type }));
-
-        if (uploadSingle.fulfilled.match(uploadAction)) {
-          const { url } = uploadAction.payload;
-          const secs = Math.max(
-            1,
-            Math.round((recorderState.durationMillis ?? 0) / 1000)
+    if (!cancel && uri) {
+      const name = `voice_${Date.now()}.m4a`;
+      const type = "audio/m4a";
+      const uploadAction = await dispatch(uploadSingle({ uri, name, type }));
+      if (uploadSingle.fulfilled.match(uploadAction)) {
+        const { url } = uploadAction.payload;
+        const secs = Math.max(
+          1,
+          Math.round((recorderState.durationMillis ?? 0) / 1000)
+        );
+        if (channelId) {
+          await dispatch(
+            uploadChannelResources({
+              channelId,
+              resources: [
+                {
+                  name,
+                  description: `Voice note • ${secs}s`,
+                  resourceUpload: url,
+                },
+              ],
+            })
           );
-
-          if (channelId) {
-            await dispatch(
-              uploadChannelResources({
-                channelId,
-                resources: [
-                  {
-                    name,
-                    description: `Voice note • ${secs}s`,
-                    resourceUpload: url,
-                  },
-                ],
-              })
-            );
-          }
-
-          handleSend(`[Voice note • ${secs}s] ${url}`);
-          scrollToEnd();
         }
+        handleSend(`[Voice note • ${secs}s] ${url}`);
+        scrollToEnd();
       }
-    } catch (e) {
-      console.warn(e);
-    } finally {
-      setRecordDurationMs(0);
     }
+    setRecordDurationMs(0);
   };
 
   const handleMicPress = async () => {
-    if (recorderState.isRecording) {
-      await stopRecording(false);
-    } else {
-      await startRecording();
-    }
+    if (recorderState.isRecording) await stopRecording(false);
+    else await startRecording();
   };
 
   const sendChannel = (text: string) => {
     if (!text.trim() || !channelId) return;
-    dispatch({
-      type: "chat/sendChannel",
-      payload: { meId, channelId, text },
-    });
+    dispatch({ type: "chat/sendChannel", payload: { meId, channelId, text } });
   };
 
   const sendWithReply = (text: string, meta: ReplyMeta | null) => {
@@ -223,8 +205,6 @@ export default function ChatScreen() {
     setSelected(m);
     setSheetOpen(true);
   };
-
-  const isMine = (m: Message) => m.senderId === meId;
 
   const items = [
     {
@@ -247,13 +227,11 @@ export default function ChatScreen() {
   ];
 
   const ALWAYS_SNAP_TO_BOTTOM = true;
-
   const atBottomRef = useRef(true);
   const isInteractingRef = useRef(false);
   const lastRealMsgIdRef = useRef<string | null>(null);
   const pendingAutoScrollRef = useRef(false);
   const contentHeightRef = useRef(0);
-
   const BOTTOM_THRESHOLD = 80;
 
   const getLastRealMsgId = (arr: Message[]) => {
@@ -266,27 +244,14 @@ export default function ChatScreen() {
   useEffect(() => {
     const lastRealId = getLastRealMsgId(data);
     if (!lastRealId) return;
-
     if (lastRealId !== lastRealMsgIdRef.current) {
       const shouldAuto =
         ALWAYS_SNAP_TO_BOTTOM ||
         (atBottomRef.current && !isInteractingRef.current);
-
-      if (shouldAuto) {
-        pendingAutoScrollRef.current = true;
-      }
-
+      if (shouldAuto) pendingAutoScrollRef.current = true;
       lastRealMsgIdRef.current = lastRealId;
     }
   }, [data]);
-
-  useEffect(() => {
-    if (!channelId || !meId) return;
-    dispatch(ensureThread({ id: channelId, kind: "community" }));
-    dispatch(setCurrentThread(channelId));
-    // (re)join on mount/focus
-    dispatch({ type: "chat/joinChannel", payload: { meId, channelId } });
-  }, [dispatch, channelId, meId]);
 
   const scrollToEnd = () => {
     requestAnimationFrame(() =>
@@ -298,7 +263,7 @@ export default function ChatScreen() {
     nativeEvent: { contentOffset, contentSize, layoutMeasurement },
   }: any) => {
     const y = contentOffset.y;
-    if (y < 40) loadOlder();
+    // if (y < 40) loadOlder();
     const distanceFromBottom =
       contentSize.height - (contentOffset.y + layoutMeasurement.height);
     atBottomRef.current = distanceFromBottom < BOTTOM_THRESHOLD;
@@ -318,13 +283,11 @@ export default function ChatScreen() {
             (a as any).fileName ??
             `image_${Date.now()}.${a.mimeType?.split("/")?.[1] ?? "jpg"}`;
           const type = a.mimeType ?? "image/jpeg";
-
           const uploadAction = await dispatch(
             uploadSingle({ uri: a.uri, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
             const { url } = uploadAction.payload;
-
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -339,8 +302,6 @@ export default function ChatScreen() {
                 })
               );
             }
-
-            // handleSend(`${url}`);
             dispatch({
               type: "chat/sendChannel",
               payload: {
@@ -349,9 +310,9 @@ export default function ChatScreen() {
                 text: "Image resource uploaded",
                 attachment: {
                   mediaUri: url,
-                  mimeType: "image/jpeg", // or detected from upload
+                  mimeType: "image/jpeg",
                   isImage: true,
-                },
+                } as any,
               },
             });
             scrollToEnd();
@@ -362,7 +323,6 @@ export default function ChatScreen() {
       if (kind === "camera") {
         const perm = await ImagePicker.requestCameraPermissionsAsync();
         if (!perm.granted) return;
-
         const res = await ImagePicker.launchCameraAsync({
           quality: 0.7,
           allowsEditing: false,
@@ -371,13 +331,11 @@ export default function ChatScreen() {
           const a = res.assets[0];
           const name = `photo_${Date.now()}.jpg`;
           const type = a.mimeType ?? "image/jpeg";
-
           const uploadAction = await dispatch(
             uploadSingle({ uri: a.uri, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
             const { url } = uploadAction.payload;
-
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -392,8 +350,6 @@ export default function ChatScreen() {
                 })
               );
             }
-
-            // handleSend(`[Photo captured] ${url}`);
             dispatch({
               type: "chat/sendChannel",
               payload: {
@@ -418,13 +374,11 @@ export default function ChatScreen() {
           const a = res.assets[0];
           const name = a.name ?? `document_${Date.now()}`;
           const type = a.mimeType ?? "application/octet-stream";
-
           const uploadAction = await dispatch(
             uploadSingle({ uri: a.uri, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
             const { url } = uploadAction.payload;
-
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -439,14 +393,12 @@ export default function ChatScreen() {
                 })
               );
             }
-
-            // handleSend(`[Document: ${name}] ${url}`);
             dispatch({
               type: "chat/sendChannel",
               payload: {
                 meId,
                 channelId,
-                text: `Document resource uploaded`,
+                text: "Document resource uploaded",
                 attachment: { mediaUri: url, mimeType: type },
               },
             });
@@ -465,13 +417,11 @@ export default function ChatScreen() {
           const a = res.assets[0];
           const name = a.name ?? `audio_${Date.now()}.m4a`;
           const type = a.mimeType ?? "audio/m4a";
-
           const uploadAction = await dispatch(
             uploadSingle({ uri: a.uri, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
             const { url } = uploadAction.payload;
-
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -486,19 +436,13 @@ export default function ChatScreen() {
                 })
               );
             }
-
-            // handleSend(`[Audio file: ${name}] ${url}`);
             dispatch({
               type: "chat/sendChannel",
               payload: {
                 meId,
                 channelId,
-                text: `Image resource uploaded`,
-                attachment: {
-                  mediaUri: url,
-                  mimeType: type,
-                  durationMs: undefined,
-                },
+                text: "Image resource uploaded",
+                attachment: { mediaUri: url, mimeType: type },
               },
             });
             scrollToEnd();
@@ -551,40 +495,35 @@ export default function ChatScreen() {
 
   useEffect(() => {
     if (!channelId) return;
-    // dispatch(fetchMessages({ id: channelId, type: TYPE, limit: 50, skip: 0 }));
   }, [channelId, dispatch]);
-
-  const onEndReachedCalledDuringMomentum = useRef(false);
 
   const loadingOlder = useAppSelector(
     (s) => s.chat.loadingByThread?.[channelId!]
   );
   const hasMore = useAppSelector((s) => s.chat.hasMoreByThread?.[channelId!]);
-
   const nextSkip = useAppSelector((s) => s.chat.nextSkipByThread?.[channelId!]);
 
-  const loadOlder = useCallback(() => {
-    if (!channelId || loadingOlder || hasMore === false) return;
-    const limit = 50;
-    const skip = nextSkip ?? messagesFromRedux?.length ?? 0;
-    dispatch(fetchMessages({ id: channelId, type: TYPE, limit, skip }));
-  }, [
-    channelId,
-    loadingOlder,
-    hasMore,
-    nextSkip,
-    messagesFromRedux?.length,
-    dispatch,
-  ]);
+  // const loadOlder = useCallback(() => {
+  //   if (!channelId || loadingOlder || hasMore === false) return;
+  //   const limit = 50;
+  //   const skip = nextSkip ?? messagesFromRedux?.length ?? 0;
+  //   dispatch(fetchMessages({ id: channelId, type: TYPE, limit, skip }));
+  // }, [
+  //   channelId,
+  //   loadingOlder,
+  //   hasMore,
+  //   nextSkip,
+  //   messagesFromRedux?.length,
+  //   dispatch,
+  // ]);
 
   const lastSendRef = useRef(0);
   const MIN_INTERVAL_MS = 350;
 
   const handleSend = (text: string) => {
     const now = Date.now();
-    if (now - lastSendRef.current < MIN_INTERVAL_MS) return; // throttle
+    if (now - lastSendRef.current < MIN_INTERVAL_MS) return;
     lastSendRef.current = now;
-
     const meta = replyTo;
     sendWithReply(text, meta);
     setReplyTo(null);
@@ -608,20 +547,16 @@ export default function ChatScreen() {
           onPress={handleOpenResources}
           onTaskOpen={handleOpenTasks}
         />
-
         <FlatList
           ref={listRef}
-          contentContainerStyle={{
-            paddingTop: 16,
-            paddingBottom,
-          }}
+          contentContainerStyle={{ paddingTop: 16, paddingBottom }}
           data={data}
           keyExtractor={(m) => m.id}
           renderItem={({ item }) => {
             if (item.id === "typing") {
               return (
                 <View className="px-5 mb-3">
-                  <View className="h-4 w-12 rounded-full bg-gray-200" />
+                  <View className="h-4 w-12 rounded-full bg-gray-2 00" />
                 </View>
               );
             }
@@ -651,7 +586,6 @@ export default function ChatScreen() {
           }}
           onContentSizeChange={(w, h) => {
             contentHeightRef.current = h;
-
             if (pendingAutoScrollRef.current) {
               pendingAutoScrollRef.current = false;
               requestAnimationFrame(() => {
@@ -667,17 +601,13 @@ export default function ChatScreen() {
               });
             }
           }}
-          refreshing={!!loadingOlder}
-          onRefresh={loadOlder}
+          // refreshing={!!loadingOlder}
+          // onRefresh={loadOlder}
         />
         <BottomStack
           tray={
             trayOpen ? (
-              <AttachmentTray
-                onPick={(kind) => {
-                  handlePick(kind);
-                }}
-              />
+              <AttachmentTray onPick={(kind) => handlePick(kind)} />
             ) : null
           }
           composer={
@@ -695,7 +625,6 @@ export default function ChatScreen() {
           }
           isAdmin={false}
         />
-
         <ActionSheet
           visible={sheetOpen}
           onClose={() => setSheetOpen(false)}

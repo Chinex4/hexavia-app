@@ -1,4 +1,3 @@
-// app/(app)/reports/CreateReportScreen.tsx
 import React, { useEffect, useMemo, useState } from "react";
 import {
   SafeAreaView,
@@ -12,7 +11,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ChevronDown, Share2 } from "lucide-react-native";
+import { ArrowLeft, ChevronDown, Share2, Check } from "lucide-react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
@@ -25,7 +24,7 @@ type Channel = { _id: string; name: string };
 
 type FormValues = {
   projectName: string;
-  channelId: string;
+  channelIds: string[];
   task: string;
   duration: string;
   date: Date | null;
@@ -34,7 +33,10 @@ type FormValues = {
 const schema: yup.ObjectSchema<FormValues> = yup
   .object({
     projectName: yup.string().trim().required("Project name is required"),
-    channelId: yup.string().trim().required("Please select a channel"),
+    channelIds: yup
+      .array(yup.string().trim().required())
+      .min(1, "Please select at least one channel")
+      .required("Please select at least one channel"),
     task: yup.string().trim().required("Task is required"),
     duration: yup.string().trim().required("Enter duration (e.g. 4 weeks)"),
     date: yup
@@ -50,6 +52,7 @@ const schema: yup.ObjectSchema<FormValues> = yup
 
 export default function CreateReportScreen() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
 
   const {
     control,
@@ -61,19 +64,19 @@ export default function CreateReportScreen() {
     resolver: yupResolver(schema),
     defaultValues: {
       projectName: "",
-      channelId: "",
+      channelIds: [],
       task: "",
       duration: "",
-      date: null, // stays null until user selects
+      date: null,
     },
     mode: "onBlur",
   });
-  const channelId = watch("channelId");
 
-  // Date picker state
+  const selectedIds = watch("channelIds");
+  const dateValue = watch("date");
+
   const [showDate, setShowDate] = useState(false);
-  const [tempDate, setTempDate] = useState<Date | null>(null); // iOS live buffer
-  const dispatch = useAppDispatch();
+  const [tempDate, setTempDate] = useState<Date | null>(null);
 
   const openDatePicker = (current?: Date | null) => {
     setTempDate(current ?? new Date());
@@ -85,15 +88,8 @@ export default function CreateReportScreen() {
     setShowDate(false);
   };
 
-  const dateValue = watch("date");
-
   const [channelOpen, setChannelOpen] = useState(false);
-
   const channels = useAppSelector(selectAllChannels) as Channel[];
-
-  const selectedChannelName = useMemo(() => {
-    return channels.find((c) => c._id === channelId)?.name ?? "";
-  }, [channels, channelId]);
 
   useEffect(() => {
     dispatch(fetchChannels());
@@ -109,7 +105,44 @@ export default function CreateReportScreen() {
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const yyyy = d.getFullYear();
     return `${dd}/${mm}/${yyyy}`;
-    // No parsing back to Date anywhere, so no epoch surprises.
+  };
+
+  const idToName = useMemo(() => {
+    const map = new Map<string, string>();
+    channels.forEach((c) => map.set(c._id, c.name));
+    return map;
+  }, [channels]);
+
+  const selectedNames = useMemo(
+    () => selectedIds.map((id) => idToName.get(id) ?? id),
+    [selectedIds, idToName]
+  );
+
+  const toggleId = (id: string) => {
+    const next = new Set(watch("channelIds"));
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setValue("channelIds", Array.from(next), {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  };
+
+  const selectAll = () => {
+    setValue(
+      "channelIds",
+      channels.map((c) => c._id),
+      { shouldValidate: true, shouldDirty: true, shouldTouch: true }
+    );
+  };
+
+  const clearAll = () => {
+    setValue("channelIds", [], {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
   };
 
   return (
@@ -161,30 +194,52 @@ export default function CreateReportScreen() {
           </Text>
         )}
 
-        {/* Select Channel */}
-        <Text className="mt-5 text-lg font-kumbh text-black">
-          Select Channel
-        </Text>
+        {/* Select Channels (multi) */}
+        <Text className="mt-5 text-lg font-kumbh text-black">Channels</Text>
         <Controller
           control={control}
-          name="channelId"
+          name="channelIds"
           render={({ field: { value } }) => (
             <Pressable
               onPress={() => setChannelOpen(true)}
-              className="mt-2 h-14 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4"
+              className="mt-2 min-h-14 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3"
             >
-              <Text
-                className={`font-kumbh text-[16px] ${value ? "text-black" : "text-gray-400"}`}
-              >
-                {selectedChannelName || "Select Channel"}
-              </Text>
+              <View className="flex-1">
+                {value.length === 0 ? (
+                  <Text className="font-kumbh text-[16px] text-gray-400">
+                    Select Channels
+                  </Text>
+                ) : (
+                  <View>
+                    <View className="flex-row flex-wrap gap-2">
+                      {selectedNames.slice(0, 3).map((n) => (
+                        <View
+                          key={n}
+                          className="px-3 py-1 rounded-full bg-white border border-gray-200"
+                        >
+                          <Text className="font-kumbh text-sm text-gray-700">
+                            {n}
+                          </Text>
+                        </View>
+                      ))}
+                      {selectedNames.length > 3 && (
+                        <View className="px-3 py-1 rounded-full bg-white border border-gray-200">
+                          <Text className="font-kumbh text-sm text-gray-700">
+                            +{selectedNames.length - 3} more
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
               <ChevronDown size={20} color="#6B7280" />
             </Pressable>
           )}
         />
-        {errors.channelId && (
+        {errors.channelIds && (
           <Text className="mt-1 font-kumbh text-sm text-red-500">
-            {errors.channelId.message}
+            {String(errors.channelIds.message)}
           </Text>
         )}
 
@@ -212,7 +267,6 @@ export default function CreateReportScreen() {
           </Text>
         )}
 
-        {/* Duration + Date */}
         <View className="mt-5 flex-row gap-4">
           <View className="flex-1">
             <Text className="text-lg font-kumbh text-black">Duration</Text>
@@ -287,40 +341,56 @@ export default function CreateReportScreen() {
         </View>
       </ScrollView>
 
-      {/* Channel Picker Modal */}
+      {/* Channel Picker Modal (multi-select) */}
       <Modal visible={channelOpen} transparent animationType="fade">
-        <Pressable
-          onPress={() => setChannelOpen(false)}
-          className="flex-1 bg-black/30"
-        />
+        <Pressable onPress={() => setChannelOpen(false)} className="flex-1 bg-black/30" />
         <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-5">
-          <Text className="mb-3 text-lg font-kumbh font-semibold text-black">
-            Select Channel
-          </Text>
+          <View className="mb-3 flex-row items-center justify-between">
+            <Text className="text-lg font-kumbh font-semibold text-black">Select Channels</Text>
+            <View className="flex-row items-center gap-4">
+              <Pressable onPress={clearAll} className="px-2 py-1">
+                <Text className="font-kumbh text-primary">Clear</Text>
+              </Pressable>
+              <Pressable onPress={selectAll} className="px-2 py-1">
+                <Text className="font-kumbh text-primary">Select All</Text>
+              </Pressable>
+            </View>
+          </View>
+
           <FlatList
             data={channels}
             keyExtractor={(i) => i._id}
-            ItemSeparatorComponent={() => (
-              <View className="h-[1px] bg-gray-100" />
-            )}
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => {
-                  setValue("channelId", item._id, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                    shouldTouch: true,
-                  });
-                  setChannelOpen(false);
-                }}
-                className="py-3"
-              >
-                <Text className="font-kumbh text-[16px] text-black">
-                  {item.name}
-                </Text>
-              </Pressable>
-            )}
+            ItemSeparatorComponent={() => <View className="h-[1px] bg-gray-100" />}
+            renderItem={({ item }) => {
+              const checked = selectedIds.includes(item._id);
+              return (
+                <Pressable
+                  onPress={() => toggleId(item._id)}
+                  className="py-3 flex-row items-center justify-between"
+                >
+                  <Text className="font-kumbh text-[16px] text-black">{item.name}</Text>
+                  <View
+                    className={`w-6 h-6 rounded-md border items-center justify-center ${
+                      checked ? "bg-primary border-primary" : "border-gray-300 bg-white"
+                    }`}
+                  >
+                    {checked ? <Check size={16} color="#fff" /> : null}
+                  </View>
+                </Pressable>
+              );
+            }}
+            style={{ maxHeight: 380 }}
           />
+
+          <View className="mt-4 flex-row gap-3">
+            <Pressable
+              onPress={() => setChannelOpen(false)}
+              className="flex-1 items-center justify-center rounded-2xl border border-gray-200 py-3"
+            >
+              <Text className="font-kumbh">Done</Text>
+            </Pressable>
+          </View>
+
           <View className="h-3" />
         </View>
       </Modal>
@@ -331,11 +401,10 @@ export default function CreateReportScreen() {
           mode="date"
           value={dateValue ?? new Date()}
           onChange={(event, picked) => {
-            // 'set' or 'dismissed'
             if (event.type === "set" && picked) {
               setValue("date", picked, { shouldValidate: true });
             }
-            setShowDate(false); // always close after any action
+            setShowDate(false);
           }}
           maximumDate={new Date(2100, 11, 31)}
           minimumDate={new Date(2000, 0, 1)}
@@ -352,9 +421,7 @@ export default function CreateReportScreen() {
                 <Text className="font-kumbh text-primary">Cancel</Text>
               </Pressable>
               <Pressable onPress={confirmDate}>
-                <Text className="font-kumbh font-semibold text-primary">
-                  Done
-                </Text>
+                <Text className="font-kumbh font-semibold text-primary">Done</Text>
               </Pressable>
             </View>
 
@@ -363,7 +430,7 @@ export default function CreateReportScreen() {
               display="spinner"
               value={tempDate ?? new Date()}
               onChange={(_, picked) => {
-                if (picked) setTempDate(picked); // keep sheet open, update buffer
+                if (picked) setTempDate(picked);
               }}
               maximumDate={new Date(2100, 11, 31)}
               minimumDate={new Date(2000, 0, 1)}

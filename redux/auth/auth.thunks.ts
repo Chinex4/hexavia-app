@@ -14,7 +14,6 @@ export const register = createAsyncThunk(
       fullname: string;
       email: string;
       username: string;
-      // role?: "client" | "staff";
       phoneNumber?: string;
     },
     { dispatch, rejectWithValue }
