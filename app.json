@@ -67,7 +67,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.png",
+          "icon": "./assets/images/logo2.png",
           "mode": "production"
         }
       ]

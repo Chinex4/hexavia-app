@@ -17,6 +17,7 @@ import { selectUser, selectPhase } from "@/redux/user/user.slice";
 import { logout } from "@/redux/auth/auth.slice";
 import { clearToken, clearUser } from "@/storage/auth";
 import { StatusBar } from "expo-status-bar";
+import { resetChat } from "@/redux/chat/chat.slice";
 
 function initialsOf(name?: string) {
   if (!name) return "U";
@@ -67,6 +68,8 @@ export default function Profile() {
   const avatarUri = user?.profilePicture || undefined;
   const logoutHandler = useCallback(() => {
     dispatch(logout());
+    dispatch({ type: "chat/disconnect" });
+    dispatch(resetChat());
     clearToken();
     clearUser();
     router.replace("/(auth)/login");

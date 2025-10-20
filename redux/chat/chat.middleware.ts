@@ -1,5 +1,4 @@
 import type { Middleware, AnyAction } from "@reduxjs/toolkit";
-import { nanoid } from "nanoid";
 import {
   wsConnecting,
   wsConnected,
@@ -24,135 +23,136 @@ const EMIT_GAP = 250;
 export const chatMiddleware: Middleware<{}, RootState> =
   (store) => (next) => (action) => {
     const result = next(action);
-
     const a = action as AnyAction;
+
     switch (a.type) {
       case "chat/connect": {
         const { meId } = a.payload as { meId: string };
         store.dispatch(setMe(meId));
         store.dispatch(wsConnecting());
-        console.log("[chat] wsConnecting…", { meId });
 
         const socket = connectSocket();
 
-        if (!(socket as any).__hasOnAny) {
-          (socket as any).__hasOnAny = true;
+        if (!(socket as any).__handlersBound) {
+          (socket as any).__handlersBound = true;
+
           socket.onAny((event, ...args) => {
-            console.log("[chat] onAny:", event, args?.[0]); // <— do NOT filter
+            console.log("[chat] onAny:", event, args?.[0]);
           });
-          socket.on("error", (e: any) => console.log("[chat] socket error", e));
-        }
 
-        socket.on("connect", () => {
-          console.log("[chat] wsConnected", { sid: socket.id });
-          store.dispatch(wsConnected());
-          socket.emit("joinChat", meId);
-
-          const rooms = Object.keys(store.getState().chat.joinedRooms.channels);
-          rooms.forEach((chId) => {
-            console.log("[chat] re-joinChannel → emit (on connect)", { chId });
-            socket.emit("joinChannel", { userId: meId, channelId: chId });
-          });
-        });
-
-        socket.on("disconnect", (reason) => {
-          console.log("[chat] wsDisconnected", { reason });
-          store.dispatch(wsDisconnected());
-        });
-        socket.on("connect_error", (err) => {
-          console.log("[chat] wsError", err?.message ?? err);
-          store.dispatch(setError((err as any)?.message ?? "WS error"));
-        });
-
-        socket.on("receiveDirectMessage", (data: any) => {
-          const msg: ChatMessage = {
-            id: data._id,
-            text: data.message,
-            createdAt: new Date(data.createdAt).valueOf(),
-            senderId: data.sender,
-            senderName: data.username,
-            avatar: data.profilePicture,
-            isRead: !!data.read,
-            status: data.read ? "seen" : "delivered",
-          };
-          const meIdNow = store.getState().chat.meId;
-          const threadId =
-            data.sender === meIdNow ? data.receiverId : data.sender;
-          store.dispatch(ensureThread({ id: threadId, kind: "direct" }));
-          store.dispatch(addMessageToThread({ threadId, message: msg }));
-        });
-
-        socket.on("receiveChannelMessage", async (data: any) => {
-          console.log("[chat] receiveChannelMessage", {
-            meId: store.getState().chat.meId,
-            from: data.sender,
-            channelId: data.channelId,
-            id: data._id,
-            hasAttachment: !!data.attachment,
-          });
-          const isUrl =
-            typeof data.message === "string" &&
-            /^https?:\/\//i.test(data.message);
-          const looksImage =
-            isUrl && /\.(png|jpe?g|gif|webp)(\?|$)/i.test(data.message);
-
-          const msg: ChatMessage = {
-            id: data._id,
-            text: data.message,
-            createdAt: new Date(data.createdAt).valueOf(),
-            senderId: data.sender,
-            senderName: data.username,
-            avatar: data.profilePicture,
-            isRead: !!data.read,
-            status: data.read ? "seen" : "delivered",
-
-            mediaUri:
-              data.attachment?.mediaUri ??
-              (looksImage ? data.message : undefined),
-            mimeType:
-              data.attachment?.mimeType ??
-              (looksImage ? "image/jpeg" : undefined),
-            durationMs: data.attachment?.durationMs,
-          };
-
-          const threadId = data.channelId as string;
-          store.dispatch(ensureThread({ id: threadId, kind: "community" }));
-          store.dispatch(addMessageToThread({ threadId, message: msg }));
-
-          const state = store.getState();
-          const currentThreadId = state.chat.currentThreadId;
-
-          const isFromMe = data.sender === state.chat.meId;
-          const isOnThread = currentThreadId === threadId;
-
-          if (!isFromMe && !isOnThread) {
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: data.username ?? "New message",
-                body: msg.mediaUri ? "📷 Image" : data.message || "New message",
-                data: { channelId: threadId },
-              },
-              trigger: null,
+          socket.on("connect", () => {
+            console.log("[chat] wsConnected", { sid: socket.id });
+            store.dispatch(wsConnected());
+            socket.emit("joinChat", store.getState().chat.meId);
+            const rooms = Object.keys(
+              store.getState().chat.joinedRooms.channels
+            );
+            rooms.forEach((chId) => {
+              socket.emit("joinChannel", {
+                userId: store.getState().chat.meId,
+                channelId: chId,
+              });
             });
-          }
-        });
+          });
 
-        socket.on("messagesRead", (data: any) => {
-          const ids: string[] = data.messageIds || [];
-          store.dispatch(markReadBulk(ids));
-          ids.forEach((id) =>
-            store.dispatch(
-              setMessageStatus({ id, status: "seen", isRead: true })
-            )
-          );
-        });
+          socket.on("disconnect", (reason) => {
+            console.log("[chat] wsDisconnected", { reason });
+            store.dispatch(wsDisconnected());
+          });
+
+          socket.on("connect_error", (err) => {
+            console.log("[chat] wsError", err?.message ?? err);
+            store.dispatch(setError((err as any)?.message ?? "WS error"));
+          });
+
+          socket.on("receiveDirectMessage", (data: any) => {
+            const msg: ChatMessage = {
+              id: data._id,
+              text: data.message,
+              createdAt: new Date(data.createdAt).valueOf(),
+              senderId: data.sender,
+              senderName: data.username,
+              avatar: data.profilePicture,
+              isRead: !!data.read,
+              status: data.read ? "seen" : "delivered",
+            };
+            const meIdNow = store.getState().chat.meId;
+            const threadId =
+              data.sender === meIdNow ? data.receiverId : data.sender;
+            store.dispatch(ensureThread({ id: threadId, kind: "direct" }));
+            store.dispatch(addMessageToThread({ threadId, message: msg }));
+          });
+
+          socket.on("receiveChannelMessage", async (data: any) => {
+            const isUrl =
+              typeof data.message === "string" &&
+              /^https?:\/\//i.test(data.message);
+            const looksImage =
+              isUrl && /\.(png|jpe?g|gif|webp)(\?|$)/i.test(data.message);
+
+            const msg: ChatMessage = {
+              id: data._id,
+              text: data.message,
+              createdAt: new Date(data.createdAt).valueOf(),
+              senderId: data.sender,
+              senderName: data.username,
+              avatar: data.profilePicture,
+              isRead: !!data.read,
+              status: data.read ? "seen" : "delivered",
+              mediaUri:
+                data.attachment?.mediaUri ??
+                (looksImage ? data.message : undefined),
+              mimeType:
+                data.attachment?.mimeType ??
+                (looksImage ? "image/jpeg" : undefined),
+              durationMs: data.attachment?.durationMs,
+            };
+
+            const threadId = String(data.channelId);
+            store.dispatch(ensureThread({ id: threadId, kind: "community" }));
+            store.dispatch(addMessageToThread({ threadId, message: msg }));
+
+            const state = store.getState();
+            const isFromMe = data.sender === state.chat.meId;
+            const isOnThread = state.chat.currentThreadId === threadId;
+
+            console.log("[recv] ch", { meId: store.getState().chat.meId, from: data.sender, channelId: data.channelId });
+
+            
+            if (!isFromMe && !isOnThread) {
+              await Notifications.scheduleNotificationAsync({
+                content: {
+                  title: data.username ?? "New message",
+                  body: msg.mediaUri
+                    ? "📷 Image"
+                    : data.message || "New message",
+                  data: { channelId: threadId },
+                },
+                trigger: null,
+              });
+            }
+          });
+
+          socket.on("messagesRead", (data: any) => {
+            const ids: string[] = data.messageIds || [];
+            store.dispatch(markReadBulk(ids));
+            ids.forEach((id) =>
+              store.dispatch(
+                setMessageStatus({ id, status: "seen", isRead: true })
+              )
+            );
+          });
+        }
 
         return result;
       }
 
       case "chat/disconnect": {
         const socket = getSocket();
-        if (socket) socket.removeAllListeners();
+        if (socket) {
+          socket.removeAllListeners();
+          (socket as any).__handlersBound = false;
+        }
         closeSocket();
         return result;
       }
@@ -163,41 +163,19 @@ export const chatMiddleware: Middleware<{}, RootState> =
           channelId: string;
         };
         const socket = getSocket();
-        console.log("[chat] joinChannel action", {
-          meId,
-          channelId,
-          socketConnected: !!socket?.connected,
-        });
 
-        // local track + join
+        const wasJoined =
+          !!store.getState().chat.joinedRooms.channels[channelId];
+        if (wasJoined) return result;
+
         store.dispatch(ensureThread({ id: channelId, kind: "community" }));
-        store.dispatch(joinedChannel(channelId));
-
-        const emitJoin = () => {
-          console.log("[chat] joinChannel → emit", {
-            meId,
-            channelId,
-            sid: socket?.id,
-          });
-          socket!.emit("joinChannel", { userId: meId, channelId });
-        };
+        const emitJoin = () =>
+          socket?.emit("joinChannel", { userId: meId, channelId });
 
         if (socket?.connected) emitJoin();
-        else {
-          console.log("[chat] joinChannel queued (not connected)", {
-            channelId,
-          });
-          const onConnectOnce = () => {
-            console.log("[chat] joinChannel → emit (after connect)", {
-              meId,
-              channelId,
-              sid: socket?.id,
-            });
-            emitJoin();
-            socket!.off("connect", onConnectOnce);
-          };
-          socket?.on("connect", onConnectOnce);
-        }
+        else socket?.once("connect", emitJoin);
+
+        store.dispatch(joinedChannel(channelId));
         return result;
       }
 
@@ -213,8 +191,9 @@ export const chatMiddleware: Middleware<{}, RootState> =
           };
         };
         const socket = getSocket();
-        // const tempId = `temp_${nanoid()}`;
-        const tempId = `temp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const tempId = `temp_${Date.now().toString(36)}_${Math.random()
+          .toString(36)
+          .slice(2, 8)}`;
 
         store.dispatch(ensureThread({ id: otherUserId, kind: "direct" }));
         store.dispatch(
@@ -228,7 +207,6 @@ export const chatMiddleware: Middleware<{}, RootState> =
               senderId: meId,
               senderName: "You",
               status: "sending",
-
               mediaUri: attachment?.mediaUri,
               mimeType: attachment?.mimeType,
               durationMs: attachment?.durationMs,
@@ -237,14 +215,13 @@ export const chatMiddleware: Middleware<{}, RootState> =
         );
 
         if (socket?.connected) {
-          console.log("[chat] sendDirect → emit");
           const once = (data: any) => {
             if (data.sender === meId && data.receiverId === otherUserId) {
               store.dispatch(replaceTempId({ tempId, realId: data._id }));
               store.dispatch(
                 setMessageStatus({
                   id: data._id,
-                  status: "delivered",
+                  status: data.read ? "seen" : "delivered",
                   isRead: !!data.read,
                 })
               );
@@ -257,6 +234,16 @@ export const chatMiddleware: Middleware<{}, RootState> =
             message: text,
           });
           socket.on("receiveDirectMessage", once);
+
+          setTimeout(() => {
+            const state = store.getState();
+            if (state.chat.messages[tempId]?.status === "sending") {
+              store.dispatch(
+                setMessageStatus({ id: tempId, status: "failed" })
+              );
+              socket.off("receiveDirectMessage", once);
+            }
+          }, 10000);
         } else {
           store.dispatch(setMessageStatus({ id: tempId, status: "failed" }));
         }
@@ -275,7 +262,9 @@ export const chatMiddleware: Middleware<{}, RootState> =
           };
         };
         const socket = getSocket();
-        const tempId = `temp_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+        const tempId = `temp_${Date.now().toString(36)}_${Math.random()
+          .toString(36)
+          .slice(2, 8)}`;
 
         store.dispatch(ensureThread({ id: channelId, kind: "community" }));
         store.dispatch(
@@ -299,33 +288,16 @@ export const chatMiddleware: Middleware<{}, RootState> =
         const now = Date.now();
         if (now - lastEmitAt < EMIT_GAP) {
           setTimeout(() => store.dispatch(a), EMIT_GAP - (now - lastEmitAt));
-          return result; // stop current; will be re-dispatched
+          return result;
         }
         lastEmitAt = now;
 
         if (socket?.connected) {
-          socket.emit("joinChannel", { userId: meId, channelId });
-          console.log("[chat] sendChannel → start", {
-            channelId,
-            meId,
-            hasAttachment: !!attachment,
-            textLen: text?.length,
-          });
-
+          console.log("[send] ch", { meId, channelId, text });
           socket.emit(
             "sendChannelMessage",
-            {
-              senderId: meId,
-              channelId,
-              message: text,
-              attachment, // let server persist this if supported
-            },
+            { senderId: meId, channelId, message: text, attachment },
             (ack?: { _id?: string; read?: boolean }) => {
-              console.log("[chat] sendChannel → ack", {
-                channelId,
-                ok: !!ack?._id,
-                ack,
-              });
               if (ack?._id) {
                 store.dispatch(replaceTempId({ tempId, realId: ack._id }));
                 store.dispatch(
@@ -343,34 +315,12 @@ export const chatMiddleware: Middleware<{}, RootState> =
             }
           );
 
-          const once = (data: any) => {
-            console.log("[chat] receiveChannelMessage (echo?)", {
-              meId,
-              from: data.sender,
-              channelId: data.channelId,
-              id: data._id,
-            });
-            if (data.channelId === channelId && data.sender === meId) {
-              store.dispatch(replaceTempId({ tempId, realId: data._id }));
-              store.dispatch(
-                setMessageStatus({
-                  id: data._id,
-                  status: data.read ? "seen" : "delivered",
-                  isRead: !!data.read,
-                })
-              );
-              socket.off("receiveChannelMessage", once);
-            }
-          };
-          socket.on("receiveChannelMessage", once);
-
           setTimeout(() => {
             const state = store.getState();
             if (state.chat.messages[tempId]?.status === "sending") {
               store.dispatch(
                 setMessageStatus({ id: tempId, status: "failed" })
               );
-              socket.off("receiveChannelMessage", once);
             }
           }, 10000);
         } else {

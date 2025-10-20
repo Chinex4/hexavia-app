@@ -18,14 +18,6 @@ export const selectUserById = (state: RootState, userId?: string | null) => {
   const me: BasicUser | null = state.user.user as any;
   const meId = (me?._id ?? me?.id) as string | undefined;
   if (me && meId && meId === userId) {
-    // console.log({
-    //   name:
-    //       me.name ??
-    //       me.fullName ??
-    //       me.username ??
-    //       (me.email ? me.email.split("@")[0] : "Member"),
-    //     avatarUrl: me.avatar ?? me.profilePicture ?? me.photoUrl ?? undefined,
-    // })
     return {
       id: meId,
       name:

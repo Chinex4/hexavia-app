@@ -1,4 +1,3 @@
-// redux/chat/chat.slice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type {
   ChatMessage,
@@ -17,19 +16,16 @@ const initialState: ChatState = {
   connecting: false,
   connected: false,
   error: null,
-
   loadingByThread: {},
   hasMoreByThread: {},
   nextSkipByThread: {},
 };
 
-const looksImageUrl = (s: string) =>
-  /^https?:\/\//i.test(s) && /\.(png|jpe?g|gif|webp)(\?|$)/i.test(s);
-
 export const chatSlice = createSlice({
   name: "chat",
   initialState,
   reducers: {
+    resetChat: () => initialState,
     setMe(state, action: PayloadAction<string>) {
       state.meId = action.payload;
     },
@@ -46,14 +42,12 @@ export const chatSlice = createSlice({
       state.joinedRooms.me = false;
       state.joinedRooms.channels = {};
     },
-
     joinedMeRoom(state) {
       state.joinedRooms.me = true;
     },
     joinedChannel(state, action: PayloadAction<string>) {
       state.joinedRooms.channels[action.payload] = true;
     },
-
     ensureThread(
       state,
       action: PayloadAction<{
@@ -68,17 +62,13 @@ export const chatSlice = createSlice({
         state.threads[id] = { id, kind, title, subtitle, messages: [] };
       }
     },
-
     setCurrentThread(state, action: PayloadAction<ThreadId | null>) {
       state.currentThreadId = action.payload;
     },
-
     upsertMessage(state, action: PayloadAction<ChatMessage>) {
       const msg = action.payload;
       state.messages[msg.id] = { ...state.messages[msg.id], ...msg };
-      // NOTE: addMessageToThread should be used to actually attach to a thread.
     },
-
     addMessageToThread(
       state,
       action: PayloadAction<{ threadId: ThreadId; message: ChatMessage }>
@@ -87,11 +77,8 @@ export const chatSlice = createSlice({
       state.messages[message.id] = message;
       const thr = state.threads[threadId];
       if (!thr) return;
-      if (!thr.messages.includes(message.id)) {
-        thr.messages.push(message.id);
-      }
+      if (!thr.messages.includes(message.id)) thr.messages.push(message.id);
     },
-
     replaceTempId(
       state,
       action: PayloadAction<{ tempId: string; realId: string }>
@@ -106,7 +93,6 @@ export const chatSlice = createSlice({
         if (idx >= 0) t.messages[idx] = realId;
       });
     },
-
     setMessageStatus(
       state,
       action: PayloadAction<{
@@ -122,41 +108,34 @@ export const chatSlice = createSlice({
           m.isRead = action.payload.isRead;
       }
     },
-
     markReadBulk(state, action: PayloadAction<string[]>) {
       action.payload.forEach((id) => {
         const m = state.messages[id];
         if (m) m.isRead = true;
       });
     },
-
     setError(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
     },
   },
-
-  // ✅ correct builder callback usage
   extraReducers: (builder) => {
     builder
       .addCase(fetchMessages.pending, (state, { meta }) => {
         const { id } = meta.arg as { id: string };
         state.loadingByThread![id] = true;
-        // first time: if nextSkip not set, initialize
         if (state.nextSkipByThread![id] == null)
           state.nextSkipByThread![id] = 0;
       })
-      .addCase(fetchMessages.fulfilled, (state, { payload, meta }) => {
+      .addCase(fetchMessages.fulfilled, (state, { payload }) => {
         const { threadId, kind, items, page } = payload;
         const { limit = 50, skip = 0 } = page || {};
         state.loadingByThread![threadId] = false;
 
-        // ensure thread exists
         if (!state.threads[threadId]) {
           state.threads[threadId] = { id: threadId, kind, messages: [] };
         }
         const thr = state.threads[threadId];
 
-        // normalize & add (same as you already do)
         for (const d of items) {
           const id = String(d._id ?? `${d.sender}-${d.createdAt}`);
           if (!state.messages[id]) {
@@ -165,7 +144,6 @@ export const chatSlice = createSlice({
               typeof text === "string" &&
               /^https?:\/\//i.test(text) &&
               /\.(png|jpe?g|gif|webp)(\?|$)/i.test(text);
-
             state.messages[id] = {
               id,
               text,
@@ -181,14 +159,13 @@ export const chatSlice = createSlice({
           }
           if (!thr.messages.includes(id)) thr.messages.push(id);
         }
+
         thr.messages.sort(
           (a, b) => state.messages[a].createdAt - state.messages[b].createdAt
         );
 
-        // hasMore: if fewer than limit came back, we reached the end
         const got = items.length;
-        state.hasMoreByThread![threadId] = got >= limit; // true if possibly more
-        // next skip (for your convenience)
+        state.hasMoreByThread![threadId] = got >= limit;
         state.nextSkipByThread![threadId] = skip + got;
       })
       .addCase(fetchMessages.rejected, (state, { meta }) => {
@@ -199,6 +176,7 @@ export const chatSlice = createSlice({
 });
 
 export const {
+  resetChat,
   setMe,
   wsConnecting,
   wsConnected,

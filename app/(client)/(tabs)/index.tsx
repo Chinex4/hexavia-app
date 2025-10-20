@@ -73,6 +73,7 @@ const getMemberId = (m: any) =>
 
 const hasUser = (ch: any, uid: string) => {
   const members = Array.isArray(ch?.members) ? ch.members : [];
+  
   return (
     sameId(getCreatorId(ch), uid) ||
     members.some((m: any) => sameId(getMemberId(m), uid))
@@ -87,6 +88,8 @@ export default function StaffHome() {
   const userId = toStr(user?._id);
   const allChannels = useAppSelector(selectAllChannels) ?? [];
 
+  // console.log(allChannels)
+
   useEffect(() => {
     if (!user) dispatch(fetchProfile());
     dispatch(fetchChannels());
@@ -95,6 +98,8 @@ export default function StaffHome() {
     if (!userId) return [];
     return allChannels.filter((ch) => hasUser(ch, userId));
   }, [allChannels, userId]);
+  // console.log(channels[0].members.map(m => m._id), userId)
+
 
   const status = useAppSelector(selectStatus);
   // console.log("Channels:", channels);

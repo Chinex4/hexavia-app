@@ -16,6 +16,7 @@ import SectionCard from "@/components/admin/SectionCard";
 import StatPill from "@/components/admin/StatPiill";
 import FilterChip from "@/components/admin/FilterChip";
 import ProgressRow from "@/components/admin/ProgressRow";
+import { getToken } from "@/storage/auth";
 
 type FinanceSummary = { receivables: number; outflow: number };
 
