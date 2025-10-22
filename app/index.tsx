@@ -38,7 +38,7 @@ export default function Splash() {
       try {
         const token = await registerPushToken();
         if (token) {
-          await sendPushTokenToBackend(user._id, token);
+          // await sendPushTokenToBackend(user._id, token);
         }
         pushRegisteredRef.current = true;
 
