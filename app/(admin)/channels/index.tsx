@@ -132,7 +132,7 @@ export default function ChannelsIndex() {
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbh text-text">Channels</Text>
+          <Text className="text-3xl font-kumbh text-text">Groups</Text>
           <View className="w-10"/>
         </View>
 
@@ -145,7 +145,7 @@ export default function ChannelsIndex() {
             <Plus size={18} color="#111827" />
           </View>
           <Text className="text-base font-kumbh text-text">
-            Create New Channels
+            Create New Group
           </Text>
         </Pressable>
 
@@ -155,7 +155,7 @@ export default function ChannelsIndex() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search for channels"
+            placeholder="Search for groups"
             placeholderTextColor="#9CA3AF"
             className="flex-1 px-2 py-3 font-kumbh text-text"
             returnKeyType="search"
@@ -163,7 +163,7 @@ export default function ChannelsIndex() {
         </View>
 
         <Text className="mt-6 mb-3 text-base font-kumbh text-text">
-          Channels
+          Groups
         </Text>
       </View>
 
@@ -172,7 +172,7 @@ export default function ChannelsIndex() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
           <Text className="mt-2 text-gray-500 font-kumbh">
-            Loading channels…
+            Loading groups...
           </Text>
         </View>
       ) : (
@@ -226,7 +226,7 @@ export default function ChannelsIndex() {
               <Text className="text-center text-gray-500 font-kumbh">
                 {status === "failed" && error
                   ? `Error: ${error}`
-                  : "No channels found."}
+                  : "No groups found."}
               </Text>
             </View>
           }

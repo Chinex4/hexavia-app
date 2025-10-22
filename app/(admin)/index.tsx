@@ -61,7 +61,7 @@ export default function AdminDashboard() {
               onPress={() => router.push("/(admin)/clients")}
             />
             <Tile
-              title="Channels"
+              title="Groups"
               icon={<UserPlus size={22} color="white" />}
               onPress={() => router.push("/(admin)/channels")}
             />
@@ -77,6 +77,14 @@ export default function AdminDashboard() {
               icon={<BarChart3 size={22} color="white" />}
               onPress={() => router.push("/(admin)/finance")}
             />
+          </View>
+          <View className="flex-row gap-2">
+            <Tile
+              title="Prospects"
+              icon={<FolderKanban size={22} color="white" />}
+              onPress={() => router.push("/(admin)/prospects")}
+            />
+            
           </View>
         </View>
 

@@ -21,6 +21,11 @@ export interface Client {
   updatedAt?: string;
 }
 
+export interface RateLimited {
+  retryAfter: string;
+  at: string;
+}
+
 export interface ClientFilters {
   status?: string;
   industry?: string;
@@ -69,6 +74,10 @@ export interface ClientStats {
 
 export interface ClientState {
   byId: Record<string, Client>;
+  rateLimited: {
+    retryAfter: string | null;
+    at: string | null;
+  };
   allIds: string[];
   listLoading: boolean;
   detailLoading: boolean;

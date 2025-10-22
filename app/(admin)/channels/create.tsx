@@ -55,11 +55,11 @@ export default function CreateChannel() {
 
   const onCreate = async () => {
     if (!name.trim()) {
-      showError("Channel name is required");
+      showError("Group name is required");
       return;
     }
     if (!code?.trim()) {
-      showError("Channel code is missing. Generate a code first.");
+      showError("Group code is missing. Generate a code first.");
       return;
     }
 
@@ -87,7 +87,7 @@ export default function CreateChannel() {
         >
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-2xl font-kumbh text-text">Create New Channel</Text>
+        <Text className="text-2xl font-kumbh text-text">Create New Group</Text>
         <View className="w-10" />
       </View>
 
@@ -109,9 +109,9 @@ export default function CreateChannel() {
             </View>
           )}
 
-          <Field label="Name of Channel">
+          <Field label="Name of Group">
             <TextInput
-              placeholder="Enter Channel Name"
+              placeholder="Enter Group Name"
               placeholderTextColor="#9CA3AF"
               value={name}
               onChangeText={setName}
@@ -132,7 +132,7 @@ export default function CreateChannel() {
           </Field>
 
           <View className="flex-row gap-3">
-            <Field label="Channel Code" className="flex-1">
+            <Field label="Group Code" className="flex-1">
               <View className="relative">
                 <TextInput
                   placeholder="Auto-generated"
@@ -159,7 +159,7 @@ export default function CreateChannel() {
           </View>
 
           <HexButton
-            title={creating ? "Creating..." : "Create Channel"}
+            title={creating ? "Creating..." : "Create Group"}
             onPress={onCreate}
             disabled={creating}
           />

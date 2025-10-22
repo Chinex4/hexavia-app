@@ -1,4 +1,3 @@
-// app/(admin)/clients/[id].tsx
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -25,7 +24,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { selectAllChannels } from "@/redux/channels/channels.slice";
+// (Optional) If you previously imported channels only to keep it alive, you can remove the next line.
+// import { selectAllChannels } from "@/redux/channels/channels.slice";
 import { deleteClient, fetchClientById, updateClient } from "@/redux/client/client.thunks";
 import {
   makeSelectClientById,
@@ -34,7 +34,7 @@ import {
 } from "@/redux/client/client.selectors";
 import type { Client } from "@/redux/client/client.types";
 
-/* ------------ types & UI helpers (unchanged) ------------ */
+/* ------------ types & UI helpers ------------ */
 type AdminUser = {
   _id: string;
   email: string;
@@ -51,14 +51,23 @@ type AdminUser = {
   engagement?: string;
   deliverables?: string;
   payableAmount?: number;
-  status?: "Active" | "Pending" | "Closed";
+  status?: "current" | "pending" | "completed" | "active" | "Active";
 };
+
+type ApiStatus = "current" | "pending" | "completed";
+type BaseUser = AdminUser & { statusApi: ApiStatus };
 
 const BG_INPUT = "#F7F9FC";
 const BORDER = "#E5E7EB";
 const PRIMARY = "#4C5FAB";
 
-const STATUS_OPTIONS: AdminUser["status"][] = ["Active", "Pending", "Closed"];
+const STATUS_OPTIONS: { value: ApiStatus; label: "Active" | "Pending" | "Closed" }[] = [
+  { value: "current",   label: "Active"  },
+  { value: "pending",   label: "Pending" },
+  { value: "completed", label: "Closed"  },
+];
+const toUiLabel = (s?: ApiStatus) =>
+  STATUS_OPTIONS.find(x => x.value === s)?.label ?? "Pending";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <Text className="font-kumbh text-[13px] text-[#111827] mb-2">{children}</Text>;
@@ -150,24 +159,20 @@ function formatDate(d?: string) {
   try { return new Date(d).toLocaleDateString(); } catch { return d; }
 }
 
-/* --------- status mapping (UI ⇄ API) --------- */
-type ApiStatus = "current" | "pending" | "completed";
-type UiStatus = "Active" | "Pending" | "Closed";
-const toUiStatus = (api?: ApiStatus): UiStatus => (api === "current" ? "Active" : api === "completed" ? "Closed" : "Pending");
-const toApiStatus = (ui?: UiStatus): ApiStatus => (ui === "Active" ? "current" : ui === "Closed" ? "completed" : "pending");
-
 /* ------------------------------ Screen ------------------------------ */
 export default function ClientDetails() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const dispatch = useAppDispatch();
 
-  // Optional: keep these imports alive for future use
   const users = useAppSelector(selectAdminUsers);
-  useAppSelector(selectAllChannels);
+  // useAppSelector(selectAllChannels);
 
   // Select from client slice
-  const selectClient = useMemo(() => (id ? makeSelectClientById(String(id)) : () => null), [id]);
+  const selectClient = useMemo(
+    () => (id ? makeSelectClientById(String(id)) : () => null),
+    [id]
+  );
   const clientFromStore = useAppSelector(selectClient) as Client | null;
 
   const detailLoading = useAppSelector(selectClientDetailLoading);
@@ -186,7 +191,7 @@ export default function ClientDetails() {
   }, [dispatch, id]); // only when id changes
 
   // Fallback (when not yet in store)
-  const fallbackUser: AdminUser = {
+  const fallbackUser: BaseUser = {
     _id: String(id ?? "unknown"),
     email: "unknown@example.com",
     fullname: "Unknown User",
@@ -202,11 +207,12 @@ export default function ClientDetails() {
     engagement: "Core Consulting",
     deliverables: "UI Screens",
     payableAmount: 240573.04,
-    status: "Active",
+    status: "pending",
+    statusApi: "pending",
   };
 
-  // Prefer client slice → bridge to AdminUser shape
-  const baseUser = useMemo<AdminUser>(() => {
+  // Prefer client slice → bridge to AdminUser shape + canonical API status
+  const baseUser = useMemo<BaseUser>(() => {
     if (clientFromStore) {
       return {
         _id: clientFromStore._id,
@@ -224,12 +230,19 @@ export default function ClientDetails() {
         engagement: clientFromStore.engagement,
         deliverables: clientFromStore.deliverables,
         payableAmount: clientFromStore.payableAmount,
-        status: toUiStatus(clientFromStore.status as ApiStatus),
+        status: clientFromStore.status as ApiStatus,
+        statusApi: (clientFromStore.status as ApiStatus) ?? "pending",
       };
     }
     if (id) {
       const fromAdmin = users.find((u: any) => u._id === id);
-      if (fromAdmin) return { ...fallbackUser, ...fromAdmin };
+      if (fromAdmin) {
+        return {
+          ...(fromAdmin as AdminUser),
+          statusApi:
+            (["current", "pending", "completed"].includes(String(fromAdmin.status)) ? (fromAdmin.status as ApiStatus) : "pending"),
+        } as BaseUser;
+      }
     }
     return fallbackUser;
   }, [clientFromStore, users, id]);
@@ -244,7 +257,7 @@ export default function ClientDetails() {
   const [engagement, setEngagement] = useState(baseUser.engagement ?? "");
   const [deliverables, setDeliverables] = useState(baseUser.deliverables ?? "");
   const [payable, setPayable] = useState(formatMoneyNaira(baseUser.payableAmount));
-  const [status, setStatus] = useState<AdminUser["status"]>(baseUser.status ?? "Active");
+  const [statusApi, setStatusApi] = useState<ApiStatus>(baseUser.statusApi);
   const [statusOpen, setStatusOpen] = useState(false);
 
   // Dirty detection
@@ -261,9 +274,21 @@ export default function ClientDetails() {
       engagement !== (baseUser.engagement ?? "") ||
       deliverables !== (baseUser.deliverables ?? "") ||
       payable !== basePay ||
-      status !== (baseUser.status ?? "Active")
+      statusApi !== baseUser.statusApi
     );
-  }, [baseUser, name, projectName, industry, staffSize, description, problems, engagement, deliverables, payable, status]);
+  }, [
+    baseUser,
+    name,
+    projectName,
+    industry,
+    staffSize,
+    description,
+    problems,
+    engagement,
+    deliverables,
+    payable,
+    statusApi,
+  ]);
 
   // Reset when baseUser changes
   useEffect(() => {
@@ -276,8 +301,9 @@ export default function ClientDetails() {
     setEngagement(baseUser.engagement ?? "");
     setDeliverables(baseUser.deliverables ?? "");
     setPayable(formatMoneyNaira(baseUser.payableAmount));
-    setStatus(baseUser.status ?? "Active");
-  }, [baseUser._id]); // eslint-disable-line react-hooks/exhaustive-deps
+    setStatusApi(baseUser.statusApi);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseUser._id]);
 
   const joined = formatDate(baseUser.createdAt);
 
@@ -294,14 +320,13 @@ export default function ClientDetails() {
       engagement: engagement.trim() || undefined,
       deliverables: deliverables.trim() || undefined,
       payableAmount: parseMoney(payable) || undefined,
-      status: toApiStatus(status),
+      status: statusApi, // ✅ exact "current" | "pending" | "completed"
     } as Partial<Client>;
 
     try {
       await dispatch(updateClient({ id: String(id), body })).unwrap();
       Alert.alert("Saved", "Client info updated successfully.");
-      // 🚫 DO NOT immediately refetch here — avoids extra GET on hot path
-      // The slice already upserts the updated client.
+      // No immediate refetch; slice upserts the updated client.
     } catch (e: any) {
       Alert.alert("Update failed", e?.message || "Please try again.");
     }
@@ -443,7 +468,7 @@ export default function ClientDetails() {
                         className="rounded-2xl px-4 py-3 flex-row items-center justify-between"
                         style={{ backgroundColor: BG_INPUT, borderColor: BORDER }}
                       >
-                        <Text className="font-kumbh text-[#111827]">{status}</Text>
+                        <Text className="font-kumbh text-[#111827]">{toUiLabel(statusApi)}</Text>
                         <ChevronDown size={18} color="#111827" />
                       </Pressable>
                     </View>
@@ -455,13 +480,15 @@ export default function ClientDetails() {
                   <Text className="text-[12px] text-[#6B7280] font-kumbh">Generate Invoice</Text>
                 </View>
 
-                {/* Joined */}
+                {/* Joined (read-only) */}
                 <View className="mt-6">
                   <FieldLabel>Joined</FieldLabel>
-                  <Input value={joined} onChangeText={() => {}} />
+                  <View className="rounded-2xl px-4 py-3" style={{ backgroundColor: BG_INPUT }}>
+                    <Text className="font-kumbh text-[#111827]">{joined}</Text>
+                  </View>
                 </View>
 
-                {/* Buttons row (left as-is) */}
+                {/* Buttons row */}
                 <View className="mt-6 flex-row" style={{ gap: 12 }}>
                   <View style={{ flex: 1 }}>
                     <PillButton variant="outline" icon={<Bell size={16} color={PRIMARY} />} label="Send Invoice" onPress={() => {}} />
@@ -499,17 +526,17 @@ export default function ClientDetails() {
                 <Text className="font-kumbhBold text-[#111827] mb-2">Select Status</Text>
                 <FlatList
                   data={STATUS_OPTIONS}
-                  keyExtractor={(s, i) => (s ? String(s) : `status-${i}`)}
+                  keyExtractor={(x) => x.value}
                   ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#EEF0F3" }} />}
                   renderItem={({ item }) => (
                     <Pressable
                       onPress={() => {
-                        setStatus(item);
+                        setStatusApi(item.value);
                         setStatusOpen(false);
                       }}
                       className="py-3"
                     >
-                      <Text className="font-kumbh text-[#111827]">{item}</Text>
+                      <Text className="font-kumbh text-[#111827]">{item.label}</Text>
                     </Pressable>
                   )}
                 />

@@ -148,7 +148,7 @@ export default function CreateReportScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
-      <View className="px-5 mt-6 flex-row items-center justify-between">
+      <View style={{marginTop: Platform.select({android: 60, ios: 60})}} className="px-5 flex-row items-center justify-between">
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 -ml-1 items-center justify-center"

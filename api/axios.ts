@@ -36,6 +36,15 @@ function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// api/axios.ts
+function parseRetryAfter(header?: string | null): number | null {
+  if (!header) return null;
+  const n = Number(header);
+  if (!Number.isNaN(n)) return n * 1000; // seconds
+  const ms = Date.parse(header);
+  return Number.isNaN(ms) ? null : Math.max(0, ms - Date.now());
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (err: AxiosError<any>) => {
@@ -50,36 +59,42 @@ api.interceptors.response.use(
       return Promise.reject(err);
     }
 
-    // Show server error message if present
+    // only toast here for non-rate-limit errors
     const serverMessage =
       (response?.data as any)?.message ||
       (response?.data as any)?.error ||
       err.message;
+
     if (serverMessage && status && status !== 429 && status !== 503) {
       showError(serverMessage);
     }
 
-    if (config) {
-      const method = (config.method || "get").toLowerCase();
-      const isIdempotent = ["get", "head", "options"].includes(method);
-      const retriable =
-        isIdempotent && response && [429, 503].includes(status!);
+    if (!config) return Promise.reject(err);
 
-      if (retriable) {
-        config.__retryCount = (config.__retryCount || 0) + 1;
-        const maxRetries = 3;
-        if (config.__retryCount <= maxRetries) {
-          const retryAfterHdr = response?.headers?.["retry-after"];
-          const retryAfterMs = retryAfterHdr
-            ? parseFloat(String(retryAfterHdr)) * 1000
-            : 0;
-          const base = 500 * Math.pow(2, config.__retryCount - 1); // 500, 1000, 2000
-          const jitter = Math.floor(Math.random() * 250);
-          const delay = Math.max(retryAfterMs, base + jitter);
-          await sleep(delay);
-          return api(config);
-        }
+    const method = (config.method || "get").toLowerCase();
+    const isIdempotent = ["get", "head", "options"].includes(method);
+    const retriable = isIdempotent && response && [429, 503].includes(status!);
+
+    if (retriable) {
+      config.__retryCount = (config.__retryCount || 0) + 1;
+      const maxRetries = 3;
+
+      if (config.__retryCount <= maxRetries) {
+        const retryAfterHdr =
+          response?.headers?.["retry-after"] ??
+          response?.headers?.["Retry-After"];
+        const retryAfterMs = parseRetryAfter(retryAfterHdr) ?? 0;
+
+        const base = 500 * Math.pow(2, config.__retryCount - 1); // 500, 1000, 2000
+        const jitter = Math.floor(Math.random() * 250);
+        const delay = Math.max(retryAfterMs, base + jitter);
+
+        await sleep(delay);
+        return api(config);
       }
+
+      // mark the error so thunks/UI can switch to banner, not toast
+      (err as any).__gaveUp429 = true;
     }
 
     return Promise.reject(err);
