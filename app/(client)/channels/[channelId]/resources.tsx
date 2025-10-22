@@ -13,7 +13,7 @@ import { toApiResources } from "@/utils/buildApiResources";
 import { getMimeFromName } from "@/utils/getMime";
 import { normalizeCloudinaryUrl, slugifyFilename } from "@/utils/slugAndCloudinary";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
@@ -87,7 +87,7 @@ export default function ChannelResourcesScreen() {
   const doSaveToDb = async (payload: UploadResourcesBody) => {
     try {
       await dispatch(uploadChannelResources(payload as any)).unwrap();
-      showSuccess("Resources added to channel");
+      showSuccess("Resources added to group");
       await dispatch(fetchChannelById(channelId!)).unwrap();
     } catch {}
   };
@@ -233,7 +233,7 @@ export default function ChannelResourcesScreen() {
             <ChevronLeft size={22} color="#111827" />
           </Pressable>
           <Text className="flex-1 text-left text-[20px] font-kumbhBold text-gray-900">
-            {channel?.name ? `${channel.name} Resources` : "Channel Resources"}
+            {channel?.name ? `${channel.name} Resources` : "Group Resources"}
           </Text>
           <Pressable onPress={() => {}} className="h-9 w-9 rounded-xl items-center justify-center mr-1.5">
             <CloudDownload size={20} color="#111827" />

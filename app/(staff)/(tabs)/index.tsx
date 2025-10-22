@@ -118,7 +118,7 @@ export default function StaffHome() {
 
         {/* Channels */}
         <View className="mt-6 flex-row items-center justify-between">
-          <Text className="text-3xl text-gray-900 font-kumbh">Channels</Text>
+          <Text className="text-3xl text-gray-900 font-kumbh">Groups</Text>
           <Pressable
             onPress={() => router.push("/(staff)/channels")}
             className="flex-row items-center"
@@ -155,8 +155,8 @@ export default function StaffHome() {
                 />
                 <Text className="mt-2 text-gray-500 font-kumbh">
                   {status === "loading"
-                    ? "Loading channels…"
-                    : "No channels found"}
+                    ? "Loading groups..."
+                    : "No groups found"}
                 </Text>
               </View>
             }

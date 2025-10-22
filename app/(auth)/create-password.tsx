@@ -32,7 +32,7 @@ const schema = yup.object({
     .string()
     .trim()
     .matches(/^[A-Za-z0-9-]{4,}$/, "Use letters/numbers (min 4)")
-    .required("Channel code is required"),
+    .required("Group code is required"),
   password: yup
     .string()
     .min(8, "At least 8 characters")
@@ -120,7 +120,7 @@ export default function SignupFinalScreen() {
           {/* Channel Code */}
           <View className="mt-6">
             <Text className="text-sm text-gray-700 mb-2 font-kumbh">
-              Channel Code
+              Group Code
             </Text>
             <Controller
               control={control}
@@ -129,7 +129,7 @@ export default function SignupFinalScreen() {
                 <View className="w-full h-14 px-4 rounded-xl bg-gray-100 flex-row items-center">
                   <Hash size={18} color="#6B7280" />
                   <TextInput
-                    placeholder="Enter Channel Code"
+                    placeholder="Enter Group Code"
                     placeholderTextColor="#9CA3AF"
                     onBlur={onBlur}
                     onChangeText={(t) => onChange(t.toUpperCase())}

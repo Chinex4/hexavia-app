@@ -105,8 +105,8 @@ export default function ChannelsIndex() {
     closeMenu();
     if (!selectedId) return;
     Alert.alert(
-      "Delete Channel",
-      "Are you sure you want to delete this channel? This action cannot be undone.",
+      "Delete Group",
+      "Are you sure you want to delete this group? This action cannot be undone.",
       [
         { text: "Cancel", style: "cancel" },
         {

@@ -184,7 +184,7 @@ export default function StaffHome() {
         />
         {/* Channels */}
         <View className="mt-6 flex-row items-center justify-between">
-          <Text className="text-3xl text-gray-900 font-kumbh">Channels</Text>
+          <Text className="text-3xl text-gray-900 font-kumbh">Groups</Text>
           <Pressable
             onPress={() => router.push("/(client)/channels")}
             className="flex-row items-center"

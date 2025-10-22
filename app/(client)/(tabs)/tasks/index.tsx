@@ -159,7 +159,7 @@ export default function TaskScreen() {
       <View className="px-5 mt-6">
         <View className="rounded-2xl border border-[#E5E7EB] p-5">
           <Text className="font-kumbh text-[#6B7280]">
-            Channel:{" "}
+            Group:{" "}
             <Text className="text-[#111827]">
               {channel?.name ?? "—"} {channelCode ? `(${channelCode.toUpperCase()})` : ""}
             </Text>
@@ -186,7 +186,7 @@ export default function TaskScreen() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="small" color={PRIMARY} />
           <Text className="mt-2 text-[#6B7280] font-kumbh">
-            Loading channel tasks…
+            Loading group tasks…
           </Text>
         </View>
       ) : (

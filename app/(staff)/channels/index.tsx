@@ -168,7 +168,7 @@ export default function AllChannelsScreen() {
     <View className="flex-1 bg-white">
       <StatusBar style="dark" />
       <View style={viewStyle}>
-        <BackHeader title="All Channels" />
+        <BackHeader title="All Groups" />
         <SearchBar
           value={query}
           onChange={setQuery}
@@ -192,7 +192,7 @@ export default function AllChannelsScreen() {
             ) : (
               <View className="mx-4 mt-4 px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200">
                 <Text className="text-gray-700 font-kumbh">
-                  No channel found with that code.
+                  No group found with that code.
                 </Text>
                 <Text className="text-gray-500 mt-1 text-[12px] font-kumbh">
                   Tip: Try pasting the exact code (with or without “#”, any
@@ -225,8 +225,8 @@ export default function AllChannelsScreen() {
               <Ionicons name="chatbubbles-outline" size={28} color={INACTIVE} />
               <Text className="mt-2 text-gray-500 font-kumbh">
                 {status === "loading"
-                  ? "Loading channels…"
-                  : "No channels found"}
+                  ? "Loading groups..."
+                  : "No groups found"}
               </Text>
             </View>
           }
