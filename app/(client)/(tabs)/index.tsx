@@ -87,6 +87,7 @@ export default function StaffHome() {
   const user = useAppSelector(selectUser);
   const userId = toStr(user?._id);
   const allChannels = useAppSelector(selectAllChannels) ?? [];
+  // console.log(allChannels)
 
   // console.log(allChannels)
 

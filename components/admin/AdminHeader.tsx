@@ -36,13 +36,13 @@ export default function AdminHeader({
   const { phase } = useAppSelector((s: RootState) => s.auth);
 
   const loadingProfile = phase === "loading" || !user;
-  if (loadingProfile) {
-    return (
-      <View style={{ flex: 1, padding: 16 }}>
-        <ActivityIndicator style={{ marginTop: 24 }} />
-      </View>
-    );
-  }
+  // if (loadingProfile) {
+  //   return (
+  //     <View style={{ flex: 1, padding: 16 }}>
+  //       <ActivityIndicator style={{ marginTop: 24 }} />
+  //     </View>
+  //   );
+  // }
 
   const greetingName = firstNameOf(user?.fullname);
   const roleText = prettyRole(user?.role || "Hexavia Staff");

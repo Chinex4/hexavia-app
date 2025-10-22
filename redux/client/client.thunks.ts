@@ -13,7 +13,7 @@ import type {
 export const fetchClients = createAsyncThunk<
   ClientListResponse,
   ClientFilters | undefined
->("client/fetchClients", async (filters, { rejectWithValue }) => {
+>("client/fetchClients", async (filters, { rejectWithValue, signal }) => {
   try {
     const { data } = await api.get<ClientListResponse>("/admin/clients", {
       params: {
@@ -25,13 +25,24 @@ export const fetchClients = createAsyncThunk<
         sortBy: filters?.sortBy,
         sortOrder: filters?.sortOrder ?? "desc",
       },
+      signal
     });
     return data;
   } catch (err: any) {
-    const msg =
-      err?.response?.data?.message || err?.message || "Failed to fetch clients";
-    showError(msg);
-    return rejectWithValue(msg);
+    const status = err?.response?.status;
+    const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+    // return structured payload; DO NOT toast here
+    return rejectWithValue({
+      code: status ?? 0,
+      message:
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to fetch clients",
+      retryAfter,
+      // custom marker set by interceptor when it gave up retrying
+      gaveUpAfterRetries: err?.__gaveUp429 === true,
+    });
   }
 });
 
@@ -46,12 +57,20 @@ export const fetchClientById = createAsyncThunk<Client, string>(
       );
       return data.client;
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to fetch client";
-      showError(msg);
-      return rejectWithValue(msg);
+      const status = err?.response?.status;
+      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+      // return structured payload; DO NOT toast here
+      return rejectWithValue({
+        code: status ?? 0,
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to fetch client",
+        retryAfter,
+        // custom marker set by interceptor when it gave up retrying
+        gaveUpAfterRetries: err?.__gaveUp429 === true,
+      });
     }
   }
 );
@@ -67,12 +86,20 @@ export const createClient = createAsyncThunk<Client, ClientCreateInput>(
       }>("/admin/clients", payload);
       return data.client;
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to create client";
-      showError(msg);
-      return rejectWithValue(msg);
+      const status = err?.response?.status;
+      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+      // return structured payload; DO NOT toast here
+      return rejectWithValue({
+        code: status ?? 0,
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to create client",
+        retryAfter,
+        // custom marker set by interceptor when it gave up retrying
+        gaveUpAfterRetries: err?.__gaveUp429 === true,
+      });
     }
   }
 );
@@ -93,10 +120,20 @@ export const updateClient = createAsyncThunk<
     );
     return data.client;
   } catch (err: any) {
-    const msg =
-      err?.response?.data?.message || err?.message || "Failed to update client";
-    showError(msg);
-    return rejectWithValue(msg);
+    const status = err?.response?.status;
+      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+      // return structured payload; DO NOT toast here
+      return rejectWithValue({
+        code: status ?? 0,
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to update client",
+        retryAfter,
+        // custom marker set by interceptor when it gave up retrying
+        gaveUpAfterRetries: err?.__gaveUp429 === true,
+      });
   }
 });
 
@@ -112,10 +149,20 @@ export const patchClient = createAsyncThunk<
     }>(`/admin/clients/${id}`, body);
     return data.client;
   } catch (err: any) {
-    const msg =
-      err?.response?.data?.message || err?.message || "Failed to update client";
-    showError(msg);
-    return rejectWithValue(msg);
+    const status = err?.response?.status;
+      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+      // return structured payload; DO NOT toast here
+      return rejectWithValue({
+        code: status ?? 0,
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to update clients",
+        retryAfter,
+        // custom marker set by interceptor when it gave up retrying
+        gaveUpAfterRetries: err?.__gaveUp429 === true,
+      });
   }
 });
 
@@ -128,12 +175,20 @@ export const deleteClient = createAsyncThunk<string, string>(
       );
       return id;
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to delete client";
-      showError(msg);
-      return rejectWithValue(msg);
+      const status = err?.response?.status;
+      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+      // return structured payload; DO NOT toast here
+      return rejectWithValue({
+        code: status ?? 0,
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to delete client",
+        retryAfter,
+        // custom marker set by interceptor when it gave up retrying
+        gaveUpAfterRetries: err?.__gaveUp429 === true,
+      });
     }
   }
 );
@@ -147,12 +202,20 @@ export const fetchClientStats = createAsyncThunk<ClientStats>(
       );
       return data.stats;
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to load client stats";
-      showError(msg);
-      return rejectWithValue(msg);
+      const status = err?.response?.status;
+      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+      // return structured payload; DO NOT toast here
+      return rejectWithValue({
+        code: status ?? 0,
+        message:
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load client stats",
+        retryAfter,
+        // custom marker set by interceptor when it gave up retrying
+        gaveUpAfterRetries: err?.__gaveUp429 === true,
+      });
     }
   }
 );

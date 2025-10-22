@@ -10,6 +10,7 @@ import {
   deleteClient,
   fetchClientStats,
 } from "./client.thunks";
+import { string } from "yup";
 
 const initialState: ClientState = {
   byId: {},
@@ -27,6 +28,10 @@ const initialState: ClientState = {
   stats: null,
   statsLoading: false,
   error: null,
+  rateLimited: {
+    retryAfter: null,
+    at: null,
+  },
 };
 
 const upsertOne = (state: ClientState, c?: Client | null) => {
@@ -72,7 +77,23 @@ const clientSlice = createSlice({
       })
       .addCase(fetchClients.rejected, (state, action) => {
         state.listLoading = false;
-        state.error = String(action.payload || action.error.message);
+
+        // action.payload is from rejectWithValue
+        const p = action.payload as any;
+
+        if (p?.code === 429 || p?.code === 503 || p?.gaveUpAfterRetries) {
+          // Keep existing list intact; set a friendly, structured error
+          state.error = "rate_limited";
+          // store Retry-After (seconds or HTTP-date) if provided
+          state.rateLimited = {
+            retryAfter: p?.retryAfter ?? null,
+            at: String(Date.now()),
+          };
+          return;
+        }
+
+        // non-rate-limit errors
+        state.error = String(p || action.error.message);
       });
 
     // Detail
@@ -101,7 +122,8 @@ const clientSlice = createSlice({
         state.mutationLoading = false;
         if (!payload || !payload._id) return; // guard
         state.byId[payload._id] = payload;
-        if (!state.allIds.includes(payload._id)) state.allIds.unshift(payload._id);
+        if (!state.allIds.includes(payload._id))
+          state.allIds.unshift(payload._id);
         state.current = payload;
         if (state.pagination) state.pagination.totalClients += 1;
       })

@@ -70,6 +70,24 @@
           "icon": "./assets/images/logo2.png",
           "mode": "production"
         }
+      ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow $(PRODUCT_NAME) to use the microphone.",
+          "speechRecognitionPermission": "Allow $(PRODUCT_NAME) to use speech recognition.",
+          "androidSpeechServicePackages": ["com.google.android.googlequicksearchbox"]
+        }
+      ],
+      [
+        "@jamsch/expo-speech-recognition",
+        {
+          "android": { "permissions": ["RECORD_AUDIO"] },
+          "ios": {
+            "NSMicrophoneUsageDescription": "We use the microphone to fill text fields by voice.",
+            "NSSpeechRecognitionUsageDescription": "We use speech recognition to convert your voice to text."
+          }
+        }
       ]
     ],
     "experiments": {
