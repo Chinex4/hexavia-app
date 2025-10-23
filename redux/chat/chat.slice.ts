@@ -7,6 +7,9 @@ import type {
 } from "@/types/chat-model";
 import { fetchMessages } from "./chat.thunks";
 
+import { persistReducer } from "redux-persist";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const initialState: ChatState = {
   meId: null,
   currentThreadId: null,
@@ -192,4 +195,19 @@ export const {
   setError,
 } = chatSlice.actions;
 
-export default chatSlice.reducer;
+const chatPersistConfig = {
+  key: "chat",
+  storage: AsyncStorage,
+  version: 1,
+  whitelist: [
+    "messages",            // flat map id -> message (used by replaceTempId)
+    "threads",             // if you store thread meta
+    "messagesByThread",    // your list by thread
+    "hasMoreByThread",
+    "nextSkipByThread",
+    "joinedRooms",         // optional: so we auto re-join after reload
+    "currentThreadId",     // optional: restore last open thread
+  ],
+};
+
+export default persistReducer(chatPersistConfig, chatSlice.reducer);

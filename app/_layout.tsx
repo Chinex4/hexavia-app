@@ -5,7 +5,7 @@ import { Slot } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { Provider } from "react-redux";
-import { store, type RootState } from "@/store";
+import { persistor, store, type RootState } from "@/store";
 
 import "../global.css";
 import { TasksProvider } from "@/features/staff/tasksStore";
@@ -16,6 +16,7 @@ import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
+import { PersistGate } from "redux-persist/integration/react";
 
 SplashScreen.preventAutoHideAsync();
 attachStore(store);
@@ -55,9 +56,11 @@ export default function RootLayout() {
   // ✅ No selectors here
   return (
     <Provider store={store}>
-      <TasksProvider>
-        <AppFrame />
-      </TasksProvider>
+      <PersistGate loading={null} persistor={persistor}>
+        <TasksProvider>
+          <AppFrame />
+        </TasksProvider>
+      </PersistGate>
     </Provider>
   );
 }

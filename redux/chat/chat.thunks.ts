@@ -16,6 +16,7 @@ export const fetchMessages = createAsyncThunk(
     const { data } = await showPromise(api.get(`/messages/${id}/${type}`, {
       params: { limit, skip },
     }), "Loading old messages", "Done");
+    console.log(data)
     return {
       threadId: id,
       kind: type,

@@ -1,5 +1,5 @@
 // app/(admin)/clients/installments.tsx
-import React, { useMemo, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -8,22 +8,52 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { ArrowLeft, Plus } from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react-native";
 import clsx from "clsx";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
-import Field from "@/components/admin/Field";
 import SectionTitle from "@/components/admin/SectionTitle";
-import Dropdown from "@/components/admin/Dropdown";
-import Menu from "@/components/admin/Menu";
-import MenuItem from "@/components/admin/MenuItem";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  addRow as addRowAction,
+  updateRow as updateRowAction,
+  removeRow as removeRowAction,
+  setRows,
+  setTotalAmount,
+  setAmountPaid,
+  setClientId,
+  clearError,
+} from "@/redux/installments/installments.slice";
+import {
+  selectRows,
+  selectTotalAmount,
+  selectAmountPaid,
+  selectDerivedRemaining,
+  selectAdding,
+  selectInstallmentsError,
+  selectInstallmentsErrorDetail,
+  selectClientId,
+  selectLastAdd,
+} from "@/redux/installments/installments.selectors";
+import { addClientInstallments, deleteClientInstallment } from "@/redux/installments/installments.thunks";
 
-type PlanRow = { amount: string; due: string };
+import { fetchClientById } from "@/redux/client/client.thunks";
+import {
+  makeSelectClientById,
+  selectClientDetailLoading,
+} from "@/redux/client/client.selectors";
 
-const ENGAGEMENTS = ["Core Consulting", "Design & Build", "Advisory"];
-const PROJECTS = ["Project Alpha", "Project Beta", "HomeLet Revamp"];
+// ✅ toasts
+import { showSuccess, showError } from "@/components/ui/toast";
+
+const PRIMARY = "#4C5FAB";
+const BG_INPUT = "#F7F9FC";
+
+type PlanRow = { amount: string; due: string; paymentId?: string };
 
 const N = (v: number | string) => {
   const n = typeof v === "string" ? Number(String(v).replace(/[^\d]/g, "")) : v;
@@ -35,86 +65,169 @@ const N = (v: number | string) => {
   }).format(n);
 };
 
+// dd/mm/yyyy -> yyyy-mm-dd
+function toISO(d: string) {
+  const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!m) return d;
+  const [_, dd, mm, yyyy] = m;
+  return `${yyyy}-${mm}-${dd}`;
+}
+function fmtDMY(d: Date) {
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 export default function ClientInstallments() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const params = useLocalSearchParams<{ clientId?: string }>();
+  const incomingClientId = params?.clientId ? String(params.clientId) : "";
 
-  // Header fields (dummy defaults to match screenshot)
-  const [name, setName] = useState("Adebayo Moda Ibrahim");
-  const [project, setProject] = useState("Project Alpha");
-  const [engagement, setEngagement] = useState("Core Consulting");
+  // Redux
+  const rows = useAppSelector(selectRows);
+  const totalAmount = useAppSelector(selectTotalAmount);
+  const amountPaid = useAppSelector(selectAmountPaid);
+  const remaining = useAppSelector(selectDerivedRemaining);
+  const adding = useAppSelector(selectAdding);
+  const error = useAppSelector(selectInstallmentsError);
+  const errorDetail = useAppSelector(selectInstallmentsErrorDetail);
+  const clientId = useAppSelector(selectClientId);
+  const lastAdd = useAppSelector(selectLastAdd);
 
-  // Menus
-  const [showProjectMenu, setShowProjectMenu] = useState(false);
-  const [showEngagementMenu, setShowEngagementMenu] = useState(false);
+  const selectClient = React.useMemo(
+    () => (clientId ? makeSelectClientById(clientId) : () => null),
+    [clientId]
+  );
+  const client = useAppSelector(selectClient);
+  const loadingClient = useAppSelector(selectClientDetailLoading);
 
-  // Amount summary
-  const [totalAmount, setTotalAmount] = useState("60000");
-  const [amountPaid, setAmountPaid] = useState("48000");
+  // read-only header fields
+  const [name, setName] = React.useState("");
+  const [project, setProject] = React.useState("");
+  const [engagement, setEngagement] = React.useState("");
 
-  // Installment plan rows
-  const [rows, setRows] = useState<PlanRow[]>([
-    { amount: "5000", due: "01/02/2025" },
-    { amount: "", due: "" },
-  ]);
+  // date picker
+  const [dateIdx, setDateIdx] = React.useState<number | null>(null);
+  const [pickerDate, setPickerDate] = React.useState<Date>(new Date());
 
-  const remaining = useMemo(() => {
-    const total = Number(totalAmount || 0);
-    const paid = Number(amountPaid || 0);
-    return Math.max(total - paid, 0);
-  }, [totalAmount, amountPaid]);
+  // bootstrap
+  React.useEffect(() => {
+    if (!incomingClientId) {
+      showError("Client ID is required");
+      router.back();
+      return;
+    }
+    dispatch(setClientId(incomingClientId));
+    dispatch(fetchClientById(incomingClientId));
+  }, [incomingClientId]);
+
+  // Hydrate UI from client
+  React.useEffect(() => {
+    if (!client) return;
+    setName(client.name ?? "");
+    setProject(client.projectName ?? "");
+    setEngagement(client.engagement ?? "");
+    dispatch(setTotalAmount(String(client.payableAmount ?? 0)));
+
+    // If your API exposes existing payments (e.g., client.installments),
+    // normalize them into rows here:
+    // const existing: PlanRow[] = (client.installments ?? []).map((p) => ({
+    //   amount: String(p.amount ?? 0),
+    //   due: /* convert ISO -> DD/MM/YYYY */ fmtDMY(new Date(p.date)),
+    //   paymentId: p._id,
+    // }));
+    // if (existing.length) dispatch(setRows(existing));
+  }, [client]);
+
+  // API error -> toast
+  React.useEffect(() => {
+    if (!error) return;
+    const extra =
+      errorDetail?.excess != null ? ` • Excess: ${N(errorDetail.excess)}` : "";
+    showError((error || "Action failed") + extra);
+    dispatch(clearError());
+  }, [error, errorDetail]);
+
+  // After add: update amountPaid from server + toast
+  React.useEffect(() => {
+    if (!lastAdd) return;
+    dispatch(setAmountPaid(String(lastAdd.totalPaid ?? 0)));
+    showSuccess(
+      `Installments saved. Paid: ${N(lastAdd.totalPaid ?? 0)} • Remaining: ${N(
+        lastAdd.remainingBalance ?? 0
+      )}`
+    );
+  }, [lastAdd]);
 
   const updateRow = (idx: number, patch: Partial<PlanRow>) => {
-    setRows((prev) => {
-      const copy = [...prev];
-      copy[idx] = { ...copy[idx], ...patch };
-      return copy;
-    });
+    dispatch(updateRowAction({ index: idx, patch }));
   };
+  const addRow = () => dispatch(addRowAction());
 
-  const addRow = () => setRows((p) => [...p, { amount: "", due: "" }]);
+  const deleteRow = async (idx: number, paymentId?: string) => {
+    if (!paymentId) {
+      // Unsaved row → remove locally
+      dispatch(removeRowAction(idx));
+      return;
+    }
+    if (!clientId) return;
+
+    Alert.alert("Delete payment", "Remove this recorded payment?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const res = await dispatch(
+              deleteClientInstallment({ clientId, paymentId })
+            ).unwrap();
+
+            // update totals from server
+            dispatch(setAmountPaid(String(res.data?.totalPaid ?? 0)));
+
+            // drop the row with this paymentId
+            const filtered = rows.filter((r) => r.paymentId !== paymentId);
+            dispatch(setRows(filtered));
+
+            showSuccess(
+              `Payment deleted. Paid: ${N(res.data?.totalPaid ?? 0)} • Remaining: ${N(
+                res.data?.remainingBalance ?? 0
+              )}`
+            );
+          } catch (e: any) {
+            showError(e?.message || "Failed to delete payment");
+          }
+        },
+      },
+    ]);
+  };
 
   const handleSave = () => {
-    // wire this later:
-    // dispatch(saveInstallmentPlan({ name, project, engagement, totalAmount, amountPaid, rows }))
-    // For now just log:
-    console.log({
-      name,
-      project,
-      engagement,
-      totalAmount,
-      amountPaid,
-      remaining,
-      schedule: rows,
-    });
+    const payments = rows
+      .filter((r) => !r.paymentId && r.amount && r.due) // only NEW rows
+      .map((r) => ({
+        amount: Number(r.amount),
+        date: toISO(r.due),
+      }));
+
+    if (!clientId) {
+      showError("Client not ready yet.");
+      return;
+    }
+    if (payments.length === 0) {
+      showError("Add at least one new installment row.");
+      return;
+    }
+
+    dispatch(addClientInstallments({ clientId, payments }));
   };
 
-  const FilledInput = ({
-    value,
-    onChangeText,
-    placeholder,
-    keyboardType = "default",
-    className,
-    prefix,
-  }: {
-    value: string;
-    onChangeText: (t: string) => void;
-    placeholder?: string;
-    keyboardType?: "default" | "numeric";
-    className?: string;
-    prefix?: string;
-  }) => (
-    <View
-      className={clsx("w-full rounded-2xl bg-gray-100 px-4 py-3", className)}
-    >
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#9CA3AF"
-        keyboardType={keyboardType}
-        className="font-kumbh text-[16px] text-[#111827]"
-      />
-      {prefix ? null : null}
+  const ReadonlyBox = ({ children }: { children: React.ReactNode }) => (
+    <View className="rounded-2xl px-4 py-3" style={{ backgroundColor: BG_INPUT }}>
+      <Text className="font-kumbh text-[#111827]">{children}</Text>
     </View>
   );
 
@@ -133,159 +246,171 @@ export default function ClientInstallments() {
     </View>
   );
 
+  // amount input (kept inline and simple)
+  const AmountInput = ({
+    value,
+    onChange,
+    editable = true,
+  }: {
+    value: string;
+    onChange: (t: string) => void;
+    editable?: boolean;
+  }) => (
+    <View className="rounded-2xl px-4 py-3" style={{ backgroundColor: "#F3F4F6" }}>
+      <TextInput
+        editable={editable}
+        value={value ? `₦ ${Number(value).toLocaleString("en-NG")}` : ""}
+        onChangeText={(t) => onChange(t.replace(/[^\d]/g, ""))}
+        placeholder="₦ 5,000"
+        placeholderTextColor="#9CA3AF"
+        keyboardType="numeric"
+        className="font-kumbh text-[#111827]"
+      />
+    </View>
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
       <View className="px-5 pt-6 pb-3 flex-row items-center justify-between">
         <View className="flex-row items-center gap-4">
-          <Pressable
-            onPress={() => router.back()}
-            className="w-10 h-10 rounded-full items-center justify-center"
-          >
+          <Pressable onPress={() => router.back()} className="w-10 h-10 rounded-full items-center justify-center">
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-[22px] font-kumbhBold text-[#111827]">
-            Installment Payment
-          </Text>
+          <Text className="text-[22px] font-kumbhBold text-[#111827]">Installment Payment</Text>
         </View>
         <Pressable
           onPress={handleSave}
-          className="px-5 py-3 rounded-2xl bg-[#4C5FAB] active:opacity-90"
+          disabled={adding || loadingClient}
+          className={clsx(
+            "px-5 py-3 rounded-2xl active:opacity-90",
+            adding || loadingClient ? "bg-[#9CA3AF]" : "bg-[#4C5FAB]"
+          )}
         >
-          <Text className="text-white font-kumbhBold">Save</Text>
+          <Text className="text-white font-kumbhBold">{adding ? "Saving..." : "Save"}</Text>
         </Pressable>
       </View>
 
+      {/* Body */}
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.select({ ios: "padding", android: "height" })}
-        keyboardVerticalOffset={
-          Platform.select({ ios: 8, android: 0 }) as number
-        }
+        keyboardVerticalOffset={Platform.select({ ios: 8, android: 0 }) as number}
       >
         <ScrollView className="flex-1" contentContainerClassName="px-5 pb-10">
-          {/* Name */}
-          <Labeled label="Name">
-            <FilledInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter name"
-            />
-          </Labeled>
+          {/* Summary card */}
+          <View className="rounded-2xl p-4 bg-[#EEF1FF]">
+            <Text className="font-kumbhBold text-[#111827] text-[16px]">{loadingClient ? "Loading…" : name || "—"}</Text>
+            <Text className="font-kumbh text-[#111827] mt-1">{project || "—"}</Text>
+            <Text className="font-kumbh text-[#6B7280]">{engagement || "—"}</Text>
 
-          {/* Project Name */}
-          <Labeled label="Project Name">
-            <Dropdown
-              value={project}
-              open={showProjectMenu}
-              onToggle={() => setShowProjectMenu((s) => !s)}
-            />
-            {showProjectMenu && (
-              <Menu>
-                {PROJECTS.map((p) => (
-                  <MenuItem
-                    key={p}
-                    active={p === project}
-                    onPress={() => {
-                      setProject(p);
-                      setShowProjectMenu(false);
-                    }}
-                  >
-                    {p}
-                  </MenuItem>
-                ))}
-              </Menu>
-            )}
-          </Labeled>
-
-          {/* Engagement */}
-          <Labeled label="Engagement">
-            <Dropdown
-              value={engagement}
-              open={showEngagementMenu}
-              onToggle={() => setShowEngagementMenu((s) => !s)}
-            />
-            {showEngagementMenu && (
-              <Menu>
-                {ENGAGEMENTS.map((e) => (
-                  <MenuItem
-                    key={e}
-                    active={e === engagement}
-                    onPress={() => {
-                      setEngagement(e);
-                      setShowEngagementMenu(false);
-                    }}
-                  >
-                    {e}
-                  </MenuItem>
-                ))}
-              </Menu>
-            )}
-          </Labeled>
-
-          {/* Amounts row */}
-          <View className="flex-row gap-3 mt-2">
-            <Labeled label="Total Amount" className="flex-1">
-              <FilledInput
-                value={N(totalAmount)}
-                onChangeText={(t) => setTotalAmount(t.replace(/[^\d]/g, ""))}
-                placeholder="₦ 0"
-                keyboardType="numeric"
-              />
-            </Labeled>
-            <Labeled label="Amount Paid" className="flex-1">
-              <FilledInput
-                value={N(amountPaid)}
-                onChangeText={(t) => setAmountPaid(t.replace(/[^\d]/g, ""))}
-                placeholder="₦ 0"
-                keyboardType="numeric"
-              />
-            </Labeled>
+            <View className="flex-row mt-3" style={{ gap: 12 }}>
+              <View className="flex-1 rounded-xl bg-white/80 px-3 py-2">
+                <Text className="text-[12px] text-[#6B7280] font-kumbh">Total</Text>
+                <Text className="font-kumbhBold text-[#111827]">{N(totalAmount)}</Text>
+              </View>
+              <View className="flex-1 rounded-xl bg-white/80 px-3 py-2">
+                <Text className="text-[12px] text-[#6B7280] font-kumbh">Paid</Text>
+                <Text className="font-kumbhBold text-[#111827]">
+                  {amountPaid ? N(amountPaid) : "—"}
+                </Text>
+              </View>
+              <View className="flex-1 rounded-xl bg-white/80 px-3 py-2">
+                <Text className="text-[12px] text-[#6B7280] font-kumbh">Remaining</Text>
+                <Text className="font-kumbhBold text-[#111827]">{N(remaining)}</Text>
+              </View>
+            </View>
           </View>
 
-          {/* Installment Plan */}
-          <SectionTitle className="mt-4">Installment Plan</SectionTitle>
+          {/* Plan */}
+          <SectionTitle className="mt-6">Installment Plan</SectionTitle>
 
-          {/* First row (as in screenshot) */}
-          {rows.map((row, idx) => (
-            <View
-              key={idx}
-              className={clsx("flex-row gap-3", idx > 0 ? "mt-3" : "mt-3")}
-            >
-              <Labeled label="Payable Amount" className="flex-1">
-                <FilledInput
-                  value={
-                    row.amount
-                      ? `₦ ${Number(row.amount).toLocaleString("en-NG")}`
-                      : ""
-                  }
-                  onChangeText={(t) =>
-                    updateRow(idx, { amount: t.replace(/[^\d]/g, "") })
-                  }
-                  placeholder="₦ 5,000"
-                  keyboardType="numeric"
-                />
-              </Labeled>
-              <Labeled label="Date due" className="flex-1">
-                <FilledInput
-                  value={row.due}
-                  onChangeText={(t) => updateRow(idx, { due: t })}
-                  placeholder="DD/MM/YYYY"
-                />
-              </Labeled>
-            </View>
-          ))}
+          {rows.map((row, idx) => {
+            const persisted = !!row.paymentId; // recorded on server
+            return (
+              <View key={idx} className="mt-3 rounded-2xl border border-[#EEF0F3] p-3">
+                <View className="flex-row items-center justify-between">
+                  <Text className="font-kumbh text-[#6B7280]">Row {idx + 1}</Text>
+                  {persisted && (
+                    <Text className="text-[12px] px-2 py-1 rounded-full bg-[#E5F9EE] text-[#0E9F6E]">
+                      Recorded
+                    </Text>
+                  )}
+                </View>
 
-          {/* Add button bar */}
+                <View className="flex-row mt-3" style={{ gap: 12 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text className="mb-2 text-[13px] text-gray-700 font-kumbh">Payable Amount</Text>
+                    <AmountInput
+                      value={row.amount}
+                      onChange={(t) => updateRow(idx, { amount: t })}
+                      editable={!persisted}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text className="mb-2 text-[13px] text-gray-700 font-kumbh">Date due</Text>
+                    <Pressable
+                      disabled={persisted}
+                      onPress={() => {
+                        setDateIdx(idx);
+                        const parts = row.due.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+                        if (parts) {
+                          setPickerDate(new Date(+parts[3], +parts[2] - 1, +parts[1]));
+                        } else {
+                          setPickerDate(new Date());
+                        }
+                      }}
+                      className={clsx(
+                        "rounded-2xl px-4 py-3",
+                        persisted ? "bg-gray-100" : "bg-[#F3F4F6]"
+                      )}
+                    >
+                      <Text className="font-kumbh text-[#111827]">
+                        {row.due || "DD/MM/YYYY"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View className="mt-3 items-end">
+                  <Pressable
+                    onPress={() => deleteRow(idx, row.paymentId)}
+                    className="px-3 py-2 rounded-xl bg-red-50"
+                  >
+                    <View className="flex-row items-center" style={{ gap: 6 }}>
+                      <Trash2 size={16} color="#B91C1C" />
+                      <Text className="text-[#B91C1C] font-kumbh">Delete</Text>
+                    </View>
+                  </Pressable>
+                </View>
+              </View>
+            );
+          })}
+
           <Pressable
             onPress={addRow}
             className="mt-6 h-14 rounded-2xl bg-[#4C5FAB] flex-row items-center justify-center active:opacity-90"
           >
             <Plus size={18} color="#fff" />
-            <Text className="ml-2 text-white font-kumbhBold">Add</Text>
+            <Text className="ml-2 text-white font-kumbhBold">Add Row</Text>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Date picker */}
+      {dateIdx !== null && (
+        <DateTimePicker
+          value={pickerDate}
+          mode="date"
+          display={Platform.OS === "ios" ? "inline" : "default"}
+          onChange={(e, d) => {
+            if (Platform.OS === "android") setDateIdx(null);
+            if (!d) return;
+            updateRow(dateIdx!, { due: fmtDMY(d) });
+          }}
+        />
+      )}
     </SafeAreaView>
   );
 }

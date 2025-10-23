@@ -26,7 +26,11 @@ import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 // (Optional) If you previously imported channels only to keep it alive, you can remove the next line.
 // import { selectAllChannels } from "@/redux/channels/channels.slice";
-import { deleteClient, fetchClientById, updateClient } from "@/redux/client/client.thunks";
+import {
+  deleteClient,
+  fetchClientById,
+  updateClient,
+} from "@/redux/client/client.thunks";
 import {
   makeSelectClientById,
   selectClientDetailLoading,
@@ -61,16 +65,23 @@ const BG_INPUT = "#F7F9FC";
 const BORDER = "#E5E7EB";
 const PRIMARY = "#4C5FAB";
 
-const STATUS_OPTIONS: { value: ApiStatus; label: "Active" | "Pending" | "Closed" }[] = [
-  { value: "current",   label: "Active"  },
-  { value: "pending",   label: "Pending" },
-  { value: "completed", label: "Closed"  },
+const STATUS_OPTIONS: {
+  value: ApiStatus;
+  label: "Active" | "Pending" | "Closed";
+}[] = [
+  { value: "current", label: "Active" },
+  { value: "pending", label: "Pending" },
+  { value: "completed", label: "Closed" },
 ];
 const toUiLabel = (s?: ApiStatus) =>
-  STATUS_OPTIONS.find(x => x.value === s)?.label ?? "Pending";
+  STATUS_OPTIONS.find((x) => x.value === s)?.label ?? "Pending";
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <Text className="font-kumbh text-[13px] text-[#111827] mb-2">{children}</Text>;
+  return (
+    <Text className="font-kumbh text-[13px] text-[#111827] mb-2">
+      {children}
+    </Text>
+  );
 }
 
 function Input({
@@ -95,13 +106,20 @@ function Input({
       multiline={multiline}
       keyboardType={keyboardType}
       className="rounded-2xl px-4 py-3 font-kumbh text-[#111827]"
-      style={{ backgroundColor: BG_INPUT, minHeight: multiline ? 64 : undefined }}
+      style={{
+        backgroundColor: BG_INPUT,
+        minHeight: multiline ? 64 : undefined,
+      }}
     />
   );
 }
 
 function TwoCol({ children }: { children: React.ReactNode }) {
-  return <View className="flex-row" style={{ gap: 12 }}>{children}</View>;
+  return (
+    <View className="flex-row" style={{ gap: 12 }}>
+      {children}
+    </View>
+  );
 }
 
 function PillButton({
@@ -130,11 +148,16 @@ function PillButton({
     >
       <View
         className="w-7 h-7 rounded-full items-center justify-center"
-        style={{ backgroundColor: isPrimary ? "rgba(255,255,255,0.2)" : "transparent" }}
+        style={{
+          backgroundColor: isPrimary ? "rgba(255,255,255,0.2)" : "transparent",
+        }}
       >
         {icon}
       </View>
-      <Text className="font-kumbh text-[16px]" style={{ color: isPrimary ? "#fff" : PRIMARY }}>
+      <Text
+        className="font-kumbh text-[16px]"
+        style={{ color: isPrimary ? "#fff" : PRIMARY }}
+      >
         {label}
       </Text>
     </Pressable>
@@ -144,7 +167,13 @@ function PillButton({
 function formatMoneyNaira(v?: number) {
   if (typeof v !== "number" || !isFinite(v)) return "₦ 0.00";
   try {
-    return "₦ " + new Intl.NumberFormat("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
+    return (
+      "₦ " +
+      new Intl.NumberFormat("en-NG", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }).format(v)
+    );
   } catch {
     return `₦ ${v.toFixed(2)}`;
   }
@@ -156,7 +185,11 @@ function parseMoney(input: string): number {
 }
 function formatDate(d?: string) {
   if (!d) return "—";
-  try { return new Date(d).toLocaleDateString(); } catch { return d; }
+  try {
+    return new Date(d).toLocaleDateString();
+  } catch {
+    return d;
+  }
 }
 
 /* ------------------------------ Screen ------------------------------ */
@@ -239,8 +272,11 @@ export default function ClientDetails() {
       if (fromAdmin) {
         return {
           ...(fromAdmin as AdminUser),
-          statusApi:
-            (["current", "pending", "completed"].includes(String(fromAdmin.status)) ? (fromAdmin.status as ApiStatus) : "pending"),
+          statusApi: ["current", "pending", "completed"].includes(
+            String(fromAdmin.status)
+          )
+            ? (fromAdmin.status as ApiStatus)
+            : "pending",
         } as BaseUser;
       }
     }
@@ -248,7 +284,9 @@ export default function ClientDetails() {
   }, [clientFromStore, users, id]);
 
   // Form state
-  const [name, setName] = useState(baseUser.fullname || baseUser.username || baseUser.email || "");
+  const [name, setName] = useState(
+    baseUser.fullname || baseUser.username || baseUser.email || ""
+  );
   const [projectName, setProjectName] = useState(baseUser.projectName ?? "");
   const [industry, setIndustry] = useState(baseUser.industry ?? "");
   const [staffSize, setstaffSize] = useState(String(baseUser.staffSize ?? ""));
@@ -256,14 +294,17 @@ export default function ClientDetails() {
   const [problems, setProblems] = useState(baseUser.problems ?? "");
   const [engagement, setEngagement] = useState(baseUser.engagement ?? "");
   const [deliverables, setDeliverables] = useState(baseUser.deliverables ?? "");
-  const [payable, setPayable] = useState(formatMoneyNaira(baseUser.payableAmount));
+  const [payable, setPayable] = useState(
+    formatMoneyNaira(baseUser.payableAmount)
+  );
   const [statusApi, setStatusApi] = useState<ApiStatus>(baseUser.statusApi);
   const [statusOpen, setStatusOpen] = useState(false);
 
   // Dirty detection
   const dirty = useMemo(() => {
     const basePay = formatMoneyNaira(baseUser.payableAmount);
-    const baseName = baseUser.fullname || baseUser.username || baseUser.email || "";
+    const baseName =
+      baseUser.fullname || baseUser.username || baseUser.email || "";
     return (
       name !== baseName ||
       projectName !== (baseUser.projectName ?? "") ||
@@ -359,7 +400,10 @@ export default function ClientDetails() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" style={{ paddingTop: Platform.select({ ios: 8, android: 0 }) }}>
+    <SafeAreaView
+      className="flex-1 bg-white"
+      style={{ paddingTop: Platform.select({ ios: 8, android: 0 }) }}
+    >
       {/* Header */}
       <View className="px-5 pt-4 pb-2 flex-row items-center justify-between">
         <Pressable
@@ -371,7 +415,9 @@ export default function ClientDetails() {
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
 
-        <Text className="text-[22px] font-kumbhBold text-[#111827]">Client Details</Text>
+        <Text className="text-[22px] font-kumbhBold text-[#111827]">
+          Client Details
+        </Text>
 
         <Pressable
           disabled={saveDisabled}
@@ -417,7 +463,11 @@ export default function ClientDetails() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <FieldLabel>Staff Size</FieldLabel>
-                      <Input value={staffSize} onChangeText={setstaffSize} keyboardType="numeric" />
+                      <Input
+                        value={staffSize}
+                        onChangeText={setstaffSize}
+                        keyboardType="numeric"
+                      />
                     </View>
                   </TwoCol>
                 </View>
@@ -425,13 +475,21 @@ export default function ClientDetails() {
                 {/* Description */}
                 <View className="mt-4">
                   <FieldLabel>Description</FieldLabel>
-                  <Input value={description} onChangeText={setDescription} multiline />
+                  <Input
+                    value={description}
+                    onChangeText={setDescription}
+                    multiline
+                  />
                 </View>
 
                 {/* Problems Faced */}
                 <View className="mt-4">
                   <FieldLabel>Problems Faced</FieldLabel>
-                  <Input value={problems} onChangeText={setProblems} multiline />
+                  <Input
+                    value={problems}
+                    onChangeText={setProblems}
+                    multiline
+                  />
                 </View>
 
                 {/* Engagement Offered */}
@@ -466,9 +524,14 @@ export default function ClientDetails() {
                       <Pressable
                         onPress={() => setStatusOpen(true)}
                         className="rounded-2xl px-4 py-3 flex-row items-center justify-between"
-                        style={{ backgroundColor: BG_INPUT, borderColor: BORDER }}
+                        style={{
+                          backgroundColor: BG_INPUT,
+                          borderColor: BORDER,
+                        }}
                       >
-                        <Text className="font-kumbh text-[#111827]">{toUiLabel(statusApi)}</Text>
+                        <Text className="font-kumbh text-[#111827]">
+                          {toUiLabel(statusApi)}
+                        </Text>
                         <ChevronDown size={18} color="#111827" />
                       </Pressable>
                     </View>
@@ -477,13 +540,18 @@ export default function ClientDetails() {
 
                 {/* tiny footer note */}
                 <View className="items-center mt-3">
-                  <Text className="text-[12px] text-[#6B7280] font-kumbh">Generate Invoice</Text>
+                  <Text className="text-[12px] text-[#6B7280] font-kumbh">
+                    Generate Invoice
+                  </Text>
                 </View>
 
                 {/* Joined (read-only) */}
                 <View className="mt-6">
                   <FieldLabel>Joined</FieldLabel>
-                  <View className="rounded-2xl px-4 py-3" style={{ backgroundColor: BG_INPUT }}>
+                  <View
+                    className="rounded-2xl px-4 py-3"
+                    style={{ backgroundColor: BG_INPUT }}
+                  >
                     <Text className="font-kumbh text-[#111827]">{joined}</Text>
                   </View>
                 </View>
@@ -491,10 +559,25 @@ export default function ClientDetails() {
                 {/* Buttons row */}
                 <View className="mt-6 flex-row" style={{ gap: 12 }}>
                   <View style={{ flex: 1 }}>
-                    <PillButton variant="outline" icon={<Bell size={16} color={PRIMARY} />} label="Send Invoice" onPress={() => {}} />
+                    <PillButton
+                      variant="outline"
+                      icon={<Bell size={16} color={PRIMARY} />}
+                      label="Send Invoice"
+                      onPress={() => {}}
+                    />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <PillButton variant="primary" icon={<ClipboardCheck size={16} color="#fff" />} label="Client Installment" onPress={() => {}} />
+                    <PillButton
+                      variant="primary"
+                      icon={<ClipboardCheck size={16} color="#fff" />}
+                      label="Client Installment"
+                      onPress={() => {
+                        router.push({
+                          pathname: "/(admin)/clients/installments",
+                          params: { clientId: id }
+                        });
+                      }}
+                    />
                   </View>
                 </View>
 
@@ -510,7 +593,10 @@ export default function ClientDetails() {
                       opacity: mutationLoading ? 0.7 : 1,
                     }}
                   >
-                    <Text className="font-kumbhBold" style={{ color: "#B91C1C" }}>
+                    <Text
+                      className="font-kumbhBold"
+                      style={{ color: "#B91C1C" }}
+                    >
                       {mutationLoading ? "Processing..." : "Delete Client"}
                     </Text>
                   </Pressable>
@@ -520,14 +606,26 @@ export default function ClientDetails() {
           </KeyboardAvoidingWidget>
 
           {/* Status picker modal */}
-          <Modal transparent visible={statusOpen} animationType="fade" onRequestClose={() => setStatusOpen(false)}>
-            <Pressable onPress={() => setStatusOpen(false)} className="flex-1 bg-black/30">
+          <Modal
+            transparent
+            visible={statusOpen}
+            animationType="fade"
+            onRequestClose={() => setStatusOpen(false)}
+          >
+            <Pressable
+              onPress={() => setStatusOpen(false)}
+              className="flex-1 bg-black/30"
+            >
               <View className="absolute left-5 right-5 bottom-8 rounded-2xl bg-white p-4">
-                <Text className="font-kumbhBold text-[#111827] mb-2">Select Status</Text>
+                <Text className="font-kumbhBold text-[#111827] mb-2">
+                  Select Status
+                </Text>
                 <FlatList
                   data={STATUS_OPTIONS}
                   keyExtractor={(x) => x.value}
-                  ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: "#EEF0F3" }} />}
+                  ItemSeparatorComponent={() => (
+                    <View style={{ height: 1, backgroundColor: "#EEF0F3" }} />
+                  )}
                   renderItem={({ item }) => (
                     <Pressable
                       onPress={() => {
@@ -536,7 +634,9 @@ export default function ClientDetails() {
                       }}
                       className="py-3"
                     >
-                      <Text className="font-kumbh text-[#111827]">{item.label}</Text>
+                      <Text className="font-kumbh text-[#111827]">
+                        {item.label}
+                      </Text>
                     </Pressable>
                   )}
                 />

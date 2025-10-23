@@ -15,9 +15,9 @@ export default function StatPill({
         <View className="w-8 h-8 rounded-xl bg-primary-100 items-center justify-center">
           <Users size={16} color="#4c5fab" />
         </View>
-        <Text className="text-sm text-gray-600 font-kumbh">{label}</Text>
+        <Text className="text-xs text-gray-600 font-kumbh">{label}</Text>
       </View>
-      <Text className="mt-2 text-xl font-kumbhBold text-text">{value}</Text>
+      <Text className="mt-2 text-sm font-kumbhBold text-text">{value}</Text>
     </View>
   );
 }
