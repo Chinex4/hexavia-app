@@ -83,7 +83,18 @@ export const chatMiddleware: Middleware<{}, RootState> =
             store.dispatch(addMessageToThread({ threadId, message: msg }));
           });
 
+          // ✅ replace with this
           socket.on("receiveChannelMessage", async (data: any) => {
+            const stateBefore = store.getState();
+            const isFromMe = data.sender === stateBefore.chat.meId; // <-- compute first
+            const threadId = String(data.channelId);
+
+            // If it's my own message, we ALREADY handled it with ack (replaceTempId).
+            // Do NOT add again.
+            if (isFromMe) {
+              return;
+            }
+
             const isUrl =
               typeof data.message === "string" &&
               /^https?:\/\//i.test(data.message);
@@ -108,18 +119,13 @@ export const chatMiddleware: Middleware<{}, RootState> =
               durationMs: data.attachment?.durationMs,
             };
 
-            const threadId = String(data.channelId);
             store.dispatch(ensureThread({ id: threadId, kind: "community" }));
             store.dispatch(addMessageToThread({ threadId, message: msg }));
 
             const state = store.getState();
-            const isFromMe = data.sender === state.chat.meId;
             const isOnThread = state.chat.currentThreadId === threadId;
 
-            console.log("[recv] ch", { meId: store.getState().chat.meId, from: data.sender, channelId: data.channelId });
-
-            
-            if (!isFromMe && !isOnThread) {
+            if (!isOnThread) {
               await Notifications.scheduleNotificationAsync({
                 content: {
                   title: data.username ?? "New message",
@@ -132,7 +138,6 @@ export const chatMiddleware: Middleware<{}, RootState> =
               });
             }
           });
-
           socket.on("messagesRead", (data: any) => {
             const ids: string[] = data.messageIds || [];
             store.dispatch(markReadBulk(ids));

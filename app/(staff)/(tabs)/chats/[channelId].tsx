@@ -16,6 +16,7 @@ import {
   useAudioRecorderState,
 } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system/legacy";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -148,17 +149,37 @@ export default function ChatScreen() {
   const stopRecording = async (cancel = false) => {
     const rec = recordRef.current ?? audioRecorder;
     if (!recorderState.isRecording) return;
+
     await rec.stop();
-    const uri = rec.uri ?? undefined;
+
+    const srcUri = rec.uri ?? undefined; // e.g. file:///.../recording-xxxx.m4a
     recordRef.current = null;
     setIsRecording(false);
 
-    if (!cancel && uri) {
+    if (!cancel && srcUri) {
+      // 1) ensure a proper filename (with extension)
       const name = `voice_${Date.now()}.m4a`;
-      const type = "audio/m4a";
-      const uploadAction = await dispatch(uploadSingle({ uri, name, type }));
+
+      // 2) copy to cache (just like your picker audio branch)
+      const dest = FileSystem.cacheDirectory + name;
+      try {
+        await FileSystem.copyAsync({ from: srcUri, to: dest });
+      } catch (e) {
+        console.warn("[voice] copy failed, fallback to original uri", e);
+      }
+
+      // 3) use a widely-accepted MIME for m4a
+      // (server-side libs often prefer audio/mp4 for .m4a)
+      const type = "audio/mp4";
+      // console.log(dest, )
+
+      // 4) upload via your existing thunk (unchanged)
+      const uploadAction = await dispatch(
+        uploadSingle({ uri: dest || srcUri, name, type })
+      );
       if (uploadSingle.fulfilled.match(uploadAction)) {
         const { url } = uploadAction.payload;
+
         const secs = Math.max(
           1,
           Math.round((recorderState.durationMillis ?? 0) / 1000)
@@ -177,10 +198,12 @@ export default function ChatScreen() {
             })
           );
         }
+
         handleSend(`[Voice note • ${secs}s] ${url}`);
         scrollToEnd();
       }
     }
+
     setRecordDurationMs(0);
   };
 
@@ -417,8 +440,11 @@ export default function ChatScreen() {
           const a = res.assets[0];
           const name = a.name ?? `audio_${Date.now()}.m4a`;
           const type = a.mimeType ?? "audio/m4a";
+          const ext = ".m4a";
+          const dest = FileSystem.cacheDirectory + name; // ensure name includes .m4a
+          await FileSystem.copyAsync({ from: a.uri, to: dest });
           const uploadAction = await dispatch(
-            uploadSingle({ uri: a.uri, name, type })
+            uploadSingle({ uri: dest, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
             const { url } = uploadAction.payload;
@@ -441,7 +467,7 @@ export default function ChatScreen() {
               payload: {
                 meId,
                 channelId,
-                text: "Image resource uploaded",
+                text: "Audio resource uploaded",
                 attachment: { mediaUri: url, mimeType: type },
               },
             });
@@ -503,19 +529,19 @@ export default function ChatScreen() {
   const hasMore = useAppSelector((s) => s.chat.hasMoreByThread?.[channelId!]);
   const nextSkip = useAppSelector((s) => s.chat.nextSkipByThread?.[channelId!]);
 
-  // const loadOlder = useCallback(() => {
-  //   if (!channelId || loadingOlder || hasMore === false) return;
-  //   const limit = 50;
-  //   const skip = nextSkip ?? messagesFromRedux?.length ?? 0;
-  //   dispatch(fetchMessages({ id: channelId, type: TYPE, limit, skip }));
-  // }, [
-  //   channelId,
-  //   loadingOlder,
-  //   hasMore,
-  //   nextSkip,
-  //   messagesFromRedux?.length,
-  //   dispatch,
-  // ]);
+  const loadOlder = useCallback(() => {
+    if (!channelId || loadingOlder || hasMore === false) return;
+    const limit = 50;
+    const skip = nextSkip ?? messagesFromRedux?.length ?? 0;
+    dispatch(fetchMessages({ id: channelId, type: TYPE, limit, skip }));
+  }, [
+    channelId,
+    loadingOlder,
+    hasMore,
+    nextSkip,
+    messagesFromRedux?.length,
+    dispatch,
+  ]);
 
   const lastSendRef = useRef(0);
   const MIN_INTERVAL_MS = 350;
@@ -601,8 +627,8 @@ export default function ChatScreen() {
               });
             }
           }}
-          // refreshing={!!loadingOlder}
-          // onRefresh={loadOlder}
+          refreshing={!!loadingOlder}
+          onRefresh={loadOlder}
         />
         <BottomStack
           tray={
