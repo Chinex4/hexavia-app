@@ -59,12 +59,10 @@ export default function ProspectsIndex() {
   const pagination = useAppSelector(selectClientPagination);
   const filters = useAppSelector(selectClientFilters);
 
-  // local UI state
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [query, setQuery] = useState("");
 
-  // form state mirrors filters but status is always locked to "pending"
   const [form, setForm] = useState<ClientFilters>({
     status: "pending",
     industry: undefined,
@@ -75,7 +73,6 @@ export default function ProspectsIndex() {
     page: 1,
   });
 
-  // On mount (and whenever global filters change), force status to "pending"
   useEffect(() => {
     const enforced: ClientFilters = {
       ...filters,
@@ -86,16 +83,13 @@ export default function ProspectsIndex() {
       page: filters.page ?? 1,
     };
 
-    // keep form in sync too
     setForm(enforced);
 
-    // push to store if status deviates
     if (filters.status !== "pending") {
       dispatch(setClientFilters({ ...enforced, page: 1 }));
     }
-  }, [dispatch]); // run once on mount
+  }, [dispatch]);
 
-  // Build a fetch key that always includes status=pending
   const fetchKey = JSON.stringify({
     status: "pending",
     industry: filters.industry,
@@ -152,7 +146,6 @@ export default function ProspectsIndex() {
     if (page !== (filters.page ?? 1)) dispatch(setClientFilters(next));
   };
 
-  // derive industries from current result set
   const dynamicIndustryOpts = useMemo(() => {
     const set = new Set<string>();
     clients.forEach((c: any) => c.industry && set.add(c.industry));
@@ -374,7 +367,6 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** Prospects filter modal — Status is hidden and locked to "pending" */
 function FilterModalProspects({
   open,
   form,

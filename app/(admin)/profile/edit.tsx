@@ -1,4 +1,3 @@
-// app/(staff)/profile/edit.tsx
 import { selectUpload } from "@/redux/upload/upload.slice";
 import { uploadSingle } from "@/redux/upload/upload.thunks";
 import { selectUser } from "@/redux/user/user.slice";
@@ -31,7 +30,6 @@ export default function EditProfile() {
 
   const [fullname, setFullname] = useState(current?.fullname || "");
   const [username, setUsername] = useState(current?.username || "");
-  // const [phone, setPhone] = useState((current as any)?.phoneNumber || (current as any)?.phone || "");
   const [photo, setPhoto] = useState<string | undefined>(
     current?.profilePicture || undefined
   );
@@ -182,18 +180,6 @@ export default function EditProfile() {
               className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 font-kumbh text-gray-900"
               autoCapitalize="none"
             />
-
-            {/* If/when phone is supported */}
-            {/* 
-            <Text className="mt-4 mb-2 font-kumbh text-gray-600">Phone</Text>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+234…"
-              keyboardType="phone-pad"
-              className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 font-kumbh text-gray-900"
-            />
-            */}
           </View>
 
           <View className="mt-6 flex-row">

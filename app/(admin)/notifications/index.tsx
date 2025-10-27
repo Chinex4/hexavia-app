@@ -63,7 +63,6 @@ function dateBucketLabel(date: Date) {
   if (startOfGiven === startOfToday) return "Today";
   if (startOfToday - startOfGiven === one) return "Yesterday";
 
-  // Example: Dec 19th, 2024
   return date.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -92,7 +91,6 @@ export default function NotificationsScreen() {
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<AppNotification[]>(seedNotifications);
 
-  // Register push and subscribe to incoming notifications
   const notifListener = useRef<Notifications.Subscription | null>(null);
 
   useEffect(() => {

@@ -24,8 +24,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-// (Optional) If you previously imported channels only to keep it alive, you can remove the next line.
-// import { selectAllChannels } from "@/redux/channels/channels.slice";
+
 import {
   deleteClient,
   fetchClientById,
@@ -38,7 +37,6 @@ import {
 } from "@/redux/client/client.selectors";
 import type { Client } from "@/redux/client/client.types";
 
-/* ------------ types & UI helpers ------------ */
 type AdminUser = {
   _id: string;
   email: string;
@@ -52,6 +50,10 @@ type AdminUser = {
   staffSize?: number | string;
   description?: string;
   problems?: string;
+  strength?: string;
+  opportunities?: string;
+  weakness?: string;
+  threats?: string;
   engagement?: string;
   deliverables?: string;
   payableAmount?: number;
@@ -192,16 +194,13 @@ function formatDate(d?: string) {
   }
 }
 
-/* ------------------------------ Screen ------------------------------ */
 export default function ClientDetails() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const dispatch = useAppDispatch();
 
   const users = useAppSelector(selectAdminUsers);
-  // useAppSelector(selectAllChannels);
 
-  // Select from client slice
   const selectClient = useMemo(
     () => (id ? makeSelectClientById(String(id)) : () => null),
     [id]
@@ -211,19 +210,17 @@ export default function ClientDetails() {
   const detailLoading = useAppSelector(selectClientDetailLoading);
   const mutationLoading = useAppSelector(selectClientMutationLoading);
 
-  /** Throttled fetch-on-mount (avoid 429) */
   const lastFetchRef = useRef<number>(0);
   useEffect(() => {
     if (!id) return;
     const now = Date.now();
-    const STALE_MS = 30_000; // don’t refetch same id within 30s
+    const STALE_MS = 30_000;
     if (clientFromStore && now - lastFetchRef.current < STALE_MS) return;
     lastFetchRef.current = now;
     dispatch(fetchClientById(String(id)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, id]); // only when id changes
+  }, [dispatch, id]);
 
-  // Fallback (when not yet in store)
   const fallbackUser: BaseUser = {
     _id: String(id ?? "unknown"),
     email: "unknown@example.com",
@@ -237,6 +234,10 @@ export default function ClientDetails() {
     staffSize: 12,
     description: "All good",
     problems: "A lot",
+    strength: "unknown",
+    opportunities: "unknown",
+    weakness: "unknown",
+    threats: "unknown",
     engagement: "Core Consulting",
     deliverables: "UI Screens",
     payableAmount: 240573.04,
@@ -244,7 +245,6 @@ export default function ClientDetails() {
     statusApi: "pending",
   };
 
-  // Prefer client slice → bridge to AdminUser shape + canonical API status
   const baseUser = useMemo<BaseUser>(() => {
     if (clientFromStore) {
       return {
@@ -260,6 +260,10 @@ export default function ClientDetails() {
         staffSize: clientFromStore.staffSize,
         description: clientFromStore.description,
         problems: clientFromStore.problems,
+        strength: clientFromStore.strength,
+        weakness: clientFromStore.weakness,
+        opportunities: clientFromStore.opportunities,
+        threats: clientFromStore.threats,
         engagement: clientFromStore.engagement,
         deliverables: clientFromStore.deliverables,
         payableAmount: clientFromStore.payableAmount,
@@ -283,7 +287,6 @@ export default function ClientDetails() {
     return fallbackUser;
   }, [clientFromStore, users, id]);
 
-  // Form state
   const [name, setName] = useState(
     baseUser.fullname || baseUser.username || baseUser.email || ""
   );
@@ -292,6 +295,12 @@ export default function ClientDetails() {
   const [staffSize, setstaffSize] = useState(String(baseUser.staffSize ?? ""));
   const [description, setDescription] = useState(baseUser.description ?? "");
   const [problems, setProblems] = useState(baseUser.problems ?? "");
+  const [strength, setStrength] = useState(baseUser.strength ?? "");
+  const [opportunities, setOpportunities] = useState(
+    baseUser.opportunities ?? ""
+  );
+  const [weakness, setWeakness] = useState(baseUser.weakness ?? "");
+  const [threats, setThreats] = useState(baseUser.threats ?? "");
   const [engagement, setEngagement] = useState(baseUser.engagement ?? "");
   const [deliverables, setDeliverables] = useState(baseUser.deliverables ?? "");
   const [payable, setPayable] = useState(
@@ -300,7 +309,6 @@ export default function ClientDetails() {
   const [statusApi, setStatusApi] = useState<ApiStatus>(baseUser.statusApi);
   const [statusOpen, setStatusOpen] = useState(false);
 
-  // Dirty detection
   const dirty = useMemo(() => {
     const basePay = formatMoneyNaira(baseUser.payableAmount);
     const baseName =
@@ -312,6 +320,10 @@ export default function ClientDetails() {
       staffSize !== String(baseUser.staffSize ?? "") ||
       description !== (baseUser.description ?? "") ||
       problems !== (baseUser.problems ?? "") ||
+      strength !== (baseUser.strength ?? "") ||
+      weakness !== (baseUser.weakness ?? "") ||
+      opportunities !== (baseUser.opportunities ?? "") ||
+      threats !== (baseUser.threats ?? "") ||
       engagement !== (baseUser.engagement ?? "") ||
       deliverables !== (baseUser.deliverables ?? "") ||
       payable !== basePay ||
@@ -325,13 +337,16 @@ export default function ClientDetails() {
     staffSize,
     description,
     problems,
+    strength,
+    weakness,
+    opportunities,
+    threats,
     engagement,
     deliverables,
     payable,
     statusApi,
   ]);
 
-  // Reset when baseUser changes
   useEffect(() => {
     setName(baseUser.fullname || baseUser.username || baseUser.email || "");
     setProjectName(baseUser.projectName ?? "");
@@ -339,6 +354,10 @@ export default function ClientDetails() {
     setstaffSize(String(baseUser.staffSize ?? ""));
     setDescription(baseUser.description ?? "");
     setProblems(baseUser.problems ?? "");
+    setStrength(baseUser.strength ?? "");
+    setWeakness(baseUser.weakness ?? "");
+    setOpportunities(baseUser.opportunities ?? "");
+    setThreats(baseUser.threats ?? "");
     setEngagement(baseUser.engagement ?? "");
     setDeliverables(baseUser.deliverables ?? "");
     setPayable(formatMoneyNaira(baseUser.payableAmount));
@@ -355,19 +374,22 @@ export default function ClientDetails() {
       name: name.trim(),
       projectName: projectName.trim(),
       industry: industry.trim() || undefined,
-      staffsize: Number(staffSize) || undefined, // API expects `staffsize`
+      staffsize: Number(staffSize) || undefined,
       description: description.trim() || undefined,
       problems: problems.trim() || undefined,
+      strength: strength.trim() || undefined,
+      weakness: weakness.trim() || undefined,
+      opportunities: opportunities.trim() || undefined,
+      threats: threats.trim() || undefined,
       engagement: engagement.trim() || undefined,
       deliverables: deliverables.trim() || undefined,
       payableAmount: parseMoney(payable) || undefined,
-      status: statusApi, // ✅ exact "current" | "pending" | "completed"
+      status: statusApi,
     } as Partial<Client>;
 
     try {
       await dispatch(updateClient({ id: String(id), body })).unwrap();
       Alert.alert("Saved", "Client info updated successfully.");
-      // No immediate refetch; slice upserts the updated client.
     } catch (e: any) {
       Alert.alert("Update failed", e?.message || "Please try again.");
     }
@@ -433,7 +455,6 @@ export default function ClientDetails() {
         </Pressable>
       </View>
 
-      {/* Loading veil while fetching detail */}
       {detailLoading && !clientFromStore ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
@@ -490,6 +511,42 @@ export default function ClientDetails() {
                     onChangeText={setProblems}
                     multiline
                   />
+                </View>
+
+                {/* Strengths */}
+                <View className="mt-4">
+                  <FieldLabel>Strengths</FieldLabel>
+                  <Input
+                    value={strength}
+                    onChangeText={setStrength}
+                    multiline
+                  />
+                </View>
+
+                {/* Weakness */}
+                <View className="mt-4">
+                  <FieldLabel>Weakness</FieldLabel>
+                  <Input
+                    value={weakness}
+                    onChangeText={setWeakness}
+                    multiline
+                  />
+                </View>
+
+                {/* Opportunities */}
+                <View className="mt-4">
+                  <FieldLabel>Opportunities</FieldLabel>
+                  <Input
+                    value={opportunities}
+                    onChangeText={setOpportunities}
+                    multiline
+                  />
+                </View>
+
+                {/* Threats */}
+                <View className="mt-4">
+                  <FieldLabel>Threats</FieldLabel>
+                  <Input value={threats} onChangeText={setThreats} multiline />
                 </View>
 
                 {/* Engagement Offered */}
@@ -574,7 +631,7 @@ export default function ClientDetails() {
                       onPress={() => {
                         router.push({
                           pathname: "/(admin)/clients/installments",
-                          params: { clientId: id }
+                          params: { clientId: id },
                         });
                       }}
                     />
@@ -649,7 +706,6 @@ export default function ClientDetails() {
   );
 }
 
-/* ----------------------- helpers ----------------------- */
 function KeyboardAvoidingWidget({ children }: { children: React.ReactNode }) {
   return (
     <KeyboardAvoidingView

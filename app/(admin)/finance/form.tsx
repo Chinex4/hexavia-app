@@ -1,4 +1,3 @@
-// app/(admin)/finance/FinanceForm.tsx
 import React, { useState } from "react";
 import {
   View,
@@ -8,8 +7,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { ArrowLeft, Calendar } from "lucide-react-native";
 import clsx from "clsx";
@@ -42,15 +41,13 @@ export default function FinanceForm() {
 
   const [type, setType] = useState<FinanceType>("expense");
   const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(""); // DD/MM/YYYY
+  const [date, setDate] = useState("");
   const [desc, setDesc] = useState("");
 
-  // date picker state
   const [showPicker, setShowPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState<Date>(new Date());
 
   const openPicker = () => {
-    // prefill picker with existing date value if present
     const m = date.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (m) {
       setPickerDate(new Date(+m[3], +m[2] - 1, +m[1]));
