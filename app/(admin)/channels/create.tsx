@@ -34,17 +34,14 @@ export default function CreateChannel() {
   const { status, error } = useAppSelector(selectChannelsState);
   const generatedCode = useAppSelector(selectLastGeneratedCode);
 
-  // local form state
   const [name, setName] = useState("");
   const [desc, setDesc] = useState<string>("");
   const [code, setCode] = useState<string>("");
 
-  // generate on open
   useEffect(() => {
     dispatch(generateChannelCode());
   }, [dispatch]);
 
-  // keep local code in sync with generatedCode from store
   useEffect(() => {
     if (generatedCode) setCode(generatedCode);
   }, [generatedCode]);
@@ -65,13 +62,13 @@ export default function CreateChannel() {
 
     const body = {
       name: name.trim(),
-      description: desc?.trim() ? desc.trim() : undefined, // null-safe
+      description: desc?.trim() ? desc.trim() : undefined,
       code: code.trim().toUpperCase(),
     };
 
     const res = await dispatch(createChannel(body));
     if ((res as any)?.meta?.requestStatus === "fulfilled") {
-      router.back(); // or navigate to the new channel detail if you have that
+      router.back();
     }
   };
 
@@ -139,12 +136,11 @@ export default function CreateChannel() {
                   placeholderTextColor="#9CA3AF"
                   value={code}
                   onChangeText={setCode}
-                  editable={false} // keep disabled
+                  editable={false}
                   selectTextOnFocus={false}
                   className="bg-gray-200 rounded-2xl px-4 py-4 pr-24 font-kumbh text-text opacity-90"
                   autoCapitalize="characters"
                 />
-                {/* Generate button (top-right inside the field) */}
                 <Pressable
                   onPress={onGenerateCode}
                   disabled={creating}

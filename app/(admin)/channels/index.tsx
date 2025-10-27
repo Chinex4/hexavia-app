@@ -1,4 +1,3 @@
-// app/(admin)/channels/index.tsx
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
@@ -53,7 +52,6 @@ export default function ChannelsIndex() {
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
-  // menu state
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -113,7 +111,6 @@ export default function ChannelsIndex() {
           text: "Delete",
           style: "destructive",
           onPress: () => {
-            // TODO: wire delete thunk later
             // dispatch(deleteChannel(selectedId))
           },
         },

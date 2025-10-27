@@ -14,6 +14,10 @@ export interface Client {
   staffSize?: number;
   description?: string;
   problems?: string;
+  strength?: string;
+  opportunities?: string;
+  weakness?: string;
+  threats?: string;
   deliverables?: string;
   payableAmount?: number;
   status?: ClientStatus;
@@ -57,6 +61,10 @@ export interface ClientCreateInput {
   staffSize?: number;
   description?: string;
   problems?: string;
+  strength?: string;
+  opportunities?: string;
+  weakness?: string;
+  threats?: string;
   deliverables?: string;
   payableAmount?: number;
   status?: ClientStatus;

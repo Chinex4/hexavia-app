@@ -47,7 +47,6 @@ import {
   selectClientDetailLoading,
 } from "@/redux/client/client.selectors";
 
-// ✅ toasts
 import { showSuccess, showError } from "@/components/ui/toast";
 
 const PRIMARY = "#4C5FAB";
@@ -65,7 +64,6 @@ const N = (v: number | string) => {
   }).format(n);
 };
 
-// dd/mm/yyyy -> yyyy-mm-dd
 function toISO(d: string) {
   const m = d.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   if (!m) return d;
@@ -85,7 +83,6 @@ export default function ClientInstallments() {
   const params = useLocalSearchParams<{ clientId?: string }>();
   const incomingClientId = params?.clientId ? String(params.clientId) : "";
 
-  // Redux
   const rows = useAppSelector(selectRows);
   const totalAmount = useAppSelector(selectTotalAmount);
   const amountPaid = useAppSelector(selectAmountPaid);
@@ -103,16 +100,13 @@ export default function ClientInstallments() {
   const client = useAppSelector(selectClient);
   const loadingClient = useAppSelector(selectClientDetailLoading);
 
-  // read-only header fields
   const [name, setName] = React.useState("");
   const [project, setProject] = React.useState("");
   const [engagement, setEngagement] = React.useState("");
 
-  // date picker
   const [dateIdx, setDateIdx] = React.useState<number | null>(null);
   const [pickerDate, setPickerDate] = React.useState<Date>(new Date());
 
-  // bootstrap
   React.useEffect(() => {
     if (!incomingClientId) {
       showError("Client ID is required");
@@ -123,25 +117,14 @@ export default function ClientInstallments() {
     dispatch(fetchClientById(incomingClientId));
   }, [incomingClientId]);
 
-  // Hydrate UI from client
   React.useEffect(() => {
     if (!client) return;
     setName(client.name ?? "");
     setProject(client.projectName ?? "");
     setEngagement(client.engagement ?? "");
     dispatch(setTotalAmount(String(client.payableAmount ?? 0)));
-
-    // If your API exposes existing payments (e.g., client.installments),
-    // normalize them into rows here:
-    // const existing: PlanRow[] = (client.installments ?? []).map((p) => ({
-    //   amount: String(p.amount ?? 0),
-    //   due: /* convert ISO -> DD/MM/YYYY */ fmtDMY(new Date(p.date)),
-    //   paymentId: p._id,
-    // }));
-    // if (existing.length) dispatch(setRows(existing));
   }, [client]);
 
-  // API error -> toast
   React.useEffect(() => {
     if (!error) return;
     const extra =
@@ -150,7 +133,6 @@ export default function ClientInstallments() {
     dispatch(clearError());
   }, [error, errorDetail]);
 
-  // After add: update amountPaid from server + toast
   React.useEffect(() => {
     if (!lastAdd) return;
     dispatch(setAmountPaid(String(lastAdd.totalPaid ?? 0)));
@@ -168,7 +150,6 @@ export default function ClientInstallments() {
 
   const deleteRow = async (idx: number, paymentId?: string) => {
     if (!paymentId) {
-      // Unsaved row → remove locally
       dispatch(removeRowAction(idx));
       return;
     }
@@ -185,10 +166,8 @@ export default function ClientInstallments() {
               deleteClientInstallment({ clientId, paymentId })
             ).unwrap();
 
-            // update totals from server
             dispatch(setAmountPaid(String(res.data?.totalPaid ?? 0)));
 
-            // drop the row with this paymentId
             const filtered = rows.filter((r) => r.paymentId !== paymentId);
             dispatch(setRows(filtered));
 
@@ -207,7 +186,7 @@ export default function ClientInstallments() {
 
   const handleSave = () => {
     const payments = rows
-      .filter((r) => !r.paymentId && r.amount && r.due) // only NEW rows
+      .filter((r) => !r.paymentId && r.amount && r.due)
       .map((r) => ({
         amount: Number(r.amount),
         date: toISO(r.due),
@@ -246,7 +225,6 @@ export default function ClientInstallments() {
     </View>
   );
 
-  // amount input (kept inline and simple)
   const AmountInput = ({
     value,
     onChange,

@@ -16,7 +16,6 @@ const dmy = (iso: string) =>
     year: "numeric",
   });
 
-// Dummy loader (replace with selector fetch by id)
 const loadExpense = (id: string) => ({
   id,
   amount: 2861384.05,

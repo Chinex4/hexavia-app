@@ -13,7 +13,7 @@ import { toApiResources } from "@/utils/buildApiResources";
 import { getMimeFromName } from "@/utils/getMime";
 import { normalizeCloudinaryUrl, slugifyFilename } from "@/utils/slugAndCloudinary";
 import * as DocumentPicker from "expo-document-picker";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";

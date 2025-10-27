@@ -24,7 +24,7 @@ export default function EditClient() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const users = useAppSelector(selectAdminUsers);
 
-  const existing = users.find((u) => u._id === id);
+  const existing = users.find((u: any) => u._id === id);
 
   const [fullname, setFullname] = useState(existing?.fullname ?? "");
   const [username, setUsername] = useState(existing?.username ?? "");
@@ -41,8 +41,6 @@ export default function EditClient() {
   const onSave = async () => {
     if (!fullname.trim()) return showError("Full name is required");
     if (!email.trim()) return showError("Email is required");
-
-    // TODO: wire an updateUser thunk here
     // await dispatch(updateUser({ userId: id as string, fullname: fullname.trim(), username: username.trim() || undefined, email: email.trim() }))
     showSuccess("Saved (mock)");
     router.back();

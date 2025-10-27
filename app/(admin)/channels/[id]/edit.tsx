@@ -39,7 +39,6 @@ export default function EditChannel() {
       showError("Channel name is required");
       return;
     }
-    // TODO: wire updateChannel thunk later
     // await dispatch(updateChannel({ id, name: name.trim(), description: desc.trim() || undefined }))
     showSuccess("Saved (mock)");
     router.back();

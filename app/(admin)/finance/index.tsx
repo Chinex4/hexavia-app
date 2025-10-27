@@ -13,9 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  fetchFinance,
-} from "@/redux/finance/finance.thunks";
+import { fetchFinance } from "@/redux/finance/finance.thunks";
 import {
   selectFinanceRecords,
   selectFinancePagination,
@@ -23,7 +21,10 @@ import {
   selectFinanceListLoading,
   selectFinanceFilters,
 } from "@/redux/finance/finance.selectors";
-import { setFinanceFilters, setFinancePage } from "@/redux/finance/finance.slice";
+import {
+  setFinanceFilters,
+  setFinancePage,
+} from "@/redux/finance/finance.slice";
 
 type Flow = "Receivables" | "Expenses";
 
@@ -31,10 +32,10 @@ type Txn = {
   id: string;
   title: "Withdrawal" | "Deposit";
   amount: number;
-  time: string; // "3:15 PM"
+  time: string;
   status: "Successful" | "Pending";
   dir: "up" | "down";
-  dateKey: string; // bucket
+  dateKey: string;
 };
 
 const NGN = (n: number) =>
@@ -53,7 +54,11 @@ function formatTime(iso: string) {
   }
 }
 function isSameYMD(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 function dateBucket(iso: string) {
   const d = new Date(iso);
@@ -62,7 +67,11 @@ function dateBucket(iso: string) {
   yday.setDate(today.getDate() - 1);
   if (isSameYMD(d, today)) return "Today";
   if (isSameYMD(d, yday)) return "Yesterday";
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return d.toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export default function FinanceIndex() {
@@ -78,19 +87,20 @@ export default function FinanceIndex() {
   const [tab, setTab] = useState<Flow>("Receivables");
   const [hidden, setHidden] = useState(false);
 
-  // Derived totals from API summary
   const total = useMemo(() => {
     if (!summary) return 0;
-    return tab === "Receivables" ? (summary.totalReceivables || 0) : (summary.totalExpenses || 0);
+    return tab === "Receivables"
+      ? summary.totalReceivables || 0
+      : summary.totalExpenses || 0;
   }, [summary, tab]);
 
-  // Map server records -> UI Txn and section them
   const sections = useMemo(() => {
-    // server `FinanceRecord`: { _id, type, amount, description, date }
     const txns: Txn[] = (records || [])
-      .filter(r => (tab === "Receivables" ? r.type === "receivable" : r.type === "expense"))
+      .filter((r) =>
+        tab === "Receivables" ? r.type === "receivable" : r.type === "expense"
+      )
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .map(r => {
+      .map((r) => {
         const isReceivable = r.type === "receivable";
         return {
           id: r._id,
@@ -104,7 +114,7 @@ export default function FinanceIndex() {
       });
 
     const map = new Map<string, Txn[]>();
-    txns.forEach(t => {
+    txns.forEach((t) => {
       if (!map.has(t.dateKey)) map.set(t.dateKey, []);
       map.get(t.dateKey)!.push(t);
     });
@@ -112,44 +122,48 @@ export default function FinanceIndex() {
     return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
   }, [records, tab]);
 
-  // Fetch on mount & whenever tab changes
   useEffect(() => {
-    // reset to first page and set type filter
-    dispatch(setFinanceFilters({
-      type: tab === "Receivables" ? "receivable" : "expense",
-      page: 1,
-      limit: 20,
-    }));
-    dispatch(fetchFinance({
-      type: tab === "Receivables" ? "receivable" : "expense",
-      page: 1,
-      limit: 20,
-    }));
+    dispatch(
+      setFinanceFilters({
+        type: tab === "Receivables" ? "receivable" : "expense",
+        page: 1,
+        limit: 20,
+      })
+    );
+    dispatch(
+      fetchFinance({
+        type: tab === "Receivables" ? "receivable" : "expense",
+        page: 1,
+        limit: 20,
+      })
+    );
   }, [tab]);
 
-  // Pull-to-refresh
   const onRefresh = useCallback(() => {
     if (loading) return;
     dispatch(setFinancePage(1));
-    dispatch(fetchFinance({
-      ...filters,
-      type: tab === "Receivables" ? "receivable" : "expense",
-      page: 1,
-    }));
+    dispatch(
+      fetchFinance({
+        ...filters,
+        type: tab === "Receivables" ? "receivable" : "expense",
+        page: 1,
+      })
+    );
   }, [loading, filters, tab]);
 
-  // Infinite scroll – load older pages (DESC)
   const loadMore = useCallback(() => {
     if (loading || !pagination) return;
     const { currentPage, totalPages } = pagination;
     if (currentPage >= totalPages) return;
     const next = currentPage + 1;
     dispatch(setFinancePage(next));
-    dispatch(fetchFinance({
-      ...filters,
-      type: tab === "Receivables" ? "receivable" : "expense",
-      page: next,
-    }));
+    dispatch(
+      fetchFinance({
+        ...filters,
+        type: tab === "Receivables" ? "receivable" : "expense",
+        page: next,
+      })
+    );
   }, [loading, pagination, filters, tab]);
 
   return (
@@ -163,14 +177,22 @@ export default function FinanceIndex() {
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-        <Text className="text-3xl font-kumbh text-text">Finance</Text>
+          <Text className="text-3xl font-kumbh text-text">Finance</Text>
           <View className="w-10" />
         </View>
 
         {/* Tabs */}
         <View className="mt-5 flex-row items-end justify-between">
-          <TabButton label="Receivables" active={tab === "Receivables"} onPress={() => setTab("Receivables")} />
-          <TabButton label="Expenses" active={tab === "Expenses"} onPress={() => setTab("Expenses")} />
+          <TabButton
+            label="Receivables"
+            active={tab === "Receivables"}
+            onPress={() => setTab("Receivables")}
+          />
+          <TabButton
+            label="Expenses"
+            active={tab === "Expenses"}
+            onPress={() => setTab("Expenses")}
+          />
         </View>
       </View>
 
@@ -179,7 +201,10 @@ export default function FinanceIndex() {
         <View className="rounded-[28px] bg-primary-500 px-6 py-7">
           <View className="flex-row items-center justify-center gap-2">
             <Text className="text-white/90 font-kumbh">Total Amount</Text>
-            <Pressable onPress={() => setHidden(s => !s)} className="opacity-90">
+            <Pressable
+              onPress={() => setHidden((s) => !s)}
+              className="opacity-90"
+            >
               <Eye size={18} color="white" />
             </Pressable>
           </View>
@@ -199,18 +224,25 @@ export default function FinanceIndex() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={
-          <RefreshControl refreshing={loading && (filters.page === 1)} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={loading && filters.page === 1}
+            onRefresh={onRefresh}
+          />
         }
         onEndReachedThreshold={0.2}
         onEndReached={loadMore}
         renderSectionHeader={({ section: { title } }) => (
           <Text className="px-5 py-3 text-gray-500 font-kumbh">{title}</Text>
         )}
-        ItemSeparatorComponent={() => <View className="h-[1px] bg-gray-200 ml-[76px]" />}
+        ItemSeparatorComponent={() => (
+          <View className="h-[1px] bg-gray-200 ml-[76px]" />
+        )}
         renderItem={({ item }) => <TxnRow item={item} />}
         ListFooterComponent={
           pagination && pagination.currentPage < pagination.totalPages ? (
-            <Text className="text-center text-gray-400 font-kumbh my-3">Loading more…</Text>
+            <Text className="text-center text-gray-400 font-kumbh my-3">
+              Loading more…
+            </Text>
           ) : null
         }
         stickySectionHeadersEnabled

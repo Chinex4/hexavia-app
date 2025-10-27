@@ -1,4 +1,3 @@
-// app/(admin)/clients/create.tsx
 import { yupResolver } from "@hookform/resolvers/yup";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
@@ -31,12 +30,16 @@ type FormValues = {
   name: string;
   projectName: string;
   industry?: string;
-  staffSize?: string; // text; coerced to number
+  staffSize?: string;
   description?: string;
   problems?: string;
+  strength?: string;
+  weakness?: string;
+  opportunities?: string;
+  threats?: string;
   engagement?: string;
   deliverables?: string;
-  payableAmount?: string; // text; coerced to number
+  payableAmount?: string;
   status: "pending" | "current" | "completed";
 };
 
@@ -50,6 +53,10 @@ const schema: yup.ObjectSchema<FormValues> = yup.object({
     .optional(),
   description: yup.string().trim().optional(),
   problems: yup.string().trim().optional(),
+  strength: yup.string().trim().optional(),
+  weakness: yup.string().trim().optional(),
+  opportunities: yup.string().trim().optional(),
+  threats: yup.string().trim().optional(),
   engagement: yup.string().trim().optional(),
   deliverables: yup.string().trim().optional(),
   payableAmount: yup
@@ -89,6 +96,10 @@ export default function CreateClient() {
       staffSize: "",
       description: "",
       problems: "",
+      strength: "",
+      weakness: "",
+      opportunities: "",
+      threats: "",
       engagement: "",
       deliverables: "",
       payableAmount: "",
@@ -105,6 +116,10 @@ export default function CreateClient() {
       staffSize: values.staffSize ? Number(values.staffSize) : undefined,
       description: values.description?.trim() || undefined,
       problems: values.problems?.trim() || undefined,
+      strength: values.strength?.trim() || undefined,
+      weakness: values.weakness?.trim() || undefined,
+      opportunities: values.opportunities?.trim() || undefined,
+      threats: values.threats?.trim() || undefined,
       deliverables: values.deliverables?.trim() || undefined,
       payableAmount: values.payableAmount
         ? Number(values.payableAmount)
@@ -291,6 +306,82 @@ export default function CreateClient() {
               <ErrorText msg={errors.problems.message} />
             ) : null}
 
+            {/* Strength */}
+            <Field label="Strengths">
+              <Controller
+                control={control}
+                name="strength"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    multiline
+                    placeholder="Enter Strengths"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+            </Field>
+            {errors.strength?.message ? (
+              <ErrorText msg={errors.strength.message} />
+            ) : null}
+
+            {/* Weakness */}
+            <Field label="Weaknesses">
+              <Controller
+                control={control}
+                name="weakness"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    multiline
+                    placeholder="Enter Weaknesses"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+            </Field>
+            {errors.weakness?.message ? (
+              <ErrorText msg={errors.weakness.message} />
+            ) : null}
+
+            {/* Opportunities */}
+            <Field label="Opportunities">
+              <Controller
+                control={control}
+                name="opportunities"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    multiline
+                    placeholder="Enter Opportunities"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+            </Field>
+            {errors.opportunities?.message ? (
+              <ErrorText msg={errors.opportunities.message} />
+            ) : null}
+
+            {/* Threats */}
+            <Field label="Threats">
+              <Controller
+                control={control}
+                name="threats"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    multiline
+                    placeholder="Enter Threats"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+            </Field>
+            {errors.threats?.message ? (
+              <ErrorText msg={errors.threats.message} />
+            ) : null}
+
             {/* Engagement */}
             <Field label="Engagement Offered">
               <Controller
@@ -446,7 +537,6 @@ export default function CreateClient() {
   );
 }
 
-/* ------------ helpers ------------- */
 function capitalize(s: string) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }

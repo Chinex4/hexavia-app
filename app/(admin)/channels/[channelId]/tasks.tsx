@@ -23,7 +23,6 @@ import { fetchChannelById } from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 
-// NEW: our task selectors
 import {
   ChannelStatusKey,
   makeSelectChannelTasksByChannelId,
@@ -32,7 +31,6 @@ import {
 
 const PRIMARY = "#4C5FAB";
 
-// Tabs you want to show
 const TABS: { key: ChannelStatusKey; label: string }[] = [
   { key: "not-started", label: "Not started" },
   { key: "in-progress", label: "In progress" },
@@ -51,7 +49,6 @@ export default function StatusScreen() {
 
   const dispatch = useAppDispatch();
 
-  // ensure we have user (for default channel calculation)
   const user = useAppSelector(selectUser);
   useEffect(() => {
     if (!user?._id) dispatch(fetchProfile());
@@ -62,14 +59,12 @@ export default function StatusScreen() {
   );
   const channelId = paramChannelId || defaultChannelId || null;
 
-  // fetch the chosen channel when id becomes known
   useEffect(() => {
     if (channelId) dispatch(fetchChannelById(String(channelId)));
   }, [dispatch, channelId]);
 
   const channelsStatus = useAppSelector(selectChannelsStatus);
 
-  // derive tasks
   const selectAllChannelTasks = useMemo(
     () => makeSelectChannelTasksByChannelId(channelId),
     [channelId]
@@ -82,7 +77,6 @@ export default function StatusScreen() {
   const allChannelTasks = useAppSelector(selectAllChannelTasks);
   const list = useAppSelector(selectChannelTasksByStatus);
 
-  // modals
   const [showCreate, setShowCreate] = useState(false);
   const [edit, setEdit] = useState(null);
 
@@ -148,7 +142,6 @@ export default function StatusScreen() {
 
       {/* List */}
       {isLoading ? (
-        // ...spinner...
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="small" color={PRIMARY} />
           <Text className="mt-2 text-[#6B7280] font-kumbh">Loading tasks…</Text>
