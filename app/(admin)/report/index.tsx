@@ -9,6 +9,8 @@ import {
   Modal,
   FlatList,
   Platform,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft, ChevronDown, Share2, Check } from "lucide-react-native";
@@ -19,15 +21,39 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import { selectAllChannels } from "@/redux/channels/channels.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 
-type Channel = { _id: string; name: string };
+type Channel = {
+  _id: string;
+  name: string;
+  tasks?: Array<{
+    _id: string;
+    name: string;
+    description?: string | null;
+    createdAt: string;
+    updatedAt?: string;
+    status: "not-started" | "in-progress" | "completed" | string;
+    dueDate?: string;
+    due_date?: string;
+  }>;
+};
 
 type FormValues = {
   projectName: string;
   channelIds: string[];
-  task: string;
   duration: string;
   date: Date | null;
+};
+
+type TaskRow = {
+  id: string;
+  title: string;
+  status: "not-started" | "in-progress" | "completed" | string;
+  createdAt?: string;
+  updatedAt?: string;
+  channelName?: string;
+  dueDate?: string;
 };
 
 const schema: yup.ObjectSchema<FormValues> = yup
@@ -37,7 +63,6 @@ const schema: yup.ObjectSchema<FormValues> = yup
       .array(yup.string().trim().required())
       .min(1, "Please select at least one channel")
       .required("Please select at least one channel"),
-    task: yup.string().trim().required("Task is required"),
     duration: yup.string().trim().required("Enter duration (e.g. 4 weeks)"),
     date: yup
       .date()
@@ -49,6 +74,29 @@ const schema: yup.ObjectSchema<FormValues> = yup
       }),
   })
   .required();
+
+function fmt(d?: string | Date | null) {
+  if (!d) return "";
+  const date = typeof d === "string" ? new Date(d) : d;
+  if (!date || isNaN(date.getTime())) return "";
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function statusBadgeColor(s: string) {
+  switch (s) {
+    case "completed":
+      return "#16a34a";
+    case "in-progress":
+      return "#f59e0b";
+    case "not-started":
+      return "#9ca3af";
+    default:
+      return "#6b7280";
+  }
+}
 
 export default function CreateReportScreen() {
   const router = useRouter();
@@ -65,7 +113,6 @@ export default function CreateReportScreen() {
     defaultValues: {
       projectName: "",
       channelIds: [],
-      task: "",
       duration: "",
       date: null,
     },
@@ -91,21 +138,18 @@ export default function CreateReportScreen() {
   const [channelOpen, setChannelOpen] = useState(false);
   const channels = useAppSelector(selectAllChannels) as Channel[];
 
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastPdfUri, setLastPdfUri] = useState<string | null>(null);
+
   useEffect(() => {
     dispatch(fetchChannels());
   }, [dispatch]);
 
-  const onSubmit = (values: FormValues) => {
-    console.log("Report form:", values);
-  };
-
-  const formatDate = (d: Date | null) => {
-    if (!d) return "DD/MM/YYYY";
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    return `${dd}/${mm}/${yyyy}`;
-  };
+  const idToChannel = useMemo(() => {
+    const map = new Map<string, Channel>();
+    channels.forEach((c) => map.set(c._id, c));
+    return map;
+  }, [channels]);
 
   const idToName = useMemo(() => {
     const map = new Map<string, string>();
@@ -145,10 +189,294 @@ export default function CreateReportScreen() {
     });
   };
 
+  const formatDate = (d: Date | null) => (d ? fmt(d) : "DD/MM/YYYY");
+
+  const ALLOWED = new Set(["not-started", "in-progress", "completed"]);
+
+  function getRowsFromSelection(selected: string[]): TaskRow[] {
+    const rows: TaskRow[] = [];
+
+    selected.forEach((id) => {
+      const ch = idToChannel.get(id);
+      if (!ch) return;
+
+      const chName = ch.name ?? id;
+      (ch.tasks ?? []).forEach((t) => {
+        const status = String(t.status ?? "").toLowerCase();
+        if (!ALLOWED.has(status)) return;
+
+        rows.push({
+          id: t._id,
+          title: t.name || "Untitled Task",
+          status,
+          createdAt: t.createdAt,
+          updatedAt: t.updatedAt,
+          channelName: chName,
+          dueDate: (t as any).dueDate || (t as any).due_date, // optional
+        });
+      });
+    });
+
+    return rows;
+  }
+
+  /* ───────── compute summary stats ───────── */
+  function buildSummary(rows: TaskRow[]) {
+    const total = rows.length;
+    const counts = {
+      notStarted: rows.filter((r) => r.status === "not-started").length,
+      inProgress: rows.filter((r) => r.status === "in-progress").length,
+      completed: rows.filter((r) => r.status === "completed").length,
+    };
+
+    // Overdue: only count tasks with a due date in the past and not completed
+    const now = new Date();
+    const overdue = rows.filter((r) => {
+      const d = r.dueDate ? new Date(r.dueDate) : null;
+      return (
+        d instanceof Date &&
+        !isNaN(d.getTime()) &&
+        d < now &&
+        r.status !== "completed"
+      );
+    }).length;
+
+    const completionRate = total
+      ? Math.round((counts.completed / total) * 100)
+      : 0;
+
+    // Per-channel small breakdown
+    const byChannel = new Map<
+      string,
+      {
+        total: number;
+        completed: number;
+        inProgress: number;
+        notStarted: number;
+      }
+    >();
+    rows.forEach((r) => {
+      const key = r.channelName ?? "Unknown";
+      if (!byChannel.has(key)) {
+        byChannel.set(key, {
+          total: 0,
+          completed: 0,
+          inProgress: 0,
+          notStarted: 0,
+        });
+      }
+      const bucket = byChannel.get(key)!;
+      bucket.total += 1;
+      if (r.status === "completed") bucket.completed += 1;
+      else if (r.status === "in-progress") bucket.inProgress += 1;
+      else if (r.status === "not-started") bucket.notStarted += 1;
+    });
+
+    return { total, counts, overdue, completionRate, byChannel };
+  }
+
+  /* ───────── HTML template ───────── */
+  function htmlForPDF(payload: {
+    projectName: string;
+    duration: string;
+    date: string;
+    channels: string[];
+    rows: TaskRow[];
+    summary: ReturnType<typeof buildSummary>;
+  }) {
+    const { projectName, duration, date, channels, rows, summary } = payload;
+    const tableRows = rows
+      .map(
+        (r, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${r.title}</td>
+          <td><span style="padding:3px 8px;border-radius:12px;background:${statusBadgeColor(
+            r.status
+          )};color:#fff;">${r.status}</span></td>
+          <td>${r.channelName ?? ""}</td>
+          <td>${fmt(r.createdAt)}</td>
+          <td>${fmt(r.updatedAt)}</td>
+          <td>${r.dueDate ? fmt(r.dueDate) : ""}</td>
+        </tr>`
+      )
+      .join("");
+
+    const channelBlocks = Array.from(summary.byChannel.entries())
+      .map(([name, b]) => {
+        const rate = b.total ? Math.round((b.completed / b.total) * 100) : 0;
+        return `
+          <div class="cbox">
+            <div class="cname">${name}</div>
+            <div class="cline"><strong>Total:</strong> ${b.total}</div>
+            <div class="cline"><strong>Completed:</strong> ${b.completed}</div>
+            <div class="cline"><strong>In-Progress:</strong> ${b.inProgress}</div>
+            <div class="cline"><strong>Not-Started:</strong> ${b.notStarted}</div>
+            <div class="cline"><strong>Completion:</strong> ${rate}%</div>
+          </div>`;
+      })
+      .join("");
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Tasks Report</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif; color:#111827; }
+  .wrap { padding: 24px; }
+  .h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
+  .muted { color:#6b7280; font-size: 12px; }
+  .meta { margin-top: 8px; font-size: 13px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:4px 16px; }
+  .cards { margin-top: 14px; display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
+  .card { border:1px solid #e5e7eb; border-radius: 12px; padding: 12px; background:#fff; }
+  .card .label { font-size: 12px; color:#6b7280; }
+  .card .value { font-size: 20px; font-weight:700; margin-top: 4px; }
+  .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 12px; }
+  .cbox { border:1px dashed #e5e7eb; border-radius:10px; padding:10px; }
+  .cname { font-weight:600; margin-bottom:6px; }
+  .cline { font-size:12px; color:#374151; }
+  table { width:100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; text-align:left; vertical-align: top; }
+  th { background:#f9fafb; font-weight:600; }
+  .footer { margin-top: 18px; font-size: 11px; color:#6b7280; }
+  @media print {
+    .cards { grid-template-columns: repeat(4, 1fr); }
+    .grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="h1">Project Tasks Report</div>
+    <div class="muted">Generated: ${fmt(new Date())}</div>
+
+    <div class="meta">
+      <div><strong>Project:</strong> ${projectName}</div>
+      <div><strong>Report Date:</strong> ${date}</div>
+      <div><strong>Duration:</strong> ${duration}</div>
+      <div><strong>Channels:</strong> ${channels.join(", ")}</div>
+      <div><strong>Status Filter:</strong> not-started, in-progress, completed</div>
+    </div>
+
+    <!-- summary cards -->
+    <div class="cards">
+      <div class="card"><div class="label">Total Tasks</div><div class="value">${summary.total}</div></div>
+      <div class="card"><div class="label">Completed</div><div class="value">${summary.counts.completed}</div></div>
+      <div class="card"><div class="label">In-Progress</div><div class="value">${summary.counts.inProgress}</div></div>
+      <div class="card"><div class="label">Not-Started</div><div class="value">${summary.counts.notStarted}</div></div>
+    </div>
+
+    <div class="cards" style="margin-top:10px;">
+      <div class="card"><div class="label">Completion Rate</div><div class="value">${summary.completionRate}%</div></div>
+      <div class="card"><div class="label">Overdue</div><div class="value">${summary.overdue}</div></div>
+    </div>
+
+    <!-- per-channel breakdown -->
+    <div class="grid">
+      ${channelBlocks || `<div class="cbox"><div class="cname">No per-channel data</div><div class="cline">—</div></div>`}
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Task</th>
+          <th>Status</th>
+          <th>Channel</th>
+          <th>Created</th>
+          <th>Updated</th>
+          <th>Due</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows || `<tr><td colspan="7">No tasks found for the selected filters.</td></tr>`}
+      </tbody>
+    </table>
+
+    <div class="footer">Hexavia • Auto-generated report</div>
+  </div>
+</body>
+</html>
+`;
+  }
+
+  /* ───────── generate PDF from Redux data ───────── */
+  const onGenerate = handleSubmit(async (values) => {
+    setIsGenerating(true);
+    setLastPdfUri(null);
+    try {
+      // 1) gather rows from selected channels
+      const rows = getRowsFromSelection(values.channelIds);
+
+      // 2) build summary
+      const summary = buildSummary(rows);
+
+      // 3) html
+      const html = htmlForPDF({
+        projectName: values.projectName,
+        duration: values.duration,
+        date: formatDate(values.date),
+        channels: selectedNames,
+        rows,
+        summary,
+      });
+
+      // 4) export
+      const filename = `tasks_report_${values.projectName.replace(/\s+/g, "_")}_${Date.now()}.pdf`;
+
+      const result = await Print.printToFileAsync({
+        html,
+        base64: Platform.OS === "web",
+      });
+
+      setLastPdfUri(result.uri);
+
+      if (Platform.OS === "web") {
+        if ((result as any).base64) {
+          const a = document.createElement("a");
+          a.href = `data:application/pdf;base64,${(result as any).base64}`;
+          a.download = filename;
+          a.click();
+        } else {
+          await Print.printAsync({ html });
+        }
+      } else {
+        await Sharing.shareAsync(result.uri, {
+          UTI: "com.adobe.pdf",
+          mimeType: "application/pdf",
+          dialogTitle: "Export PDF",
+        });
+      }
+    } catch (err: any) {
+      console.error(err);
+      Alert.alert("Generate Report", err?.message ?? "Failed to generate.");
+    } finally {
+      setIsGenerating(false);
+    }
+  });
+
+  const onShareAgain = async () => {
+    if (!lastPdfUri) return;
+    try {
+      await Sharing.shareAsync(lastPdfUri, {
+        UTI: "com.adobe.pdf",
+        mimeType: "application/pdf",
+        dialogTitle: "Export PDF",
+      });
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
-      <View style={{marginTop: Platform.select({android: 60, ios: 60})}} className="px-5 flex-row items-center justify-between">
+      <View
+        style={{ marginTop: Platform.select({ android: 60, ios: 60 }) }}
+        className="px-5 flex-row items-center justify-between"
+      >
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 -ml-1 items-center justify-center"
@@ -194,7 +522,7 @@ export default function CreateReportScreen() {
           </Text>
         )}
 
-        {/* Select Channels (multi) */}
+        {/* Channels (multi) */}
         <Text className="mt-5 text-lg font-kumbh text-black">Channels</Text>
         <Controller
           control={control}
@@ -243,30 +571,7 @@ export default function CreateReportScreen() {
           </Text>
         )}
 
-        {/* Task */}
-        <Text className="mt-5 text-lg font-kumbh text-black">Task</Text>
-        <Controller
-          control={control}
-          name="task"
-          render={({ field: { onChange, onBlur, value } }) => (
-            <TextInput
-              className="mt-2 h-40 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 font-kumbh text-[16px] text-black"
-              placeholder="Enter Task"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              textAlignVertical="top"
-              onBlur={onBlur}
-              onChangeText={onChange}
-              value={value}
-            />
-          )}
-        />
-        {errors.task && (
-          <Text className="mt-1 font-kumbh text-sm text-red-500">
-            {errors.task.message}
-          </Text>
-        )}
-
+        {/* Duration + Date */}
         <View className="mt-5 flex-row gap-4">
           <View className="flex-1">
             <Text className="text-lg font-kumbh text-black">Duration</Text>
@@ -323,18 +628,19 @@ export default function CreateReportScreen() {
         {/* Footer buttons */}
         <View className="mt-10 flex-row items-center justify-between">
           <Pressable
-            disabled={isSubmitting}
-            onPress={handleSubmit(onSubmit)}
+            disabled={isSubmitting || isGenerating}
+            onPress={onGenerate}
             className="flex-1 rounded-2xl bg-primary py-4 disabled:opacity-60"
           >
             <Text className="text-center font-kumbh text-[16px] font-semibold text-white">
-              AI Generate
+              {isGenerating ? "Generating..." : "AI Generate"}
             </Text>
           </Pressable>
 
           <Pressable
-            onPress={() => {}}
-            className="ml-4 h-14 w-14 items-center justify-center rounded-2xl border border-gray-200"
+            onPress={onShareAgain}
+            disabled={!lastPdfUri || isGenerating}
+            className="ml-4 h-14 w-14 items-center justify-center rounded-2xl border border-gray-200 disabled:opacity-50"
           >
             <Share2 size={22} color="#111827" />
           </Pressable>
@@ -343,10 +649,15 @@ export default function CreateReportScreen() {
 
       {/* Channel Picker Modal (multi-select) */}
       <Modal visible={channelOpen} transparent animationType="fade">
-        <Pressable onPress={() => setChannelOpen(false)} className="flex-1 bg-black/30" />
+        <Pressable
+          onPress={() => setChannelOpen(false)}
+          className="flex-1 bg-black/30"
+        />
         <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl bg-white p-5">
           <View className="mb-3 flex-row items-center justify-between">
-            <Text className="text-lg font-kumbh font-semibold text-black">Select Channels</Text>
+            <Text className="text-lg font-kumbh font-semibold text-black">
+              Select Channels
+            </Text>
             <View className="flex-row items-center gap-4">
               <Pressable onPress={clearAll} className="px-2 py-1">
                 <Text className="font-kumbh text-primary">Clear</Text>
@@ -360,7 +671,9 @@ export default function CreateReportScreen() {
           <FlatList
             data={channels}
             keyExtractor={(i) => i._id}
-            ItemSeparatorComponent={() => <View className="h-[1px] bg-gray-100" />}
+            ItemSeparatorComponent={() => (
+              <View className="h-[1px] bg-gray-100" />
+            )}
             renderItem={({ item }) => {
               const checked = selectedIds.includes(item._id);
               return (
@@ -368,10 +681,14 @@ export default function CreateReportScreen() {
                   onPress={() => toggleId(item._id)}
                   className="py-3 flex-row items-center justify-between"
                 >
-                  <Text className="font-kumbh text-[16px] text-black">{item.name}</Text>
+                  <Text className="font-kumbh text-[16px] text-black">
+                    {item.name}
+                  </Text>
                   <View
                     className={`w-6 h-6 rounded-md border items-center justify-center ${
-                      checked ? "bg-primary border-primary" : "border-gray-300 bg-white"
+                      checked
+                        ? "bg-primary border-primary"
+                        : "border-gray-300 bg-white"
                     }`}
                   >
                     {checked ? <Check size={16} color="#fff" /> : null}
@@ -421,7 +738,9 @@ export default function CreateReportScreen() {
                 <Text className="font-kumbh text-primary">Cancel</Text>
               </Pressable>
               <Pressable onPress={confirmDate}>
-                <Text className="font-kumbh font-semibold text-primary">Done</Text>
+                <Text className="font-kumbh font-semibold text-primary">
+                  Done
+                </Text>
               </Pressable>
             </View>
 
@@ -438,6 +757,16 @@ export default function CreateReportScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Fullscreen loading overlay while generating */}
+      <Modal visible={isGenerating} transparent animationType="fade">
+        <View className="flex-1 items-center justify-center bg-black/40">
+          <View className="w-40 rounded-2xl bg-white px-5 py-6 items-center">
+            <ActivityIndicator size="large" />
+            <Text className="mt-3 font-kumbh">Generating PDF...</Text>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
