@@ -6,6 +6,8 @@ export type ReplyMeta = {
   senderName: string;
 };
 
+export type Mention = { id: string; name: string; handle: string };
+
 export type Message = {
   id: string;
   text: string;
@@ -15,11 +17,11 @@ export type Message = {
   avatar?: string;
   status?: string;
   seenBy?: string[];
-  replyTo?: ReplyMeta; // <- NEW
-  // optional attachment prototypes
+  replyTo?: ReplyMeta;
   mediaUri?: string;
   mimeType?: string;
-  durationMs?: number; // for audio
+  durationMs?: number;
+  mentions?: Mention[];
 };
 
 export type AttachmentKind = "gallery" | "audio" | "camera" | "document";
