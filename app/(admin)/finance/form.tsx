@@ -70,13 +70,14 @@ export default function FinanceForm() {
     if (!Number.isFinite(amt) || amt <= 0)
       return showError("Enter a valid amount.");
     if (!date) return showError("Pick a date.");
+    if (desc === "") return showError("Description field cannot be empty!");
 
     try {
       await dispatch(
         createFinanceRecord({
           type,
           amount: amt,
-          description: desc?.trim() || undefined,
+          description: desc.trim() || undefined,
           date: toISO(date),
         })
       ).unwrap();

@@ -30,10 +30,11 @@ type Flow = "Receivables" | "Expenses";
 
 type Txn = {
   id: string;
-  title: "Withdrawal" | "Deposit";
+  title: "Expense" | "Receieve";
   amount: number;
   time: string;
   status: "Successful" | "Pending";
+  description: string;
   dir: "up" | "down";
   dateKey: string;
 };
@@ -104,9 +105,10 @@ export default function FinanceIndex() {
         const isReceivable = r.type === "receivable";
         return {
           id: r._id,
-          title: isReceivable ? "Deposit" : "Withdrawal",
+          title: isReceivable ? "Receive" : "Expense",
           amount: r.amount,
           time: formatTime(r.date),
+          description: r.description,
           status: "Successful",
           dir: isReceivable ? "down" : "up",
           dateKey: dateBucket(r.date),
@@ -322,7 +324,7 @@ function TxnRow({ item }: { item: Txn }) {
             isPending ? "text-yellow-600" : "text-green-600"
           )}
         >
-          {item.status}
+          {item.description}
         </Text>
       </View>
 
