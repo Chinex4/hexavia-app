@@ -112,3 +112,4 @@ export const selectSanctionById =
       : null;
 
 export const selectSanctionsError = (s: any) => s?.sanctions?.error ?? null;
+export const selectSanctionsUpdating = (s: any) => s?.sanctions?.updating;

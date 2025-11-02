@@ -1,7 +1,7 @@
 // app/_layout.tsx
 import React, { useEffect } from "react";
 import { Platform, View } from "react-native";
-import { Slot } from "expo-router";
+import { Slot, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useFonts } from "expo-font";
 import { Provider } from "react-redux";
@@ -14,7 +14,6 @@ import Toast from "react-native-toast-message";
 
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
 import { useAppSelector } from "@/store/hooks";
 import { PersistGate } from "redux-persist/integration/react";
 
@@ -25,14 +24,26 @@ attachStore(store);
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-    shouldShowBanner: false,
-    shouldShowList: false,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
+if (Platform.OS === "android") {
+  Notifications.setNotificationChannelAsync("default", {
+    name: "Hexavia",
+    importance: Notifications.AndroidImportance.MAX,
+    sound: "default",
+    enableVibrate: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+  });
+}
+
 const PENDING_CHANNEL_KEY = "PENDING_CHANNEL_ID";
+
+/** Unify chat path by role → always navigates to channels route */
 const chatPathForRole = (role?: string | null | undefined) =>
   role === "client"
     ? "/(client)/(tabs)/chats/[channelId]"
@@ -53,7 +64,6 @@ export default function RootLayout() {
 
   if (!fontsLoaded) return null;
 
-  // ✅ No selectors here
   return (
     <Provider store={store}>
       <PersistGate loading={null} persistor={persistor}>
@@ -65,7 +75,6 @@ export default function RootLayout() {
   );
 }
 
-/** Everything that needs Redux hooks goes here (inside Provider) */
 function AppFrame() {
   const role = useAppSelector((s: RootState) => s.auth.user?.role);
   const phase = useAppSelector((s: RootState) => s.auth.phase);
@@ -73,21 +82,27 @@ function AppFrame() {
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(
       async (response) => {
-        const channelId = response.notification.request.content.data
-          ?.channelId as string | undefined;
+        const data = response.notification.request.content.data as any;
+        const channelId = data?.channelId as string | undefined;
+        const kind = data?.kind as string | undefined;
 
-        if (!channelId) return;
-
-        // If auth not ready yet, stash and Splash/index will route later
-        if (phase !== "authenticated") {
+        if (channelId && phase !== "authenticated") {
           await AsyncStorage.setItem(PENDING_CHANNEL_KEY, channelId);
           return;
         }
 
-        router.push({
-          pathname: chatPathForRole(role),
-          params: { channelId },
-        } as any);
+        if (kind === "chat" && channelId) {
+          router.push({
+            pathname: chatPathForRole(role),
+            params: { channelId },
+          } as any);
+          return;
+        }
+
+        if (kind === "finance") {
+          router.push("/(admin)/finance");
+          return;
+        }
       }
     );
     return () => sub.remove();

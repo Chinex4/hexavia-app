@@ -7,18 +7,31 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TextInput,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Pencil,
+  ShieldAlert,
+  User2,
+  Calendar,
+} from "lucide-react-native";
 import clsx from "clsx";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchSanctions } from "@/redux/sanctions/sanctions.thunks";
+import {
+  fetchSanctions,
+  updateSanction,
+} from "@/redux/sanctions/sanctions.thunks";
 import {
   selectSanctions,
   selectSanctionsLoading,
   selectSanctionsError,
+  selectSanctionsUpdating,
 } from "@/redux/sanctions/sanctions.slice";
 
 type RowStatus = "Active" | "Resolved";
@@ -30,56 +43,93 @@ export default function SanctionsView() {
   const rawRows = useAppSelector(selectSanctions);
   const rows = Array.isArray(rawRows) ? rawRows : [];
   const loading = useAppSelector(selectSanctionsLoading);
+  const updating = useAppSelector(selectSanctionsUpdating);
   const error = useAppSelector(selectSanctionsError) ?? null;
 
   const [filter, setFilter] = useState<RowStatus | "All">("All");
   const [refreshing, setRefreshing] = useState(false);
 
+  // modal state
+  const [editOpen, setEditOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editReason, setEditReason] = useState<string>("");
+  const [editActive, setEditActive] = useState<boolean>(true);
+
   useEffect(() => {
-    dispatch(fetchSanctions());
+    dispatch(fetchSanctions() as any);
   }, [dispatch]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchSanctions()).unwrap();
+      await dispatch(fetchSanctions() as any).unwrap();
     } finally {
       setRefreshing(false);
     }
   }, [dispatch]);
 
   const data = useMemo(() => {
-    const mapStatus = (s?: boolean | null) =>
-      s === false ? "Resolved" : "Active"; // fallback
     return rows
-      .map((r) => ({
-        id: r._id,
-        date: r.createdAt ?? "",
-        recipient: r.user?.username || r.user?.fullname || "Unknown",
-        reason: r.reason,
-        status: (["warning", "penalty"].includes(r.type)
-          ? "Active"
-          : mapStatus(r.isActive)) as RowStatus,
-      }))
+      .map((r: any) => {
+        const recipient =
+          r?.sanctionUser?.username ||
+          r?.sanctionUser?.email ||
+          r?.user?.username ||
+          r?.user?.fullname ||
+          "Unknown";
+        const dateStr = r?.date || r?.createdAt || "";
+        const status: RowStatus = r?.isActive ? "Active" : "Resolved";
+        return {
+          id: r._id,
+          date: dateStr,
+          recipient,
+          reason: r?.reason ?? "—",
+          status,
+          raw: r,
+        };
+      })
       .filter((r) => (filter === "All" ? true : r.status === filter));
   }, [rows, filter]);
-  // console.log(rows)
+
+  const openEdit = useCallback((item: any) => {
+    setEditId(item.id);
+    setEditReason(item.raw?.reason ?? "");
+    setEditActive(!!item.raw?.isActive);
+    setEditOpen(true);
+  }, []);
+
+  const closeEdit = useCallback(() => {
+    setEditOpen(false);
+    setEditId(null);
+  }, []);
+
+  const handleSave = useCallback(async () => {
+    if (!editId) return;
+    await dispatch(
+      updateSanction({
+        sanctionId: editId,
+        reason: editReason?.trim() || undefined,
+        isActive: editActive,
+      }) as any
+    ).unwrap();
+    setEditOpen(false);
+  }, [dispatch, editId, editReason, editActive]);
 
   return (
-    <SafeAreaView className="flex-1 bg-background">
+    <SafeAreaView className="flex-1 bg-[#F8FAFC]">
       {/* Header */}
       <View className="px-5 pt-6 pb-3 flex-row items-center justify-between gap-4">
         <Pressable
           onPress={() => router.back()}
-          className="w-10 h-10 items-center justify-center"
+          className="w-10 h-10 items-center justify-center rounded-full bg-gray-100"
         >
-          <ArrowLeft size={24} color="#111827" />
+          <ArrowLeft size={22} color="#1F2937" />
         </Pressable>
-        <Text className="text-3xl font-kumbh text-text">Sanctions</Text>
+        <Text className="text-2xl font-kumbhBold text-gray-900">Sanctions</Text>
         <View className="w-10" />
       </View>
 
-      {/* Filters */}
+      {/* Pills */}
       <View className="px-5 flex-row gap-2">
         {(["All", "Active", "Resolved"] as const).map((tab) => (
           <Pressable
@@ -88,14 +138,14 @@ export default function SanctionsView() {
             className={clsx(
               "px-4 py-2 rounded-full border",
               filter === tab
-                ? "bg-primary-500 border-primary-500"
+                ? "bg-primary border-primary"
                 : "bg-white border-gray-200"
             )}
           >
             <Text
               className={clsx(
                 "text-sm font-kumbhBold",
-                filter === tab ? "text-white" : "text-text"
+                filter === tab ? "text-white" : "text-gray-700"
               )}
             >
               {tab}
@@ -107,7 +157,7 @@ export default function SanctionsView() {
       {/* List */}
       {loading && rows.length === 0 ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator />
+          <ActivityIndicator color="#7C3AED" />
           <Text className="mt-2 text-gray-500 font-kumbh">
             Loading sanctions…
           </Text>
@@ -120,33 +170,46 @@ export default function SanctionsView() {
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
-          ItemSeparatorComponent={() => (
-            <View className="h-[1px] bg-gray-200 my-4" />
-          )}
+          ItemSeparatorComponent={() => <View className="h-3" />}
           renderItem={({ item }) => (
-            <View>
-              <Row label="Date" value={formatDate(item.date)} />
-              <Row label="Recipient" value={item.recipient} />
-              <Row label="Reason" value={item.reason} />
-              <View className="flex-row items-center justify-between py-1">
-                <Text className="text-base text-gray-700 font-kumbh">
-                  Status
-                </Text>
-                {/* <View className="flex-row items-center gap-2">
-                  <Pressable
-                    onPress={() =>
-                      router.push(`/(admin)/team/sanctions/${item.id}/edit`)
-                    }
-                    className="px-3 py-1 rounded-full bg-gray-100"
-                  >
-                    <Text className="text-sm font-kumbhBold text-gray-700">
+            <Card>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-2">
+                  <ShieldBadge status={item.status} />
+                  {/* <Text className="text-gray-900 font-kumbhBold text-base">
+                    {item.status}
+                  </Text> */}
+                </View>
+                <Pressable
+                  onPress={() => openEdit(item)}
+                  className="px-3 py-2 rounded-xl bg-gray-100 active:bg-gray-200"
+                >
+                  <View className="flex-row items-center gap-1">
+                    <Pencil size={16} color="#374151" />
+                    <Text className="text-gray-800 font-kumbhBold text-xs">
                       Edit
                     </Text>
-                  </Pressable>
-                  <StatusPill status={item.status} />
-                </View> */}
+                  </View>
+                </Pressable>
               </View>
-            </View>
+
+              <Divider />
+
+              <Row icon={<Calendar size={16} color="#6366F1" />}>
+                <Label>Date</Label>
+                <Value>{formatDate(item.date)}</Value>
+              </Row>
+
+              <Row icon={<User2 size={16} color="#6366F1" />}>
+                <Label>Recipient</Label>
+                <Value numberOfLines={1}>{item.recipient}</Value>
+              </Row>
+
+              <Row icon={<ShieldAlert size={16} color="#6366F1" />}>
+                <Label>Reason</Label>
+                <Value>{item.reason}</Value>
+              </Row>
+            </Card>
           )}
           ListEmptyComponent={
             <View className="px-5 py-12">
@@ -157,33 +220,138 @@ export default function SanctionsView() {
           }
         />
       )}
+
+      {/* Edit Modal */}
+      <Modal
+        transparent
+        visible={editOpen}
+        animationType="slide"
+        onRequestClose={closeEdit}
+      >
+        <View className="flex-1 bg-black/40 items-center justify-end">
+          <View className="w-full rounded-t-3xl bg-white p-5">
+            <View className="items-center mb-3">
+              <View className="w-12 h-1.5 rounded-full bg-gray-300" />
+            </View>
+
+            <Text className="text-gray-900 font-kumbhBold text-lg mb-3">
+              Update Sanction
+            </Text>
+
+            <Text className="text-gray-700 font-kumbh mb-2">Reason</Text>
+            <TextInput
+              placeholder="Enter reason"
+              placeholderTextColor="#9CA3AF"
+              value={editReason}
+              onChangeText={setEditReason}
+              className="bg-gray-50 text-gray-900 rounded-xl px-4 py-3 font-kumbh mb-4 border border-gray-200"
+              multiline
+            />
+
+            <View className="flex-row items-center justify-between mb-6">
+              <Text className="text-gray-700 font-kumbh">Active</Text>
+              <Switch
+                value={editActive}
+                onValueChange={setEditActive}
+                trackColor={{ true: "#7C3AED", false: "#D1D5DB" }}
+              />
+            </View>
+
+            <View className="flex-row gap-3">
+              <Pressable
+                onPress={closeEdit}
+                className="flex-1 rounded-2xl bg-gray-100 py-3 items-center"
+              >
+                <Text className="text-gray-800 font-kumbhBold">Cancel</Text>
+              </Pressable>
+              <Pressable
+                disabled={updating}
+                onPress={handleSave}
+                className={clsx(
+                  "flex-1 rounded-2xl py-3 items-center",
+                  updating ? "bg-[#7C3AED]/60" : "bg-[#7C3AED]"
+                )}
+              >
+                <Text className="text-white font-kumbhBold">
+                  {updating ? "Saving…" : "Save"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+/* ───────── light-themed building blocks ───────── */
+
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <View className="flex-row items-center justify-between py-1">
-      <Text className="text-base text-gray-700 font-kumbh">{label}</Text>
-      <Text className="text-base text-text font-kumbhBold max-w-[60%] text-right">
-        {value}
-      </Text>
+    <View className="rounded-2xl bg-white border border-gray-200 p-4 shadow-sm">
+      {children}
     </View>
   );
 }
-function StatusPill({ status }: { status: RowStatus }) {
+function Divider() {
+  return <View className="h-px bg-gray-100 my-3" />;
+}
+function Row({
+  children,
+  icon,
+}: {
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <View className="flex-row items-center justify-between py-1">
+      <View className="flex-row items-center gap-2 flex-1">
+        {icon}
+        <View className="flex-row items-center flex-1">{children}</View>
+      </View>
+    </View>
+  );
+}
+function Label({ children }: { children: React.ReactNode }) {
+  return <Text className="text-gray-600 font-kumbh">{children}</Text>;
+}
+function Value({
+  children,
+  numberOfLines,
+}: {
+  children: React.ReactNode;
+  numberOfLines?: number;
+}) {
+  return (
+    <Text
+      numberOfLines={numberOfLines}
+      className="text-gray-900 font-kumbhBold ml-auto max-w-[60%] text-right"
+    >
+      {children}
+    </Text>
+  );
+}
+
+function ShieldBadge({ status }: { status: RowStatus }) {
   const map = {
-    Active: { bg: "bg-red-100", text: "text-red-700" },
-    Resolved: { bg: "bg-green-100", text: "text-green-700" },
-    Pending: { bg: "bg-yellow-100", text: "text-yellow-700" },
+    Active: { bg: "bg-red-50", dot: "bg-red-500", text: "text-red-700" },
+    Resolved: {
+      bg: "bg-green-50",
+      dot: "bg-green-600",
+      text: "text-green-700",
+    },
   } as const;
   const s = map[status];
   return (
-    <View className={`px-3 py-1 rounded-full ${s.bg}`}>
-      <Text className={`text-sm font-kumbhBold ${s.text}`}>{status}</Text>
+    <View
+      className={clsx("px-2 py-1 rounded-lg flex-row items-center gap-1", s.bg)}
+    >
+      <View className={clsx("w-2 h-2 rounded-full", s.dot)} />
+      <Text className={clsx("text-xs font-kumbhBold", s.text)}>{status}</Text>
     </View>
   );
 }
+
 function formatDate(d?: string) {
   if (!d) return "—";
   try {

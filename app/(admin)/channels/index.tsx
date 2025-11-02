@@ -1,3 +1,4 @@
+// app/(admin)/channels/index.tsx  (or wherever this file lives)
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import {
   View,
@@ -7,12 +8,18 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
-  Modal,
+  Modal, // <- kept for commented block
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Plus, Search, MoreVertical } from "lucide-react-native";
+import {
+  ArrowLeft,
+  Plus,
+  Search,
+  /* MoreVertical, */ Copy,
+} from "lucide-react-native";
+import * as Clipboard from "expo-clipboard";
 
 import ChannelCard from "@/components/admin/ChannelCard";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -21,6 +28,7 @@ import {
   selectAllChannels,
   selectChannelsState,
 } from "@/redux/channels/channels.slice";
+import { showSuccess } from "@/components/ui/toast";
 
 const TINTS = [
   "#707fbc",
@@ -52,8 +60,21 @@ export default function ChannelsIndex() {
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
 
+  /* ===== Channel Actions (commented out as requested) =====
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const openMenu = (id: string) => { setSelectedId(id); setMenuOpen(true); };
+  const closeMenu = () => setMenuOpen(false);
+  const onEdit = () => { if (selectedId) { closeMenu(); router.push({ pathname: "/(admin)/channels/[id]/edit", params: { id: selectedId } }); } };
+  const onDelete = () => {
+    closeMenu();
+    if (!selectedId) return;
+    Alert.alert("Delete Group", "Are you sure you want to delete this group? This action cannot be undone.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Delete", style: "destructive", onPress: () => { /* dispatch(deleteChannel(selectedId)) */ /* } },
+    ]);
+  };
+  ========================================================= */
 
   useEffect(() => {
     dispatch(fetchChannels());
@@ -81,41 +102,18 @@ export default function ChannelsIndex() {
 
   const initialLoading = status === "loading" && channels.length === 0;
 
-  const openMenu = (id: string) => {
-    setSelectedId(id);
-    setMenuOpen(true);
-  };
-  const closeMenu = () => {
-    setMenuOpen(false);
-  };
-
-  const onEdit = () => {
-    if (selectedId) {
-      closeMenu();
-      router.push({
-        pathname: "/(admin)/channels/[id]/edit",
-        params: { id: selectedId },
-      });
+  const copyCode = async (code?: string) => {
+    if (!code) {
+      Alert.alert("No code", "This group has no code to copy.");
+      return;
     }
-  };
-
-  const onDelete = () => {
-    closeMenu();
-    if (!selectedId) return;
-    Alert.alert(
-      "Delete Group",
-      "Are you sure you want to delete this group? This action cannot be undone.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            // dispatch(deleteChannel(selectedId))
-          },
-        },
-      ]
-    );
+    try {
+      await Clipboard.setStringAsync(code);
+      // Alert.alert("Copied", "Group code copied to clipboard.");
+      showSuccess("Group code copied to clipboard.")
+    } catch (e) {
+      Alert.alert("Error", "Failed to copy group code.");
+    }
   };
 
   return (
@@ -130,7 +128,7 @@ export default function ChannelsIndex() {
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
           <Text className="text-3xl font-kumbh text-text">Groups</Text>
-          <View className="w-10"/>
+          <View className="w-10" />
         </View>
 
         {/* Create CTA */}
@@ -159,9 +157,7 @@ export default function ChannelsIndex() {
           />
         </View>
 
-        <Text className="mt-6 mb-3 text-base font-kumbh text-text">
-          Groups
-        </Text>
+        <Text className="mt-6 mb-3 text-base font-kumbh text-text">Groups</Text>
       </View>
 
       {/* Content */}
@@ -199,7 +195,25 @@ export default function ChannelsIndex() {
                   });
                 }}
               />
-              {/* Ellipsis button in top-right of the card */}
+
+              {/* Copy icon (replaces ellipsis). No background behind it. */}
+              <Pressable
+                onPress={() => copyCode(item.code)}
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 6,
+                  width: 32,
+                  height: 32,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                hitSlop={8}
+              >
+                <Copy size={18} color="#ffffff" />
+              </Pressable>
+
+              {/* ===== Channel Actions button (commented out) =====
               <Pressable
                 onPress={() => openMenu(item._id)}
                 style={{
@@ -216,6 +230,7 @@ export default function ChannelsIndex() {
               >
                 <MoreVertical size={18} color="#fff" />
               </Pressable>
+              =================================================== */}
             </View>
           )}
           ListEmptyComponent={
@@ -230,20 +245,11 @@ export default function ChannelsIndex() {
         />
       )}
 
-      {/* Simple modal menu */}
-      <Modal
-        transparent
-        visible={menuOpen}
-        animationType="fade"
-        onRequestClose={closeMenu}
-      >
+      {/* ===== Channel Actions modal (commented out) =====
+      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={closeMenu}>
         <Pressable
           onPress={closeMenu}
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.3)",
-            justifyContent: "flex-end",
-          }}
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-end" }}
         >
           <View
             style={{
@@ -253,29 +259,22 @@ export default function ChannelsIndex() {
               borderTopRightRadius: 16,
             }}
           >
-            <Text className="text-center font-kumbhBold text-base mb-3">
-              Channel Actions
-            </Text>
+            <Text className="text-center font-kumbhBold text-base mb-3">Channel Actions</Text>
             <Pressable onPress={onEdit} className="py-3">
-              <Text className="text-center font-kumbh text-blue-700">
-                Edit channel
-              </Text>
+              <Text className="text-center font-kumbh text-blue-700">Edit channel</Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />
             <Pressable onPress={onDelete} className="py-3">
-              <Text className="text-center font-kumbh text-red-600">
-                Delete channel
-              </Text>
+              <Text className="text-center font-kumbh text-red-600">Delete channel</Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />
             <Pressable onPress={closeMenu} className="py-3">
-              <Text className="text-center font-kumbh text-gray-700">
-                Cancel
-              </Text>
+              <Text className="text-center font-kumbh text-gray-700">Cancel</Text>
             </Pressable>
           </View>
         </Pressable>
       </Modal>
+      ================================================ */}
     </SafeAreaView>
   );
 }

@@ -24,6 +24,7 @@ import { fetchChannels } from "@/redux/channels/channels.thunks";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 
+/* ───────── types ───────── */
 type Channel = {
   _id: string;
   name: string;
@@ -42,8 +43,8 @@ type Channel = {
 type FormValues = {
   projectName: string;
   channelIds: string[];
-  duration: string;
-  date: Date | null;
+  startDate: Date | null;
+  endDate: Date | null;
 };
 
 type TaskRow = {
@@ -56,6 +57,7 @@ type TaskRow = {
   dueDate?: string;
 };
 
+/* ───────── validation ───────── */
 const schema: yup.ObjectSchema<FormValues> = yup
   .object({
     projectName: yup.string().trim().required("Project name is required"),
@@ -63,18 +65,33 @@ const schema: yup.ObjectSchema<FormValues> = yup
       .array(yup.string().trim().required())
       .min(1, "Please select at least one channel")
       .required("Please select at least one channel"),
-    duration: yup.string().trim().required("Enter duration (e.g. 4 weeks)"),
-    date: yup
+    startDate: yup
       .date()
       .nullable()
-      .required("Date is required")
-      .test("required", "Date is required", (value) => {
-        if (value === null) return false;
-        return value instanceof Date && !isNaN(value.getTime());
-      }),
+      .required("Start date is required")
+      .test(
+        "valid",
+        "Start date is required",
+        (v) => !!v && !isNaN(v.getTime())
+      ),
+    endDate: yup
+      .date()
+      .nullable()
+      .required("End date is required")
+      .test("valid", "End date is required", (v) => !!v && !isNaN(v.getTime()))
+      .test(
+        "after-start",
+        "End date must be on/after start date",
+        function (end) {
+          const start = this.parent.startDate as Date | null;
+          if (!start || !end) return false;
+          return end.getTime() >= start.getTime();
+        }
+      ),
   })
   .required();
 
+/* ───────── helpers ───────── */
 function fmt(d?: string | Date | null) {
   if (!d) return "";
   const date = typeof d === "string" ? new Date(d) : d;
@@ -98,9 +115,11 @@ function statusBadgeColor(s: string) {
   }
 }
 
+/* ───────── component ───────── */
 export default function CreateReportScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const channels = useAppSelector(selectAllChannels) as Channel[];
 
   const {
     control,
@@ -113,38 +132,52 @@ export default function CreateReportScreen() {
     defaultValues: {
       projectName: "",
       channelIds: [],
-      duration: "",
-      date: null,
+      startDate: null,
+      endDate: null,
     },
     mode: "onBlur",
   });
 
   const selectedIds = watch("channelIds");
-  const dateValue = watch("date");
+  const startDateValue = watch("startDate");
+  const endDateValue = watch("endDate");
 
-  const [showDate, setShowDate] = useState(false);
+  /* date picker state */
+  const [activeDateField, setActiveDateField] = useState<
+    "start" | "end" | null
+  >(null);
   const [tempDate, setTempDate] = useState<Date | null>(null);
+  const [showDate, setShowDate] = useState(false);
 
-  const openDatePicker = (current?: Date | null) => {
+  const openDatePicker = (which: "start" | "end", current?: Date | null) => {
+    setActiveDateField(which);
     setTempDate(current ?? new Date());
     setShowDate(true);
   };
-  const closeDatePicker = () => setShowDate(false);
-  const confirmDate = () => {
-    if (tempDate) setValue("date", tempDate, { shouldValidate: true });
+  const closeDatePicker = () => {
     setShowDate(false);
+    setActiveDateField(null);
+  };
+  const confirmDate = () => {
+    if (tempDate && activeDateField) {
+      setValue(
+        activeDateField === "start" ? "startDate" : "endDate",
+        tempDate,
+        {
+          shouldValidate: true,
+        }
+      );
+    }
+    setShowDate(false);
+    setActiveDateField(null);
   };
 
-  const [channelOpen, setChannelOpen] = useState(false);
-  const channels = useAppSelector(selectAllChannels) as Channel[];
-
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [lastPdfUri, setLastPdfUri] = useState<string | null>(null);
-
+  /* channels load */
   useEffect(() => {
     dispatch(fetchChannels());
   }, [dispatch]);
 
+  /* maps / selections */
   const idToChannel = useMemo(() => {
     const map = new Map<string, Channel>();
     channels.forEach((c) => map.set(c._id, c));
@@ -195,16 +228,13 @@ export default function CreateReportScreen() {
 
   function getRowsFromSelection(selected: string[]): TaskRow[] {
     const rows: TaskRow[] = [];
-
     selected.forEach((id) => {
       const ch = idToChannel.get(id);
       if (!ch) return;
-
       const chName = ch.name ?? id;
       (ch.tasks ?? []).forEach((t) => {
         const status = String(t.status ?? "").toLowerCase();
         if (!ALLOWED.has(status)) return;
-
         rows.push({
           id: t._id,
           title: t.name || "Untitled Task",
@@ -212,15 +242,13 @@ export default function CreateReportScreen() {
           createdAt: t.createdAt,
           updatedAt: t.updatedAt,
           channelName: chName,
-          dueDate: (t as any).dueDate || (t as any).due_date, // optional
+          dueDate: (t as any).dueDate || (t as any).due_date,
         });
       });
     });
-
     return rows;
   }
 
-  /* ───────── compute summary stats ───────── */
   function buildSummary(rows: TaskRow[]) {
     const total = rows.length;
     const counts = {
@@ -228,8 +256,6 @@ export default function CreateReportScreen() {
       inProgress: rows.filter((r) => r.status === "in-progress").length,
       completed: rows.filter((r) => r.status === "completed").length,
     };
-
-    // Overdue: only count tasks with a due date in the past and not completed
     const now = new Date();
     const overdue = rows.filter((r) => {
       const d = r.dueDate ? new Date(r.dueDate) : null;
@@ -240,12 +266,10 @@ export default function CreateReportScreen() {
         r.status !== "completed"
       );
     }).length;
-
     const completionRate = total
       ? Math.round((counts.completed / total) * 100)
       : 0;
 
-    // Per-channel small breakdown
     const byChannel = new Map<
       string,
       {
@@ -275,16 +299,15 @@ export default function CreateReportScreen() {
     return { total, counts, overdue, completionRate, byChannel };
   }
 
-  /* ───────── HTML template ───────── */
   function htmlForPDF(payload: {
     projectName: string;
-    duration: string;
-    date: string;
+    period: { start: string; end: string };
     channels: string[];
     rows: TaskRow[];
     summary: ReturnType<typeof buildSummary>;
   }) {
-    const { projectName, duration, date, channels, rows, summary } = payload;
+    const { projectName, period, channels, rows, summary } = payload;
+
     const tableRows = rows
       .map(
         (r, i) => `
@@ -354,8 +377,7 @@ export default function CreateReportScreen() {
 
     <div class="meta">
       <div><strong>Project:</strong> ${projectName}</div>
-      <div><strong>Report Date:</strong> ${date}</div>
-      <div><strong>Duration:</strong> ${duration}</div>
+      <div><strong>Report Period:</strong> ${period.start} — ${period.end}</div>
       <div><strong>Channels:</strong> ${channels.join(", ")}</div>
       <div><strong>Status Filter:</strong> not-started, in-progress, completed</div>
     </div>
@@ -402,30 +424,26 @@ export default function CreateReportScreen() {
 `;
   }
 
-  /* ───────── generate PDF from Redux data ───────── */
+  /* ───────── generate PDF ───────── */
+  const [channelOpen, setChannelOpen] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [lastPdfUri, setLastPdfUri] = useState<string | null>(null);
+
   const onGenerate = handleSubmit(async (values) => {
     setIsGenerating(true);
     setLastPdfUri(null);
     try {
-      // 1) gather rows from selected channels
       const rows = getRowsFromSelection(values.channelIds);
-
-      // 2) build summary
       const summary = buildSummary(rows);
-
-      // 3) html
       const html = htmlForPDF({
         projectName: values.projectName,
-        duration: values.duration,
-        date: formatDate(values.date),
+        period: { start: fmt(values.startDate), end: fmt(values.endDate) },
         channels: selectedNames,
         rows,
         summary,
       });
 
-      // 4) export
       const filename = `tasks_report_${values.projectName.replace(/\s+/g, "_")}_${Date.now()}.pdf`;
-
       const result = await Print.printToFileAsync({
         html,
         base64: Platform.OS === "web",
@@ -470,6 +488,7 @@ export default function CreateReportScreen() {
     }
   };
 
+  /* ───────── UI ───────── */
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
@@ -571,57 +590,71 @@ export default function CreateReportScreen() {
           </Text>
         )}
 
-        {/* Duration + Date */}
-        <View className="mt-5 flex-row gap-4">
-          <View className="flex-1">
-            <Text className="text-lg font-kumbh text-black">Duration</Text>
-            <Controller
-              control={control}
-              name="duration"
-              render={({ field: { onChange, onBlur, value } }) => (
-                <TextInput
-                  className="mt-2 h-14 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 font-kumbh text-[16px] text-black"
-                  placeholder="e.g. 4 Weeks"
-                  placeholderTextColor="#9CA3AF"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                />
-              )}
-            />
-            {errors.duration && (
-              <Text className="mt-1 font-kumbh text-sm text-red-500">
-                {errors.duration.message}
+        {/* Date Range */}
+        <View className="mt-5">
+          <Text className="text-lg font-kumbh text-black">Report Period</Text>
+          <View className="mt-2 flex-row gap-4">
+            {/* Start Date */}
+            <View className="flex-1">
+              <Text className="font-kumbh text-[12px] text-gray-500 mb-1">
+                Start Date
               </Text>
-            )}
-          </View>
-
-          <View className="flex-1">
-            <Text className="text-lg font-kumbh text-black">Date</Text>
-            <Controller
-              control={control}
-              name="date"
-              render={() => (
-                <Pressable
-                  onPress={() => openDatePicker(dateValue)}
-                  className="mt-2 h-14 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4"
-                >
-                  <Text
-                    className={`font-kumbh text-[16px] ${
-                      dateValue ? "text-black" : "text-gray-400"
-                    }`}
+              <Controller
+                control={control}
+                name="startDate"
+                render={() => (
+                  <Pressable
+                    onPress={() => openDatePicker("start", startDateValue)}
+                    className="h-14 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4"
                   >
-                    {formatDate(dateValue)}
-                  </Text>
-                  <ChevronDown size={18} color="#6B7280" />
-                </Pressable>
+                    <Text
+                      className={`font-kumbh text-[16px] ${
+                        startDateValue ? "text-black" : "text-gray-400"
+                      }`}
+                    >
+                      {formatDate(startDateValue)}
+                    </Text>
+                    <ChevronDown size={18} color="#6B7280" />
+                  </Pressable>
+                )}
+              />
+              {errors.startDate && (
+                <Text className="mt-1 font-kumbh text-sm text-red-500">
+                  {errors.startDate.message as string}
+                </Text>
               )}
-            />
-            {errors.date && (
-              <Text className="mt-1 font-kumbh text-sm text-red-500">
-                {errors.date.message as string}
+            </View>
+
+            {/* End Date */}
+            <View className="flex-1">
+              <Text className="font-kumbh text-[12px] text-gray-500 mb-1">
+                End Date
               </Text>
-            )}
+              <Controller
+                control={control}
+                name="endDate"
+                render={() => (
+                  <Pressable
+                    onPress={() => openDatePicker("end", endDateValue)}
+                    className="h-14 w-full flex-row items-center justify-between rounded-2xl border border-gray-200 bg-gray-50 px-4"
+                  >
+                    <Text
+                      className={`font-kumbh text-[16px] ${
+                        endDateValue ? "text-black" : "text-gray-400"
+                      }`}
+                    >
+                      {formatDate(endDateValue)}
+                    </Text>
+                    <ChevronDown size={18} color="#6B7280" />
+                  </Pressable>
+                )}
+              />
+              {errors.endDate && (
+                <Text className="mt-1 font-kumbh text-sm text-red-500">
+                  {errors.endDate.message as string}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 
@@ -712,16 +745,25 @@ export default function CreateReportScreen() {
         </View>
       </Modal>
 
-      {/* Android: dialog picker */}
+      {/* ANDROID: native date picker */}
       {showDate && Platform.OS === "android" && (
         <DateTimePicker
           mode="date"
-          value={dateValue ?? new Date()}
+          value={tempDate ?? new Date()}
           onChange={(event, picked) => {
             if (event.type === "set" && picked) {
-              setValue("date", picked, { shouldValidate: true });
+              if (activeDateField) {
+                setValue(
+                  activeDateField === "start" ? "startDate" : "endDate",
+                  picked,
+                  {
+                    shouldValidate: true,
+                  }
+                );
+              }
             }
             setShowDate(false);
+            setActiveDateField(null);
           }}
           maximumDate={new Date(2100, 11, 31)}
           minimumDate={new Date(2000, 0, 1)}
@@ -758,7 +800,7 @@ export default function CreateReportScreen() {
         </Modal>
       )}
 
-      {/* Fullscreen loading overlay while generating */}
+      {/* Generating overlay */}
       <Modal visible={isGenerating} transparent animationType="fade">
         <View className="flex-1 items-center justify-center bg-black/40">
           <View className="w-40 rounded-2xl bg-white px-5 py-6 items-center">

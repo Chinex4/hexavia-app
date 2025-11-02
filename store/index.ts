@@ -22,6 +22,7 @@ import chatReducer from "@/redux/chat/chat.slice";
 import clientReducer from "@/redux/client/client.slice";
 import installmentsReducer from "@/redux/installments/installments.slice";
 import financeReducer from "@/redux/finance/finance.slice";
+import personalTasksReducer from "@/redux/personalTasks/personalTasks.slice";
 import { chatMiddleware } from "@/redux/chat/chat.middleware";
 
 // 1) Define rootReducer so types don’t depend on the constructed store
@@ -36,6 +37,7 @@ export const rootReducer = combineReducers({
   client: clientReducer,
   installments: installmentsReducer,
   finance: financeReducer,
+  personalTasks: personalTasksReducer,
 });
 
 // 2) Export RootState from the reducer (no circular reference)

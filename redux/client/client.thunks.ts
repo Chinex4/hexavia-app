@@ -25,7 +25,7 @@ export const fetchClients = createAsyncThunk<
         sortBy: filters?.sortBy,
         sortOrder: filters?.sortOrder ?? "desc",
       },
-      signal
+      signal,
     });
     return data;
   } catch (err: any) {
@@ -50,10 +50,8 @@ export const fetchClientById = createAsyncThunk<Client, string>(
   "client/fetchClientById",
   async (id, { rejectWithValue }) => {
     try {
-      const { data } = await showPromise(
-        api.get<{ success: boolean; client: Client }>(`/admin/clients/${id}`),
-        "Loading Client Details",
-        "Client Details Loaded"
+      const { data } = await api.get<{ success: boolean; client: Client }>(
+        `/admin/clients/${id}`
       );
       return data.client;
     } catch (err: any) {
@@ -121,19 +119,19 @@ export const updateClient = createAsyncThunk<
     return data.client;
   } catch (err: any) {
     const status = err?.response?.status;
-      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+    const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
 
-      // return structured payload; DO NOT toast here
-      return rejectWithValue({
-        code: status ?? 0,
-        message:
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to update client",
-        retryAfter,
-        // custom marker set by interceptor when it gave up retrying
-        gaveUpAfterRetries: err?.__gaveUp429 === true,
-      });
+    // return structured payload; DO NOT toast here
+    return rejectWithValue({
+      code: status ?? 0,
+      message:
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update client",
+      retryAfter,
+      // custom marker set by interceptor when it gave up retrying
+      gaveUpAfterRetries: err?.__gaveUp429 === true,
+    });
   }
 });
 
@@ -150,19 +148,19 @@ export const patchClient = createAsyncThunk<
     return data.client;
   } catch (err: any) {
     const status = err?.response?.status;
-      const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+    const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
 
-      // return structured payload; DO NOT toast here
-      return rejectWithValue({
-        code: status ?? 0,
-        message:
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to update clients",
-        retryAfter,
-        // custom marker set by interceptor when it gave up retrying
-        gaveUpAfterRetries: err?.__gaveUp429 === true,
-      });
+    // return structured payload; DO NOT toast here
+    return rejectWithValue({
+      code: status ?? 0,
+      message:
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update clients",
+      retryAfter,
+      // custom marker set by interceptor when it gave up retrying
+      gaveUpAfterRetries: err?.__gaveUp429 === true,
+    });
   }
 });
 
