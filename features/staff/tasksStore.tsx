@@ -10,7 +10,7 @@ import React, {
 
 export type StatusKey =
   | "in-progress"
-  | "not_started"
+  | "not-started"
   | "completed"
   | "canceled";
 

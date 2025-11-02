@@ -1,7 +1,6 @@
 import { StatusKey, TAB_ORDER } from "@/features/staff/types";
-import React, { useState } from "react";
-import { Keyboard, TouchableWithoutFeedback } from "react-native";
-import { Platform } from "react-native";
+import React, { useEffect, useState } from "react";
+import { Keyboard, TouchableWithoutFeedback, Platform } from "react-native";
 import {
   KeyboardAvoidingView,
   Modal,
@@ -12,6 +11,7 @@ import {
 } from "react-native";
 
 export type FilterState = {
+  mode: "all" | "channel" | "personal";
   channelCode: string;
   statuses: StatusKey[];
 };
@@ -19,16 +19,31 @@ export type FilterState = {
 export default function FilterModal({
   visible,
   initial,
+  hidePersonal = false, // 🔒 new prop
   onClose,
   onApply,
 }: {
   visible: boolean;
   initial: FilterState;
+  hidePersonal?: boolean;
   onClose: () => void;
   onApply: (f: FilterState) => void;
 }) {
+  // If personal is hidden, sanitize initial mode
+  const sanitizedInitialMode: FilterState["mode"] =
+    hidePersonal && initial.mode === "personal" ? "channel" : (initial.mode ?? "all");
+
+  const [mode, setMode] = useState<FilterState["mode"]>(sanitizedInitialMode);
   const [channelCode, setChannelCode] = useState(initial.channelCode);
   const [statuses, setStatuses] = useState<StatusKey[]>(initial.statuses);
+
+  useEffect(() => {
+    if (visible) {
+      setMode(hidePersonal && initial.mode === "personal" ? "channel" : (initial.mode ?? "all"));
+      setChannelCode(initial.channelCode ?? "");
+      setStatuses(initial.statuses ?? []);
+    }
+  }, [visible, initial, hidePersonal]);
 
   const toggle = (s: StatusKey) => {
     setStatuses((prev) =>
@@ -37,40 +52,65 @@ export default function FilterModal({
   };
 
   const reset = () => {
+    setMode(hidePersonal ? "channel" : "all");
     setChannelCode("");
     setStatuses([]);
   };
 
+  const canEditChannelCode = mode !== "personal";
+
+  // Build the modes based on hidePersonal
+  const modes: FilterState["mode"][] = hidePersonal ? ["all", "channel"] : ["all", "channel", "personal"];
+
   return (
-    <Modal
-      visible={visible}
-      animationType="fade"
-      transparent
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={0} // bump this if you have a custom header
+        keyboardVerticalOffset={0}
       >
         <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
           <View className="flex-1 bg-black/40 justify-end">
             <View className="bg-white rounded-t-3xl px-5 py-8">
-              <Text className="font-kumbh text-[18px] text-[#111827]">
-                Filter Tasks
-              </Text>
+              <Text className="font-kumbh text-[18px] text-[#111827]">Filter Tasks</Text>
 
+              {/* Mode */}
+              <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">Mode</Text>
+              <View className="flex-row" style={{ gap: 8 }}>
+                {modes.map((m) => {
+                  const selected = m === mode;
+                  return (
+                    <Pressable
+                      key={m}
+                      onPress={() => setMode(m)}
+                      className="rounded-full px-4 py-2"
+                      style={{ backgroundColor: selected ? "#111827" : "#E5E7EB" }}
+                    >
+                      <Text className="font-kumbh text-[12px]" style={{ color: selected ? "#fff" : "#111827" }}>
+                        {m === "all" ? "All" : m === "channel" ? "Channel" : "Personal"}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              {/* Channel code (disabled for personal-only view) */}
               <TextInput
+                editable={canEditChannelCode}
                 value={channelCode}
                 onChangeText={setChannelCode}
-                placeholder="Channel code"
+                placeholder={
+                  canEditChannelCode
+                    ? "Channel code (e.g. #5839)"
+                    : "Channel code (disabled in Personal mode)"
+                }
                 placeholderTextColor="#9CA3AF"
                 className="font-kumbh mt-4 rounded-xl bg-[#F3F4F6] px-4 py-3 text-[#111827]"
+                style={{ opacity: canEditChannelCode ? 1 : 0.5 }}
               />
 
-              <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">
-                Statuses
-              </Text>
+              {/* Statuses */}
+              <Text className="font-kumbh text-[#6B7280] mt-4 mb-2">Statuses</Text>
               <View className="flex-row flex-wrap" style={{ gap: 8 }}>
                 {TAB_ORDER.map((s) => {
                   const selected = statuses.includes(s);
@@ -79,21 +119,17 @@ export default function FilterModal({
                       key={s}
                       onPress={() => toggle(s)}
                       className="rounded-full px-4 py-2"
-                      style={{
-                        backgroundColor: selected ? "#111827" : "#E5E7EB",
-                      }}
+                      style={{ backgroundColor: selected ? "#111827" : "#E5E7EB" }}
                     >
-                      <Text
-                        className="font-kumbh text-[12px]"
-                        style={{ color: selected ? "#fff" : "#111827" }}
-                      >
-                        {s.replace("_", " ")}
+                      <Text className="font-kumbh text-[12px]" style={{ color: selected ? "#fff" : "#111827" }}>
+                        {s.replace("-", " ")}
                       </Text>
                     </Pressable>
                   );
                 })}
               </View>
 
+              {/* Actions */}
               <View className="flex-row justify-between items-center mt-6">
                 <Pressable onPress={reset}>
                   <Text className="font-kumbh text-[#EF4444]">Reset</Text>
@@ -104,7 +140,11 @@ export default function FilterModal({
                   </Pressable>
                   <Pressable
                     onPress={() =>
-                      onApply({ channelCode: channelCode.trim(), statuses })
+                      onApply({
+                        mode,
+                        channelCode: channelCode.trim(),
+                        statuses,
+                      })
                     }
                     className="rounded-xl px-5 py-3"
                     style={{ backgroundColor: "#4C5FAB" }}

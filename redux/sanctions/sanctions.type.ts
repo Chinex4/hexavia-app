@@ -1,5 +1,5 @@
 // redux/sanctions/sanctions.types.ts
-export type SanctionType = "warning" | "query" | "suspension" | "penalty" | "other";
+export type SanctionType = "warning" | "query" | "suspension" | "penalty" | string;
 
 export interface ApiSanction {
   _id: string;
@@ -25,7 +25,6 @@ export interface UpdateSanctionBody {
   sanctionId: string;
   reason?: string;
   type?: SanctionType;
-  duration?: number;
   isActive?: boolean;
 }
 

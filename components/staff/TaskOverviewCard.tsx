@@ -18,7 +18,7 @@ const fromApiStatus = (s?: string | null) => {
   const v = (s ?? "").toLowerCase().replace(/_/g, "-");
   if (v === "in-progress") return "in-progress";
   if (v === "not-started" || v === "pending" || v === "todo")
-    return "not_started";
+    return "not-started";
   if (v === "completed" || v === "done") return "completed";
   if (v === "canceled" || v === "cancelled") return "canceled";
   return "in-progress";
@@ -28,7 +28,7 @@ type UiTask = {
   id: string;
   title: string;
   description?: string | null;
-  status: "in-progress" | "completed" | "not_started" | "canceled";
+  status: "in-progress" | "completed" | "not-started" | "canceled";
   channelCode?: string | null;
   createdAt: number;
 };

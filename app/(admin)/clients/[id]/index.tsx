@@ -615,14 +615,14 @@ export default function ClientDetails() {
 
                 {/* Buttons row */}
                 <View className="mt-6 flex-row" style={{ gap: 12 }}>
-                  <View style={{ flex: 1 }}>
+                  {/* <View style={{ flex: 1 }}>
                     <PillButton
                       variant="outline"
                       icon={<Bell size={16} color={PRIMARY} />}
                       label="Send Invoice"
                       onPress={() => {}}
                     />
-                  </View>
+                  </View> */}
                   <View style={{ flex: 1 }}>
                     <PillButton
                       variant="primary"
