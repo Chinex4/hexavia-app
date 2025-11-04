@@ -1,6 +1,6 @@
-import React from "react";
-import { Image, Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
+import React from "react";
+import { Pressable, Text, View } from "react-native";
 
 interface ChannelCardItem {
   id: string;
@@ -62,7 +62,7 @@ function ChannelCard({ item, width, gap }: Props) {
             {item.subtitle}
           </Text>
           <Text className="text-white/90 font-kumbh text-[12px]">
-            Channel Code: {item.code}
+            Group Code: {item.code}
           </Text>
         </View>
       </View>

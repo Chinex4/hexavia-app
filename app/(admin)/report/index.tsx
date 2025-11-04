@@ -1,28 +1,28 @@
+import { selectAllChannels } from "@/redux/channels/channels.slice";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { yupResolver } from "@hookform/resolvers/yup";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import * as Print from "expo-print";
+import { useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import { ArrowLeft, Check, ChevronDown, Share2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import {
-  SafeAreaView,
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
-  Modal,
-  FlatList,
-  Platform,
   ActivityIndicator,
   Alert,
+  FlatList,
+  Modal,
+  Platform,
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { useRouter } from "expo-router";
-import { ArrowLeft, ChevronDown, Share2, Check } from "lucide-react-native";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { useForm, Controller } from "react-hook-form";
 import * as yup from "yup";
-import { yupResolver } from "@hookform/resolvers/yup";
-import { selectAllChannels } from "@/redux/channels/channels.slice";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 
 /* ───────── types ───────── */
 type Channel = {
@@ -378,7 +378,7 @@ export default function CreateReportScreen() {
     <div class="meta">
       <div><strong>Project:</strong> ${projectName}</div>
       <div><strong>Report Period:</strong> ${period.start} — ${period.end}</div>
-      <div><strong>Channels:</strong> ${channels.join(", ")}</div>
+      <div><strong>Groups:</strong> ${channels.join(", ")}</div>
       <div><strong>Status Filter:</strong> not-started, in-progress, completed</div>
     </div>
 
@@ -406,7 +406,7 @@ export default function CreateReportScreen() {
           <th>#</th>
           <th>Task</th>
           <th>Status</th>
-          <th>Channel</th>
+          <th>Group</th>
           <th>Created</th>
           <th>Updated</th>
           <th>Due</th>
@@ -542,7 +542,7 @@ export default function CreateReportScreen() {
         )}
 
         {/* Channels (multi) */}
-        <Text className="mt-5 text-lg font-kumbh text-black">Channels</Text>
+        <Text className="mt-5 text-lg font-kumbh text-black">Groups</Text>
         <Controller
           control={control}
           name="channelIds"

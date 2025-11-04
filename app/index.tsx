@@ -8,7 +8,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import * as Notifications from "expo-notifications";
-import { registerPushToken, sendPushTokenToBackend } from "@/utils/push";
+import { registerPushToken, sendPushTokenToBackend } from "@/utils/pushToken";
 
 const PENDING_CHANNEL_KEY = "PENDING_CHANNEL_ID";
 

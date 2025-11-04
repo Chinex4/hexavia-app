@@ -87,7 +87,7 @@ export default function TaskDetailModal({
       if (isPersonal) {
         // PERSONAL: direct API call (adjust the path if your final route differs)
         await api.put(
-          "/tasks/update-task",
+          "/personal-task",
           {
             taskId: payload.taskId,
             name: payload.name,
@@ -106,13 +106,15 @@ export default function TaskDetailModal({
           return;
         }
 
-        await api.put("/channel/update-task", {
+        const res = await api.put("/channel/update-task", {
           channelId: resolvedChannelId,
           taskId: payload.taskId,
           name: payload.name,
           description: payload.description,
           status: payload.status,
         });
+
+        console.log(res.data);
 
         await dispatch(fetchChannelById(resolvedChannelId));
       }

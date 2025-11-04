@@ -101,7 +101,7 @@ export default function TasksOverviewCard() {
           />
           <Text className="mt-3 text-gray-500 font-kumbh">
             {loading
-              ? "Loading tasks..."
+              ? "No tasks yet."
               : hydrated
                 ? "No tasks yet."
                 : "Loading tasks..."}

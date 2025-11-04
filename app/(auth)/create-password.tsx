@@ -1,25 +1,25 @@
-import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  TouchableWithoutFeedback,
-  Keyboard,
-} from "react-native";
-import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { useForm, Controller } from "react-hook-form";
+import HexButton from "@/components/ui/HexButton";
+import { showSuccess } from "@/components/ui/toast";
+import { joinChannel } from "@/redux/auth/auth.thunks";
+import { useAppDispatch } from "@/store/hooks";
 import { yupResolver } from "@hookform/resolvers/yup";
-import * as yup from "yup";
+import { BlurView } from "expo-blur";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { Eye, EyeOff, Hash, Lock } from "lucide-react-native";
+import React, { useState } from "react";
+import { Controller, useForm } from "react-hook-form";
+import {
+  Keyboard,
+  Pressable,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
+} from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useToast } from "react-native-toast-notifications";
-import { BlurView } from "expo-blur";
-import HexButton from "@/components/ui/HexButton";
-import { Eye, EyeOff, Lock, Hash } from "lucide-react-native";
-import { useAppDispatch } from "@/store/hooks";
-import { joinChannel } from "@/redux/auth/auth.thunks";
-import { showSuccess } from "@/components/ui/toast";
+import * as yup from "yup";
 
 type FormValues = {
   channelCode: string;
@@ -117,7 +117,7 @@ export default function SignupFinalScreen() {
             </Text>
           </View>
 
-          {/* Channel Code */}
+          {/* Group Code */}
           <View className="mt-6">
             <Text className="text-sm text-gray-700 mb-2 font-kumbh">
               Group Code

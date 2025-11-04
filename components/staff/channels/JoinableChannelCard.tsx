@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Text, Pressable } from "react-native";
+import { Pressable, Text, View } from "react-native";
 
 type JoinableChannel = {
   id: string;
@@ -32,7 +32,7 @@ export default function JoinableChannelCard({
       )}
       {!!item.code && (
         <Text className="mt-3 text-white font-kumbh text-[13px]">
-          Channel Code: {String(item.code).toUpperCase()}
+          Group Code: {String(item.code).toUpperCase()}
         </Text>
       )}
 

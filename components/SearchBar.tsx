@@ -1,6 +1,6 @@
-import React from "react";
-import { View, TextInput, Pressable } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import React from "react";
+import { TextInput, View } from "react-native";
 
 const INACTIVE = "#9CA3AF";
 
@@ -20,7 +20,7 @@ export default function SearchBar({
         <TextInput
           value={value}
           onChangeText={onChange}
-          placeholder="Search by name or enter channel code"
+          placeholder="Search by name or enter Group Code"
           placeholderTextColor="#9CA3AF"
           className="flex-1 ml-2 text-gray-800 font-kumbh"
           returnKeyType="search"

@@ -10,7 +10,8 @@ const initialState: AuthState = {
   phase: "loading",
   error: null,
   lastEmailForOtp: null,
-  hydrated: false
+  hydrated: false,
+  pushToken: null,
 };
 
 const slice = createSlice({
@@ -26,13 +27,17 @@ const slice = createSlice({
     setLastEmail(state, action: PayloadAction<string | null>) {
       state.lastEmailForOtp = action.payload;
     },
+    setPushToken(state, action: PayloadAction<string | null>) {
+      state.pushToken = action.payload;
+    },
     setSession(
       state,
       action: PayloadAction<{ user: any; token: string | null }>
     ) {
       state.user = action.payload.user;
       state.token = action.payload.token ?? state.token;
-      state.phase = action.payload.user || action.payload.token ? "authenticated" : "idle";
+      state.phase =
+        action.payload.user || action.payload.token ? "authenticated" : "idle";
       state.error = null;
     },
     clearSession(state) {
@@ -52,8 +57,15 @@ const slice = createSlice({
   },
 });
 
-export const { setPhase, setError, setLastEmail, setSession, clearSession, setHydrated } =
-  slice.actions;
+export const {
+  setPhase,
+  setError,
+  setLastEmail,
+  setSession,
+  clearSession,
+  setHydrated,
+  setPushToken,
+} = slice.actions;
 
 export const bootstrapSession = () => {
   return (async (dispatch: AppDispatch) => {
