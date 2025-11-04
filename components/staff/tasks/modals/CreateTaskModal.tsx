@@ -2,34 +2,34 @@ import { showError, showSuccess } from "@/components/ui/toast";
 import { toApiStatus } from "@/features/client/statusMap";
 import { StatusKey, TAB_ORDER } from "@/features/staff/types";
 import {
-  normalizeCode,
-  selectCodeIndex,
-  selectMyChannelsByUserId,
+    normalizeCode,
+    selectCodeIndex,
+    selectMyChannelsByUserId,
 } from "@/redux/channels/channels.selectors";
 import {
-  createChannelTask,
-  fetchChannelById,
-  fetchChannels,
+    createChannelTask,
+    fetchChannelById,
+    fetchChannels,
 } from "@/redux/channels/channels.thunks";
+import {
+    createPersonalTask,
+    fetchPersonalTasks,
+} from "@/redux/personalTasks/personalTasks.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-  KeyboardAvoidingView,
-  Platform,
-  TouchableWithoutFeedback,
-  Keyboard,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    TouchableWithoutFeedback,
+    View,
 } from "react-native";
-import {
-  createPersonalTask,
-  fetchPersonalTasks,
-} from "@/redux/personalTasks/personalTasks.thunks";
 
 type Mode = "channel" | "personal";
 
@@ -135,7 +135,6 @@ export default function CreateTaskModal({
 
         await dispatch(
           createPersonalTask({
-            userId: targetUserId as any,
             name,
             description,
             status: toApiStatus(status) as any,
@@ -148,7 +147,7 @@ export default function CreateTaskModal({
         const code = channelCode.trim();
         const channelId = selectedChannelId ?? resolveChannelId(code);
         if (!channelId) {
-          showError("Channel code not found.");
+          showError("Group Code not found.");
           return;
         }
 
@@ -259,7 +258,7 @@ export default function CreateTaskModal({
                       setSelectedChannelId(null);
                       setPicking(true);
                     }}
-                    placeholder="Channel code (e.g. #7190)"
+                    placeholder="Group Code (e.g. #7190)"
                     placeholderTextColor="#9CA3AF"
                     className="font-kumbh rounded-xl bg-[#F3F4F6] px-4 py-3 text-[#111827]"
                     autoCapitalize="none"

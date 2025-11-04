@@ -1,8 +1,7 @@
 // components/staff/channels/ChannelCard.tsx
-import { useRoute } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import React from "react";
-import { View, Text, Image, Pressable } from "react-native";
+import { Image, Pressable, Text, View } from "react-native";
 
 type CardChannel = {
   id: string;
@@ -52,7 +51,7 @@ function ChannelCard({
             )}
             {!!item.code && (
               <Text className="text-white/90 font-kumbh text-[13px]">
-                Channel Code: {item.code.toUpperCase()}
+                Group Code: {item.code.toUpperCase()}
               </Text>
             )}
           </View>

@@ -191,7 +191,7 @@ export const updateChannelTask = createAsyncThunk<
   { rejectValue: string }
 >("channels/updateTask", async (body, { rejectWithValue }) => {
   try {
-    const res = await api.put<UpdateTaskResponse>("/channel/update-task", body);
+    const res = await showPromise(api.put<UpdateTaskResponse>("/channel/update-task", body), "updating task…", "Task updated");
     return res.data.channel as Channel;
   } catch (err) {
     const msg = extractErrorMessage(err);

@@ -14,8 +14,10 @@ import Toast from "react-native-toast-message";
 
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAppSelector } from "@/store/hooks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { PersistGate } from "redux-persist/integration/react";
+import { getExpoPushToken } from "@/utils/pushToken";
+import { setPushToken } from "@/redux/auth/auth.slice";
 
 SplashScreen.preventAutoHideAsync();
 attachStore(store);
@@ -78,6 +80,18 @@ export default function RootLayout() {
 function AppFrame() {
   const role = useAppSelector((s: RootState) => s.auth.user?.role);
   const phase = useAppSelector((s: RootState) => s.auth.phase);
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const tok = await getExpoPushToken();
+        dispatch(setPushToken(tok));
+      } catch {
+        dispatch(setPushToken(null));
+      }
+    })();
+  }, [dispatch]);
 
   useEffect(() => {
     const sub = Notifications.addNotificationResponseReceivedListener(

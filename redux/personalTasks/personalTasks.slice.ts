@@ -9,6 +9,7 @@ import {
   createPersonalTask,
   updatePersonalTask,
   deletePersonalTask,
+  assignPersonalTask, // NEW
 } from "./personalTasks.thunks";
 
 const initialState: PersonalTasksState = {
@@ -26,6 +27,11 @@ const upsertMany = (state: PersonalTasksState, list: PersonalTaskUI[]) => {
   if (state.order.length > 500) state.order = state.order.slice(0, 500);
 };
 
+const extractTask = (payload: any): PersonalTaskApi => {
+  // accepts { task: {...} } or the task itself
+  return (payload?.task ?? payload) as PersonalTaskApi;
+};
+
 const toUI = (a: PersonalTaskApi): PersonalTaskUI => ({
   id: String(a._id),
   title: String(a.name ?? "Untitled task"),
@@ -34,7 +40,9 @@ const toUI = (a: PersonalTaskApi): PersonalTaskUI => ({
   createdAt:
     typeof a.createdAt === "number"
       ? a.createdAt
-      : new Date(a.createdAt).getTime(),
+      : a.createdAt
+        ? new Date(a.createdAt).getTime()
+        : Date.now(),
   updatedAt: a.updatedAt
     ? typeof a.updatedAt === "number"
       ? a.updatedAt
@@ -63,9 +71,15 @@ export const personalTasksSlice = createSlice({
       })
       .addCase(
         fetchPersonalTasks.fulfilled,
-        (state, action: PayloadAction<PersonalTaskApi[]>) => {
+        (
+          state,
+          action: PayloadAction<PersonalTaskApi[] | { data: PersonalTaskApi[] }>
+        ) => {
           state.status = "succeeded";
-          const mapped = action.payload.map(toUI);
+          const arr = Array.isArray(action.payload)
+            ? action.payload
+            : (action.payload?.data ?? []);
+          const mapped = arr.map(toUI);
           upsertMany(state, mapped);
         }
       )
@@ -77,14 +91,14 @@ export const personalTasksSlice = createSlice({
     builder
       .addCase(
         createPersonalTask.fulfilled,
-        (state, action: PayloadAction<PersonalTaskApi>) => {
-          upsertMany(state, [toUI(action.payload)]);
+        (state, action: PayloadAction<any>) => {
+          upsertMany(state, [toUI(extractTask(action.payload))]);
         }
       )
       .addCase(
         updatePersonalTask.fulfilled,
-        (state, action: PayloadAction<PersonalTaskApi>) => {
-          upsertMany(state, [toUI(action.payload)]);
+        (state, action: PayloadAction<any>) => {
+          upsertMany(state, [toUI(extractTask(action.payload))]);
         }
       )
       .addCase(
@@ -93,6 +107,13 @@ export const personalTasksSlice = createSlice({
           const id = action.payload.id;
           delete state.items[id];
           state.order = state.order.filter((x) => x !== id);
+        }
+      )
+      .addCase(
+        assignPersonalTask.fulfilled,
+        (state, action: PayloadAction<any>) => {
+          // treat like create, server returns the created/assigned task
+          upsertMany(state, [toUI(extractTask(action.payload))]);
         }
       );
   },

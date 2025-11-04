@@ -1,54 +1,101 @@
-import { createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "@/api/axios";
-import { saveToken, saveUser, clearToken, clearUser } from "@/storage/auth";
-import { setPhase, setLastEmail, setSession } from "./auth.slice";
-import { showError, showPromise, showSuccess } from "@/components/ui/toast";
 import type { ApiEnvelope, User } from "@/api/types";
+import { showError, showPromise, showSuccess } from "@/components/ui/toast";
+import { saveToken, saveUser } from "@/storage/auth";
+import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setUser } from "../user/user.slice";
+import { setLastEmail, setPhase, setSession } from "./auth.slice";
+import { RootState } from "@/store";
 
-/** --------- Registration (Step 1) --------- */
-export const register = createAsyncThunk(
-  "auth/register",
-  async (
-    body: {
-      fullname: string;
-      email: string;
-      username: string;
-      phoneNumber?: string;
-    },
-    { dispatch, rejectWithValue }
-  ) => {
-    try {
-      const payload = {
-        username: body.username,
-        email: body.email.trim().toLowerCase(),
-        fullname: body.fullname,
-        // role: body.role ?? "client",
-      };
+type RegisterArgs = {
+  fullname: string;
+  email: string;
+  username: string;
+  phoneNumber?: string;
+};
 
-      const res = await showPromise(
-        api.post<ApiEnvelope>("/auth/register", payload),
-        "Creating account…",
-        "OTP sent to your email"
-      );
+export const register = createAsyncThunk<
+  void,
+  RegisterArgs,
+  { state: RootState; rejectValue: string }
+>("auth/register", async (body, { dispatch, rejectWithValue, getState }) => {
+  try {
+    const expoPushToken = getState().auth.pushToken ?? null;
 
-      dispatch(setLastEmail(body.email));
-      dispatch(setPhase("awaiting_otp"));
-      showSuccess(`OTP code is ${res.data.otp}`); //remove this later you this boy
-      console.log(res.data);
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.errors?.[0]?.msg ||
-        err?.response?.data?.message ||
-        (err?.response?.status === 400
-          ? "Email or Username already exists."
-          : err?.message || "Something went wrong.");
+    const payload = {
+      username: body.username,
+      email: body.email.trim().toLowerCase(),
+      fullname: body.fullname,
+      expoPushToken, 
+    };
 
-      showError(msg);
-      return rejectWithValue(msg);
-    }
+    const res = await showPromise(
+      api.post<ApiEnvelope>("/auth/register", payload),
+      "Creating account…",
+      "OTP sent to your email"
+    );
+
+    dispatch(setLastEmail(body.email));
+    dispatch(setPhase("awaiting_otp"));
+    showSuccess(`OTP code is ${res.data.otp}`);
+  } catch (err: any) {
+    const msg =
+      err?.response?.data?.errors?.[0]?.msg ||
+      err?.response?.data?.message ||
+      (err?.response?.status === 400
+        ? "Email or Username already exists."
+        : err?.message || "Something went wrong.");
+    showError(msg);
+    return rejectWithValue(msg);
   }
-);
+});
+
+type LoginResult = { user: any; token: string | null };
+type LoginArgs = { email: string; password: string };
+
+export const login = createAsyncThunk<
+  LoginResult,
+  LoginArgs,
+  { state: RootState; rejectValue: string }
+>("auth/login", async (body, { dispatch, rejectWithValue, getState }) => {
+  try {
+    const expoPushToken = getState().auth.pushToken ?? null;
+
+    const payload = {
+      email: body.email.trim().toLowerCase(),
+      password: body.password,
+      expoPushToken,
+    };
+
+    // If your ApiEnvelope shape doesn't guarantee token, keep it nullable
+    const res = await showPromise(
+      api.post<ApiEnvelope>("/auth/login", payload),
+      "Logging in…",
+      "Welcome back!"
+    );
+
+    const user = (res.data as any).user;
+    const token = (res.data as any).token ?? null; // ✅ normalize to nullable
+
+    dispatch(setLastEmail(body.email));
+    dispatch(setPhase("authenticated"));
+    dispatch(setUser(user));
+    if (token) await saveToken(token);
+    if (user) await saveUser(user);
+    dispatch(setSession({ user, token })); // token can be null
+
+    return { user, token }; // ✅ matches LoginResult
+  } catch (err: any) {
+    const msg =
+      err?.response?.data?.errors?.[0]?.msg ||
+      err?.response?.data?.message ||
+      (err?.response?.status === 400
+        ? "Invalid Credentialss."
+        : err?.message || "Something went wrong.");
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
 
 export const verifyEmail = createAsyncThunk(
   "auth/verifyEmail",
@@ -106,7 +153,11 @@ export const joinChannel = createAsyncThunk(
       const res = await showPromise(
         api.post<ApiEnvelope<{ channelId: string; channelName: string }>>(
           "/users/registration/join-channel",
-          { channelCode: body.channelCode.trim(), password: body.password, phoneNumber: body.phoneNumber }
+          {
+            channelCode: body.channelCode.trim(),
+            password: body.password,
+            phoneNumber: body.phoneNumber,
+          }
         ),
         "Finalizing account…",
         "Channel joined and password set"
@@ -117,52 +168,8 @@ export const joinChannel = createAsyncThunk(
         err?.response?.message ||
         err?.response?.data?.message ||
         (err?.response?.status === 400
-          ? "Invalid channel code"
+          ? "Invalid Group Code"
           : "Could not join channel");
-
-      showError(msg);
-      return rejectWithValue(msg);
-    }
-  }
-);
-
-export const login = createAsyncThunk(
-  "auth/login",
-  async (
-    body: {
-      email: string;
-      password: string;
-    },
-    { dispatch, rejectWithValue }
-  ) => {
-    try {
-      const payload = {
-        email: body.email.trim().toLowerCase(),
-        password: body.password,
-      };
-
-      const res = await showPromise(
-        api.post<ApiEnvelope>("/auth/login", payload),
-        "Logging in…",
-        "Welcome back!"
-      );
-
-      dispatch(setLastEmail(body.email));
-      dispatch(setPhase("authenticated"));
-      dispatch(setUser(res.data.user as any));
-      await saveToken(res.data.token as any);
-      await saveUser(res.data.user as any);
-      dispatch(
-        setSession({ user: res.data.user as any, token: res.data.token as any })
-      );
-      return { user: res.data.user, token: res.data.token };
-    } catch (err: any) {
-      const msg =
-        err?.response?.data?.errors?.[0]?.msg ||
-        err?.response?.data?.message ||
-        (err?.response?.status === 400
-          ? "Invalid Credentialss."
-          : err?.message || "Something went wrong.");
 
       showError(msg);
       return rejectWithValue(msg);

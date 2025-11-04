@@ -4,20 +4,36 @@ import StatusCard from "@/components/staff/tasks/StatusCard";
 import StatusTabs from "@/components/staff/tasks/StatusTabs";
 import TaskCard from "@/components/staff/tasks/TaskCard";
 import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
-import FilterModal, { FilterState } from "@/components/staff/tasks/modals/FIlterModal";
+import FilterModal, {
+  FilterState,
+} from "@/components/staff/tasks/modals/FIlterModal";
 import { STATUS_META, StatusKey, Task } from "@/features/staff/types";
-import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { FlatList, Text, View, RefreshControl } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchPersonalTasks } from "@/redux/personalTasks/personalTasks.thunks";
 import { selectAllPersonalTasks } from "@/redux/personalTasks/personalTasks.selectors";
+import {
+  deletePersonalTask,
+  fetchPersonalTasks,
+} from "@/redux/personalTasks/personalTasks.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { StatusBar } from "expo-status-bar";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import { fetchChannels, fetchChannelById } from "@/redux/channels/channels.thunks";
-import { selectMyChannelsByUserId } from "@/redux/channels/channels.selectors";
-import { selectUser } from "@/redux/user/user.slice";
 import { fromApiStatus } from "@/features/client/statusMap";
+import { selectMyChannelsByUserId } from "@/redux/channels/channels.selectors";
+import {
+  fetchChannelById,
+  fetchChannels,
+} from "@/redux/channels/channels.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { Trash2 } from "lucide-react-native";
 
 export default function TaskScreen() {
   const dispatch = useAppDispatch();
@@ -77,7 +93,9 @@ export default function TaskScreen() {
         .filter(Boolean);
       await Promise.all(
         ids.map((id) =>
-          dispatch(fetchChannelById(id)).unwrap().catch(() => {})
+          dispatch(fetchChannelById(id))
+            .unwrap()
+            .catch(() => {})
         )
       );
       if (!hidePersonal) await dispatch(fetchPersonalTasks()).unwrap();
@@ -85,6 +103,35 @@ export default function TaskScreen() {
       setRefreshing(false);
     }
   }, [dispatch, myChannels, hidePersonal]);
+
+  const confirmDelete = useCallback(
+    (task: Task) => {
+      if (task.channelCode !== "personal") return;
+
+      Alert.alert(
+        "Delete task?",
+        "This personal task will be permanently removed.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await dispatch(deletePersonalTask({ id: task.id })).unwrap();
+              } catch (e: any) {
+                Alert.alert(
+                  "Delete failed",
+                  e?.message || "Unable to delete task. Please try again."
+                );
+              }
+            },
+          },
+        ]
+      );
+    },
+    [dispatch]
+  );
 
   const channelTasks: Task[] = useMemo(() => {
     if (!Array.isArray(myChannels)) return [];
@@ -99,13 +146,17 @@ export default function TaskScreen() {
           description: t?.description ?? null,
           status: fromApiStatus(t?.status),
           channelCode: code,
-          channelId: ch?._id ? String(ch._id) : ch?.id ? String(ch.id) : undefined,
+          channelId: ch?._id
+            ? String(ch._id)
+            : ch?.id
+              ? String(ch.id)
+              : undefined,
           createdAt:
             typeof t?.createdAt === "number"
               ? t.createdAt
               : t?.createdAt
-              ? new Date(t.createdAt).getTime()
-              : Date.now(),
+                ? new Date(t.createdAt).getTime()
+                : Date.now(),
         });
       });
     });
@@ -116,7 +167,7 @@ export default function TaskScreen() {
   const personal = useAppSelector(selectAllPersonalTasks);
   const personalTasks: Task[] = useMemo(() => {
     if (hidePersonal) return [];
-    return personal.map((t) => ({
+    return personal.map((t: any) => ({
       id: t.id,
       title: t.title,
       description: t.description as any,
@@ -128,7 +179,9 @@ export default function TaskScreen() {
   }, [personal, hidePersonal]);
 
   const merged: Task[] = useMemo(() => {
-    const all = hidePersonal ? [...channelTasks] : [...channelTasks, ...personalTasks];
+    const all = hidePersonal
+      ? [...channelTasks]
+      : [...channelTasks, ...personalTasks];
     return all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   }, [channelTasks, personalTasks, hidePersonal]);
 
@@ -137,12 +190,16 @@ export default function TaskScreen() {
     let base = merged;
 
     // Mode (client role has hidePersonal=true, so no personal data gets here anyway)
-    if (filters.mode === "channel") base = base.filter((t) => t.channelCode !== "personal");
-    else if (filters.mode === "personal") base = base.filter((t) => t.channelCode === "personal");
+    if (filters.mode === "channel")
+      base = base.filter((t) => t.channelCode !== "personal");
+    else if (filters.mode === "personal")
+      base = base.filter((t) => t.channelCode === "personal");
 
-    if (filters.channelCode) base = base.filter((t) => t.channelCode === filters.channelCode);
+    if (filters.channelCode)
+      base = base.filter((t) => t.channelCode === filters.channelCode);
 
-    if (filters.statuses.length) base = base.filter((t) => filters.statuses.includes(t.status));
+    if (filters.statuses.length)
+      base = base.filter((t) => filters.statuses.includes(t.status));
 
     if (q) {
       base = base.filter(
@@ -157,7 +214,11 @@ export default function TaskScreen() {
 
   const Header = (
     <>
-      <SearchBar value={query} onChangeText={setQuery} onFilterPress={() => setShowFilter(true)} />
+      <SearchBar
+        value={query}
+        onChangeText={setQuery}
+        onFilterPress={() => setShowFilter(true)}
+      />
       <View className="px-4 mt-6">
         <View className="flex-row" style={{ gap: 8 }}>
           <View style={{ flex: 1, gap: 8 }}>
@@ -174,20 +235,23 @@ export default function TaskScreen() {
       <View className="px-5 mt-6">
         <View className="rounded-2xl border border-[#E5E7EB] p-5">
           <Text className="font-kumbh text-[#6B7280]">
-            Showing tasks: <Text className="text-[#111827]">{STATUS_META[active].title}</Text>
+            Showing tasks:{" "}
+            <Text className="text-[#111827]">{STATUS_META[active].title}</Text>
           </Text>
 
           {/* Tip text: hide mention of Personal for clients */}
           {hidePersonal ? (
             <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-1">
-              Tip: Use Filter to narrow by <Text className="text-[#4C5FAB]">Channel</Text> or a specific{" "}
-              <Text className="text-[#4C5FAB]">Channel code</Text>.
+              Tip: Use Filter to narrow by{" "}
+              <Text className="text-[#4C5FAB]">Channel</Text> or a specific{" "}
+              <Text className="text-[#4C5FAB]">Group Code</Text>.
             </Text>
           ) : (
             <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-1">
-              Tip: Use Filter ➜ Mode (<Text className="text-[#4C5FAB]">Personal</Text> or{" "}
-              <Text className="text-[#4C5FAB]">Channel</Text>) or filter by a specific{" "}
-              <Text className="text-[#4C5FAB]">Channel code</Text>.
+              Tip: Use Filter ➜ Mode (
+              <Text className="text-[#4C5FAB]">Personal</Text> or{" "}
+              <Text className="text-[#4C5FAB]">Channel</Text>) or filter by a
+              specific <Text className="text-[#4C5FAB]">Group Code</Text>.
             </Text>
           )}
         </View>
@@ -211,31 +275,66 @@ export default function TaskScreen() {
                 <Text
                   className="font-kumbh text-[11px] px-2 py-[2px] rounded-full"
                   style={{
-                    backgroundColor: item.channelCode === "personal" ? "#E1F5FE" : "#EEF2FF",
-                    color: item.channelCode === "personal" ? "#01579B" : "#3730A3",
+                    backgroundColor:
+                      item.channelCode === "personal" ? "#E1F5FE" : "#EEF2FF",
+                    color:
+                      item.channelCode === "personal" ? "#01579B" : "#3730A3",
                   }}
                 >
-                  {item.channelCode === "personal" ? "Personal" : item.channelCode}
+                  {item.channelCode === "personal"
+                    ? "Personal"
+                    : item.channelCode}
                 </Text>
               </View>
             )}
-            <TaskCard task={item} />
+            {/* Card + floating delete for personal */}
+            <View style={{ position: "relative" }}>
+              {!hidePersonal && item.channelCode === "personal" && (
+                <Pressable
+                  onPress={() => confirmDelete(item)}
+                  hitSlop={10}
+                  style={{
+                    position: "absolute",
+                    right: 8,
+                    top: 8,
+                    zIndex: 10,
+                    padding: 6,
+                    borderRadius: 999,
+                    backgroundColor: "#FEE2E2", // soft red bg
+                  }}
+                >
+                  <Trash2 size={18} color="#B91C1C" />
+                </Pressable>
+              )}
+
+              <TaskCard task={item} />
+            </View>
           </View>
         )}
         ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
         ListEmptyComponent={
           <View className="px-5 mt-3">
-            <Text className="font-kumbh text-[#9CA3AF]">No tasks yet in this category.</Text>
+            <Text className="font-kumbh text-[#9CA3AF]">
+              No tasks yet in this category.
+            </Text>
           </View>
         }
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#4C5FAB" colors={["#4C5FAB"]} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#4C5FAB"
+            colors={["#4C5FAB"]}
+          />
         }
       />
 
       <FabCreate onPress={() => setShowCreate(true)} />
-      <CreateTaskModal visible={showCreate} onClose={() => setShowCreate(false)} />
+      <CreateTaskModal
+        visible={showCreate}
+        onClose={() => setShowCreate(false)}
+      />
 
       {/* Pass hidePersonal to Filter modal so it hides the Personal toggle entirely */}
       <FilterModal

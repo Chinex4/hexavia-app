@@ -183,8 +183,6 @@ export default function SignupScreen() {
           fullname: values.fullname,
           username: values.username,
           email: values.email,
-          role: "client",
-          // phoneNumber: `${selectedCountry?.dialCode ?? ""}${values.phoneNumber}`,
         })
       ).unwrap();
 

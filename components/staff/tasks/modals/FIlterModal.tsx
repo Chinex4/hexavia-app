@@ -1,13 +1,10 @@
 import { StatusKey, TAB_ORDER } from "@/features/staff/types";
 import React, { useEffect, useState } from "react";
-import { Keyboard, TouchableWithoutFeedback, Platform } from "react-native";
 import {
-  KeyboardAvoidingView,
-  Modal,
-  Pressable,
-  Text,
-  TextInput,
-  View,
+    Keyboard, KeyboardAvoidingView,
+    Modal, Platform, Pressable,
+    Text,
+    TextInput, TouchableWithoutFeedback, View
 } from "react-native";
 
 export type FilterState = {
@@ -94,15 +91,15 @@ export default function FilterModal({
                 })}
               </View>
 
-              {/* Channel code (disabled for personal-only view) */}
+              {/* Group Code (disabled for personal-only view) */}
               <TextInput
                 editable={canEditChannelCode}
                 value={channelCode}
                 onChangeText={setChannelCode}
                 placeholder={
                   canEditChannelCode
-                    ? "Channel code (e.g. #5839)"
-                    : "Channel code (disabled in Personal mode)"
+                    ? "Group Code (e.g. #5839)"
+                    : "Group Code (disabled in Personal mode)"
                 }
                 placeholderTextColor="#9CA3AF"
                 className="font-kumbh mt-4 rounded-xl bg-[#F3F4F6] px-4 py-3 text-[#111827]"

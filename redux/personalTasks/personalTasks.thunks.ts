@@ -1,19 +1,16 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import type {
-  PersonalTaskApi,
-  PersonalApiStatus,
-} from "@/features/staff/personalTasks.types";
+import type { PersonalTaskApi, PersonalApiStatus } from "@/features/staff/personalTasks.types";
 import { api } from "@/api/axios";
 import { RootState } from "@/store";
 
+/** GET /api/personal-task */
 export const fetchPersonalTasks = createAsyncThunk<
   PersonalTaskApi[],
   void,
   { state: RootState }
 >("personalTasks/fetchAll", async (_, thunkApi) => {
   try {
-    // GET /tasks returns personal tasks for current user (assumption)
-    const res = await api.get("/tasks");
+    const res = await api.get("/personal-task");
     return Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
   } catch (e: any) {
     return thunkApi.rejectWithValue(
@@ -22,23 +19,23 @@ export const fetchPersonalTasks = createAsyncThunk<
   }
 });
 
+/** POST /api/personal-task (create for yourself) */
 export const createPersonalTask = createAsyncThunk<
-  PersonalTaskApi,
+  PersonalTaskApi | { task: PersonalTaskApi },
   {
-    userId: string;
     name: string;
     description: string | null;
-    status: PersonalApiStatus;
+    status: PersonalApiStatus; // e.g. "not-started"
   },
   { state: RootState }
 >("personalTasks/create", async (body, thunkApi) => {
   try {
-    const state = thunkApi.getState();
-    const brr =
-      state.user?.token || null; // flexible fallback
-    const headers = brr ? { Authorization: `Bearer ${brr}` } : undefined;
-
-    const res = await api.post("/tasks", body, { headers });
+    // Swagger shows body: { name, description, status } — no userId
+    const res = await api.post("/personal-task", {
+      name: body.name,
+      description: body.description ?? "",
+      status: body.status,
+    });
     return res.data;
   } catch (e: any) {
     return thunkApi.rejectWithValue(
@@ -47,21 +44,20 @@ export const createPersonalTask = createAsyncThunk<
   }
 });
 
+/** PUT /api/personal-task (update) */
 export const updatePersonalTask = createAsyncThunk<
-  PersonalTaskApi,
+  PersonalTaskApi | { task: PersonalTaskApi },
   {
     id: string;
-    patch: Partial<Pick<PersonalTaskApi, "name" | "description" | "status">>;
+    changes: Partial<Pick<PersonalTaskApi, "name" | "description" | "status">>;
   },
   { state: RootState }
->("personalTasks/update", async ({ id, patch }, thunkApi) => {
+>("personalTasks/update", async ({ id, changes }, thunkApi) => {
   try {
-    const state = thunkApi.getState();
-    const brr =
-      state.user?.token || null;
-    const headers = brr ? { Authorization: `Bearer ${brr}` } : undefined;
-
-    const res = await api.patch(`/tasks/${id}`, patch, { headers });
+    const res = await api.put("/personal-task", {
+      taskId: id,
+      ...changes,
+    });
     return res.data;
   } catch (e: any) {
     return thunkApi.rejectWithValue(
@@ -70,22 +66,46 @@ export const updatePersonalTask = createAsyncThunk<
   }
 });
 
+/** DELETE /api/personal-task (body: { taskId }) */
 export const deletePersonalTask = createAsyncThunk<
   { id: string },
   { id: string },
   { state: RootState }
 >("personalTasks/delete", async ({ id }, thunkApi) => {
   try {
-    const state = thunkApi.getState();
-    const brr =
-      state.user?.token || null;
-    const headers = brr ? { Authorization: `Bearer ${brr}` } : undefined;
-
-    await api.delete(`/tasks/${id}`, { headers });
+    await api.delete("/personal-task", {
+      data: { taskId: id }, // axios sends body via `data` for DELETE
+    });
     return { id };
   } catch (e: any) {
     return thunkApi.rejectWithValue(
       e?.response?.data || { message: "Failed to delete personal task" }
+    ) as any;
+  }
+});
+
+/** POST /api/personal-task/assign (admin only) */
+export const assignPersonalTask = createAsyncThunk<
+  PersonalTaskApi | { task: PersonalTaskApi },
+  {
+    assignedTo: string; // user id
+    name: string;
+    description: string | null;
+    status: PersonalApiStatus;
+  },
+  { state: RootState }
+>("personalTasks/assign", async (body, thunkApi) => {
+  try {
+    const res = await api.post("/personal-task/assign", {
+      name: body.name,
+      description: body.description ?? "",
+      assignedTo: body.assignedTo,
+      status: body.status,
+    });
+    return res.data;
+  } catch (e: any) {
+    return thunkApi.rejectWithValue(
+      e?.response?.data || { message: "Failed to assign personal task" }
     ) as any;
   }
 });

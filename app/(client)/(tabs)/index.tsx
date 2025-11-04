@@ -86,7 +86,9 @@ export default function StaffHome() {
 
   const user = useAppSelector(selectUser);
   const userId = toStr(user?._id);
+  // console.log(userId)
   const allChannels = useAppSelector(selectAllChannels) ?? [];
+  // console.log(allChannels);
   // console.log(allChannels)
 
   // console.log(allChannels)
@@ -97,7 +99,7 @@ export default function StaffHome() {
   }, [dispatch]);
   const channels = useMemo<any[]>(() => {
     if (!userId) return [];
-    return allChannels.filter((ch) => hasUser(ch, userId));
+    return allChannels.filter((ch: any) => hasUser(ch, userId));
   }, [allChannels, userId]);
   // console.log(channels[0].members.map(m => m._id), userId)
 

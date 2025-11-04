@@ -1,13 +1,13 @@
 // app/(admin)/team/[id]/index.tsx
-import React, { useEffect, useMemo } from "react";
-import { View, Text, Pressable } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, CalendarCheck2 } from "lucide-react-native";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import React, { useEffect, useMemo } from "react";
+import { Pressable, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
-import { toggleUserSuspension, promoteUser } from "@/redux/admin/admin.thunks";
+import { promoteUser, toggleUserSuspension } from "@/redux/admin/admin.thunks";
 import { selectAllChannels, selectChannelsForUser } from "@/redux/channels/channels.slice";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
 
@@ -71,7 +71,7 @@ export default function StaffDetails() {
 
       {/* Channels */}
       <View className="px-6 mt-6">
-        <Text className="text-lg font-kumbhBold text-text mb-2">Channels</Text>
+        <Text className="text-lg font-kumbhBold text-text mb-2">Groups</Text>
         {memberChannels.length > 0 ? (
           memberChannels.map((ch) => (
             <View
