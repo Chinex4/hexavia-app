@@ -500,15 +500,33 @@ export default function ChatScreen() {
     }
   };
 
+  const me = useAppSelector(selectUser);
+    //   console.log(me?.role);
+    const resourcesPath =
+      me?.role === "client"
+        ? "/(client)/channels/[channelId]/resources"
+        : me?.role === "staff"
+          ? "/(staff)/channels/[channelId]/resources"
+          : "/(admin)/channels/[channelId]/resources";
+    const tasksPath =
+      me?.role === "client"
+        ? "/(client)/channels/[channelId]/tasks"
+        : me?.role === "staff"
+          ? "/(staff)/channels/[channelId]/tasks"
+          : "/(admin)/channels/[channelId]/tasks";
+
+    const isAdmin = me?.role === "admin" || me?.role === "super-admin";
+    
+
   const handleOpenResources = () => {
     router.push({
-      pathname: "/(admin)/channels/[channelId]/resources" as any,
+      pathname: resourcesPath as any,
       params: { channelId },
     });
   };
   const handleOpenTasks = () => {
     router.push({
-      pathname: "/(admin)/channels/[channelId]/tasks" as any,
+      pathname: tasksPath as any,
       params: { channelId },
     });
   };
@@ -572,6 +590,7 @@ export default function ChatScreen() {
           subtitle={subtitle}
           onPress={handleOpenResources}
           onTaskOpen={handleOpenTasks}
+          channelId={channelId}
         />
         <FlatList
           ref={listRef}
@@ -649,7 +668,7 @@ export default function ChatScreen() {
               onCancelRecording={() => stopRecording(true)}
             />
           }
-          isAdmin={true}
+          isAdmin={isAdmin}
         />
         <ActionSheet
           visible={sheetOpen}

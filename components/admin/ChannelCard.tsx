@@ -1,3 +1,4 @@
+import { truncateWords } from "@/utils/truncate";
 import { Pressable, Text, View } from "react-native";
 
 export default function ChannelCard({
@@ -27,7 +28,9 @@ export default function ChannelCard({
       }}
     >
       <View className="flex-1 p-4 justify-between">
-        <Text className="text-white text-xl font-kumbhBold">{title}</Text>
+        <Text className="text-white text-xl font-kumbhBold">
+          {truncateWords(title, 10, "...")}
+        </Text>
         <View className="flex-row items-center justify-between">
           <Text className="text-white/90 font-kumbh text-xs">{short}</Text>
           <Text className="text-white/90 font-kumbh">{code}</Text>

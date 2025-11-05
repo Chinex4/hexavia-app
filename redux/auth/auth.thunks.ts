@@ -64,7 +64,7 @@ export const login = createAsyncThunk<
     const payload = {
       email: body.email.trim().toLowerCase(),
       password: body.password,
-      expoPushToken,
+      expoPushToken
     };
 
     // If your ApiEnvelope shape doesn't guarantee token, keep it nullable

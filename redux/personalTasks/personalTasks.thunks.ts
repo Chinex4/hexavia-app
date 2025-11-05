@@ -2,6 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import type { PersonalTaskApi, PersonalApiStatus } from "@/features/staff/personalTasks.types";
 import { api } from "@/api/axios";
 import { RootState } from "@/store";
+import { showPromise } from "@/components/ui/toast";
 
 /** GET /api/personal-task */
 export const fetchPersonalTasks = createAsyncThunk<
@@ -10,8 +11,9 @@ export const fetchPersonalTasks = createAsyncThunk<
   { state: RootState }
 >("personalTasks/fetchAll", async (_, thunkApi) => {
   try {
-    const res = await api.get("/personal-task");
-    return Array.isArray(res.data) ? res.data : (res.data?.data ?? []);
+    const res = await showPromise(api.get("/personal-task"), "Loading personal tasks…", "Personal tasks loaded");
+    // console.log(res.data);
+    return Array.isArray(res.data) ? res.data : (res.data?.tasks ?? []);
   } catch (e: any) {
     return thunkApi.rejectWithValue(
       e?.response?.data || { message: "Failed to fetch personal tasks" }
