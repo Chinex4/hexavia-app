@@ -2,33 +2,34 @@ import { showError, showSuccess } from "@/components/ui/toast";
 import { toApiStatus } from "@/features/client/statusMap";
 import { StatusKey, TAB_ORDER } from "@/features/staff/types";
 import {
-    normalizeCode,
-    selectCodeIndex,
-    selectMyChannelsByUserId,
+  normalizeCode,
+  selectCodeIndex,
+  selectMyChannelsByUserId,
 } from "@/redux/channels/channels.selectors";
 import {
-    createChannelTask,
-    fetchChannelById,
-    fetchChannels,
+  createChannelTask,
+  fetchChannelById,
+  fetchChannels,
 } from "@/redux/channels/channels.thunks";
 import {
-    createPersonalTask,
-    fetchPersonalTasks,
+  createPersonalTask,
+  fetchPersonalTasks,
+  assignPersonalTask,
 } from "@/redux/personalTasks/personalTasks.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-    Keyboard,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableWithoutFeedback,
-    View,
+  Keyboard,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 
 type Mode = "channel" | "personal";
@@ -59,6 +60,9 @@ export default function CreateTaskModal({
   const codeIndex = useAppSelector(selectCodeIndex);
 
   const [mode, setMode] = useState<Mode>("channel");
+  const isAdminish = ["admin", "super-admin"].includes(
+    (user?.role || "").toLowerCase()
+  );
 
   useEffect(() => {
     if (visible) {
@@ -127,23 +131,41 @@ export default function CreateTaskModal({
 
     try {
       if (forcePersonalForUserId || mode === "personal") {
-        const targetUserId = forcePersonalForUserId || loggedInUserId;
-        if (!targetUserId) {
-          showError("User not loaded yet.");
-          return;
+        // Personal task flow
+        if (isAdminish && forcePersonalForUserId) {
+          // Admin/Super-admin assigning to a staff
+          await dispatch(
+            assignPersonalTask({
+              assignedTo: forcePersonalForUserId, // ← staff user id
+              name,
+              description,
+              status: toApiStatus(status) as any,
+            })
+          ).unwrap();
+
+          await dispatch(fetchPersonalTasks());
+          showSuccess("Personal task assigned to staff.");
+        } else {
+          // Normal personal task for self
+          const targetUserId = loggedInUserId;
+          if (!targetUserId) {
+            showError("User not loaded yet.");
+            return;
+          }
+
+          await dispatch(
+            createPersonalTask({
+              name,
+              description,
+              status: toApiStatus(status) as any,
+            })
+          ).unwrap();
+
+          await dispatch(fetchPersonalTasks());
+          showSuccess("Personal task created.");
         }
-
-        await dispatch(
-          createPersonalTask({
-            name,
-            description,
-            status: toApiStatus(status) as any,
-          })
-        ).unwrap();
-
-        await dispatch(fetchPersonalTasks());
-        showSuccess("Personal task created.");
       } else {
+        // Channel task flow
         const code = channelCode.trim();
         const channelId = selectedChannelId ?? resolveChannelId(code);
         if (!channelId) {
@@ -166,7 +188,9 @@ export default function CreateTaskModal({
 
       reset();
       onClose();
-    } catch {}
+    } catch {
+      // errors are already surfaced by thunks/toasts in your app
+    }
   };
 
   const chooseSuggestion = (c: any) => {
@@ -180,6 +204,11 @@ export default function CreateTaskModal({
     : allowPersonal
       ? ["channel", "personal"]
       : ["channel"];
+
+  if (isAdminish && mode === "personal" && !forcePersonalForUserId) {
+    showError("Pick a staff member to assign this personal task to.");
+    return;
+  }
 
   return (
     <Modal
