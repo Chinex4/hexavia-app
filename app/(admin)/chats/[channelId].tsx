@@ -46,6 +46,7 @@ import { ensureThread, setCurrentThread } from "@/redux/chat/chat.slice";
 import { uploadSingle } from "@/redux/upload/upload.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchMessages } from "@/redux/chat/chat.thunks";
+import { buildMentionables, type Mentionable } from "@/utils/handles";
 
 const TYPE: "community" | "direct" = "community";
 
@@ -501,22 +502,21 @@ export default function ChatScreen() {
   };
 
   const me = useAppSelector(selectUser);
-    //   console.log(me?.role);
-    const resourcesPath =
-      me?.role === "client"
-        ? "/(client)/channels/[channelId]/resources"
-        : me?.role === "staff"
-          ? "/(staff)/channels/[channelId]/resources"
-          : "/(admin)/channels/[channelId]/resources";
-    const tasksPath =
-      me?.role === "client"
-        ? "/(client)/channels/[channelId]/tasks"
-        : me?.role === "staff"
-          ? "/(staff)/channels/[channelId]/tasks"
-          : "/(admin)/channels/[channelId]/tasks";
+  //   console.log(me?.role);
+  const resourcesPath =
+    me?.role === "client"
+      ? "/(client)/channels/[channelId]/resources"
+      : me?.role === "staff"
+        ? "/(staff)/channels/[channelId]/resources"
+        : "/(admin)/channels/[channelId]/resources";
+  const tasksPath =
+    me?.role === "client"
+      ? "/(client)/channels/[channelId]/tasks"
+      : me?.role === "staff"
+        ? "/(staff)/channels/[channelId]/tasks"
+        : "/(admin)/channels/[channelId]/tasks";
 
-    const isAdmin = me?.role === "admin" || me?.role === "super-admin";
-    
+  const isAdmin = me?.role === "admin" || me?.role === "super-admin";
 
   const handleOpenResources = () => {
     router.push({
@@ -575,6 +575,19 @@ export default function ChatScreen() {
     scrollToEnd();
   };
 
+  // ...inside component:
+  const members = (channel as any)?.members ?? []; // [{_id, name/displayName, avatar}, ...]
+  const mentionables = useMemo<Mentionable[]>(
+    () => buildMentionables(members, meId as any),
+    [members, meId]
+  );
+
+  // Build a quick lookup map for bubble highlighting
+  const mentionMap = useMemo(
+    () => Object.fromEntries(mentionables.map((m) => [m.handle, m])),
+    [mentionables]
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       <StatusBar style="dark" />
@@ -610,6 +623,7 @@ export default function ChatScreen() {
                 msg={item}
                 isMe={item.senderId === meId}
                 onLongPress={openSheetFor}
+                mentionMap={mentionMap}
               />
             );
           }}
@@ -666,6 +680,7 @@ export default function ChatScreen() {
               recordDurationMs={recordDurationMs}
               onMicPress={handleMicPress}
               onCancelRecording={() => stopRecording(true)}
+              mentionables={mentionables}
             />
           }
           isAdmin={isAdmin}

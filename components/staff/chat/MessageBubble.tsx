@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -26,29 +26,10 @@ import * as Sharing from "expo-sharing";
 import { useAppSelector } from "@/store/hooks";
 import { selectUserById } from "@/redux/user/user.selectors";
 import { selectUser } from "@/redux/user/user.slice";
-import { renderWithMentionsAndLinks } from "./linkify";
-function renderWithMentions(text: string) {
-  const parts = text.split(/(\@\w+)/g);
-  return (
-    <Text
-      className="text-[15px] font-kumbh text-gray-800"
-      style={{ flexShrink: 1 }}
-    >
-      {parts.map((p, i) =>
-        p.startsWith("@") ? (
-          <Text key={i} className="text-primary font-kumbhBold">
-            {p}
-          </Text>
-        ) : (
-          <Text key={i} className="font-kumbh">
-            {p}
-          </Text>
-        )
-      )}
-    </Text>
-  );
-}
 
+/** -------------------------
+ * Helpers
+ * ------------------------*/
 function StatusTicks({ status }: { status?: Message["status"] }) {
   if (status === "sending") return <Loader2 size={14} color="#9CA3AF" />;
   if (status === "sent") return <Check size={14} color="#9CA3AF" />;
@@ -70,6 +51,7 @@ function ReplyPreview({ msg }: { msg: Message }) {
     </View>
   );
 }
+
 const isHttp = (uri?: string) => !!uri && /^https?:\/\//i.test(uri);
 const hasExt = (uri: string, exts: string[]) =>
   new RegExp(`\\.(${exts.join("|")})($|\\?)`, "i").test(uri);
@@ -102,13 +84,6 @@ const isDocument = (m: Message) =>
       "rar",
     ]));
 
-const fmtClock = (ms = 0) => {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const mm = Math.floor(total / 60);
-  const ss = total % 60;
-  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
-};
-
 const filenameFromUri = (uri?: string) => {
   if (!uri) return "document";
   try {
@@ -119,6 +94,7 @@ const filenameFromUri = (uri?: string) => {
     return "document";
   }
 };
+
 function ImagePreviewModal({
   uri,
   visible,
@@ -149,11 +125,7 @@ function ImagePreviewModal({
           <View className="flex-1 items-center justify-center">
             <Image
               source={{ uri }}
-              style={{
-                width: width,
-                height: height,
-                resizeMode: "contain",
-              }}
+              style={{ width, height, resizeMode: "contain" }}
             />
           </View>
         </TouchableWithoutFeedback>
@@ -161,6 +133,7 @@ function ImagePreviewModal({
     </Modal>
   );
 }
+
 async function openDocument(uri: string) {
   try {
     if (isHttp(uri)) {
@@ -191,6 +164,7 @@ function DocumentPill({ msg }: { msg: Message }) {
     </Pressable>
   );
 }
+
 function AudioPlayer({ msg }: { msg: Message }) {
   const player = useAudioPlayer(msg.mediaUri!, { updateInterval: 200 });
   const status = useAudioPlayerStatus(player);
@@ -235,27 +209,109 @@ function AudioPlayer({ msg }: { msg: Message }) {
     </View>
   );
 }
+
+/** -------------------------
+ * Mention + Link rendering
+ * ------------------------*/
+/**
+ * Renders text with:
+ *  - clickable URLs
+ *  - highlighted @handles using mentionMap (case-insensitive)
+ * Keeps everything client-only; messages remain plain text.
+ */
+function renderTextWithMentionsAndLinks(
+  raw: string,
+  mentionMap?: Record<string, { id: string; name: string; handle: string }>,
+  onMentionPress?: (handle: string) => void
+) {
+  if (!raw) return null;
+
+  // One pass for urls and mentions; prevents overlaps.
+  const regex = /(@[a-z0-9._-]+)|(https?:\/\/[^\s]+)/gi;
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+
+  for (let m; (m = regex.exec(raw)); ) {
+    const match = m[0];
+    const idx = m.index;
+
+    // preceding text
+    if (idx > last) {
+      out.push(
+        <Text key={`t-${key++}`} className="text-[13px] text-gray-800">
+          {raw.slice(last, idx)}
+        </Text>
+      );
+    }
+
+    const isMention = match.startsWith("@");
+    if (isMention) {
+      const handle = match.slice(1).toLowerCase();
+      const meta = mentionMap?.[handle];
+      out.push(
+        <Text
+          key={`m-${key++}`}
+          className="text-[13px] text-[#4C5FAB] font-kumbhBold"
+          onPress={() => onMentionPress?.(handle)}
+        >
+          @{meta?.handle ?? handle}
+        </Text>
+      );
+    } else {
+      // URL
+      const url = match;
+      out.push(
+        <Text
+          key={`u-${key++}`}
+          className="text-[13px] text-[#4C5FAB] underline"
+          onPress={() => Linking.openURL(url)}
+        >
+          {url}
+        </Text>
+      );
+    }
+
+    last = idx + match.length;
+  }
+
+  // trailing text
+  if (last < raw.length) {
+    out.push(
+      <Text key={`t-${key++}`} className="text-[13px] text-gray-800">
+        {raw.slice(last)}
+      </Text>
+    );
+  }
+
+  return <Text className="text-gray-800">{out}</Text>;
+}
+
+/** -------------------------
+ * MessageBubble
+ * ------------------------*/
 export default function MessageBubble({
   msg,
   isMe,
   onLongPress,
+  mentionMap,
 }: {
   msg: Message;
   isMe: boolean;
   onLongPress?: (m: Message) => void;
+  mentionMap?: Record<string, { id: string; name: string; handle: string }>;
 }) {
   const [imgOpen, setImgOpen] = useState(false);
   const me = useAppSelector(selectUser);
   const other = useAppSelector((s: any) => selectUserById(s, msg.senderId));
 
   const displayName = isMe ? "You" : msg.senderName || other?.name || "Member";
-
   const avatar = isMe ? me?.profilePicture : msg.avatar || other?.avatarUrl;
-  // console.log(displayName, avatar);
 
   const BubbleCore = (
     <>
       <ReplyPreview msg={msg} />
+
       {isImage(msg) ? (
         <>
           <Pressable
@@ -273,7 +329,6 @@ export default function MessageBubble({
               resizeMode="cover"
             />
           </Pressable>
-          {/* full screen modal */}
           {msg.mediaUri ? (
             <ImagePreviewModal
               uri={msg.mediaUri}
@@ -289,11 +344,30 @@ export default function MessageBubble({
       ) : null}
 
       {!isMe && (
-        <Text className="text-[11px] text-gray-500 mb-1">{displayName}</Text>
+        <Text className="text-[11px] text-gray-500 mb-1" numberOfLines={1}>
+          {displayName}
+        </Text>
       )}
-      {!!msg.text && (
-        <Text className="text-gray-800">{renderWithMentionsAndLinks(msg.text)}</Text>
-      )}
+
+      {!!msg.text &&
+        renderTextWithMentionsAndLinks(
+          msg.text,
+          // Normalize keys to lowercase for O(1) lookup
+          useMemo(() => {
+            if (!mentionMap) return undefined;
+            const m: Record<string, (typeof mentionMap)[string]> = {};
+            Object.values(mentionMap).forEach(
+              (v) => (m[v.handle.toLowerCase()] = v)
+            );
+            return m;
+          }, [mentionMap]),
+          // Optional: handle tap on @handle (navigate to profile, open sheet, etc.)
+          (handle) => {
+            const meta = mentionMap?.[handle];
+            // Example: Link to a profile route if you have one
+            // router.push({ pathname: "/(staff)/profile/[id]", params: { id: meta?.id }});
+          }
+        )}
     </>
   );
 
@@ -341,7 +415,6 @@ export default function MessageBubble({
           onLongPress={() => onLongPress?.(msg)}
           style={{ maxWidth: "82%", flexShrink: 1 }}
         >
-          {/* <Text className="text-[11px] text-gray-500 mb-1">{displayName}</Text> */}
           <View
             className="bg-gray-200 rounded-3xl px-5 py-3"
             style={{ flexShrink: 1 }}
