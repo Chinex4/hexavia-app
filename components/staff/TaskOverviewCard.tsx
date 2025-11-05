@@ -84,6 +84,8 @@ export default function TasksOverviewCard() {
     [tasks]
   );
 
+  console.log(channel);
+
   const loading = channelsStatus === "loading" && !channel;
   const hydrated = !!channel && channelsStatus !== "loading";
 

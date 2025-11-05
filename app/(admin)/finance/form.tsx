@@ -114,16 +114,17 @@ export default function FinanceForm() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
-      <View className="px-5 pt-16 pb-3 flex-row items-center gap-4">
+      <View className="px-5 pt-5 pb-3 flex-row items-center justify-between gap-4">
         <Pressable
           onPress={() => router.back()}
           className="w-10 h-10 items-center justify-center"
         >
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-2xl font-kumbhBold text-[#111827]">
+        <Text className="text-3xl font-kumbh text-[#111827]">
           Finance Form
         </Text>
+        <View className="w-10" />
       </View>
 
       <KeyboardAvoidingView
@@ -143,13 +144,13 @@ export default function FinanceForm() {
           </Text>
 
           {/* Type selector */}
-          <Text className="mb-2 text-[13px] text-gray-700 font-kumbh">
+          {/* <Text className="mb-2 text-[13px] text-gray-700 font-kumbh">
             Type
           </Text>
           <View className="flex-row mb-5" style={{ gap: 10 }}>
             <TypePill v="expense" label="Expense" />
             <TypePill v="receivable" label="Receivable" />
-          </View>
+          </View> */}
 
           {/* Amount + Date */}
           <View className="flex-row gap-3">
@@ -157,14 +158,14 @@ export default function FinanceForm() {
               <Text className="mb-2 text-[13px] text-gray-700 font-kumbh">
                 Amount
               </Text>
-              <View className="rounded-2xl bg-gray-100 px-4 py-3">
+              <View className="rounded-2xl bg-gray-100 px-4 py-1">
                 <TextInput
                   value={amount}
                   onChangeText={setAmount}
                   placeholder="Enter Amount"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="numeric"
-                  className="font-kumbh text-[16px] text-[#111827]"
+                  className="font-kumbh text-[14px] text-[#111827]"
                 />
               </View>
             </View>
@@ -197,7 +198,7 @@ export default function FinanceForm() {
                 placeholder="Enter Description"
                 placeholderTextColor="#9CA3AF"
                 multiline
-                className="font-kumbh text-[16px] text-[#111827] min-h-[92px]"
+                className="font-kumbh text-[14px] text-[#111827] min-h-[92px]"
               />
             </View>
           </View>

@@ -55,7 +55,7 @@ export default function ChannelsIndex() {
   const dispatch = useAppDispatch();
 
   const channels = useAppSelector(selectAllChannels);
-  console.log(channels.filter(ch => ch.name == "TEST")[0].members)
+  // console.log(channels.filter(ch => ch.name == "TEST")[0].members)
   const { status, error } = useAppSelector(selectChannelsState);
 
   const [query, setQuery] = useState("");
