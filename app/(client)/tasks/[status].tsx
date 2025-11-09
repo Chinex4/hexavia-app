@@ -15,7 +15,7 @@ import BoardCard from "@/components/client/tasks/BoardCard";
 import FabCreate from "@/components/staff/tasks/FabCreate";
 import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import TaskDetailModal from "@/components/staff/tasks/modals/TaskDetailModal";
-import { STATUS_META, StatusKey, Task } from "@/features/staff/types";
+import { StatusKey, Task } from "@/features/staff/types";
 
 import { fromApiStatus } from "@/features/client/statusMap";
 import {
@@ -30,12 +30,40 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const PRIMARY = "#4C5FAB";
 
+/** Single source of truth for status colors shown on the cards */
+const STATUS_BGS: Record<
+  StatusKey,
+  { title: string; bgColor: string; arrowBg: string }
+> = {
+  "in-progress": {
+    title: "In Progress",
+    bgColor: "#F59E0B", // yellow
+    arrowBg: "#D97706",
+  },
+  "not-started": {
+    title: "Not Started",
+    bgColor: "#EF4444", // red
+    arrowBg: "#DC2626",
+  },
+  completed: {
+    title: "Completed",
+    bgColor: "#10B981", // green
+    arrowBg: "#059669",
+  },
+  canceled: {
+    title: "Canceled",
+    bgColor: "#9CA3AF", // grey
+    arrowBg: "#6B7280",
+  },
+};
+
 export default function StatusScreen() {
   const params = useLocalSearchParams<{ status: StatusKey }>();
   const statusKey = (params.status || "in-progress") as StatusKey;
 
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
+
   useEffect(() => {
     if (!user?._id) dispatch(fetchProfile());
   }, [dispatch, user?._id]);
@@ -57,24 +85,28 @@ export default function StatusScreen() {
   const channel = useAppSelector(selectChannelById(defaultChannelId || "")) as
     | any
     | null;
+
   const rawTasks: any[] = Array.isArray(channel?.tasks) ? channel.tasks : [];
 
   const uiTasks: Task[] = useMemo(
     () =>
-      rawTasks.map((t) => ({
-        id: String(t?._id ?? t?.id),
-        title: String(t?.name ?? t?.title ?? "Untitled task"),
-        description: t?.description ?? null,
-        status: fromApiStatus(t?.status),
-        channelCode: channel?.code ?? "",
-        channelId: t?.channelId ? String(t.channelId) : undefined,
-        createdAt:
-          typeof t?.createdAt === "number"
-            ? t.createdAt
-            : t?.createdAt
-              ? new Date(t.createdAt).getTime()
-              : Date.now(),
-      })),
+      rawTasks.map((t) => {
+        const normalized = fromApiStatus(t?.status) as StatusKey;
+        return {
+          id: String(t?._id ?? t?.id),
+          title: String(t?.name ?? t?.title ?? "Untitled task"),
+          description: t?.description ?? null,
+          status: normalized, // one of: in-progress | not-started | completed | canceled
+          channelCode: channel?.code ?? "",
+          channelId: t?.channelId ? String(t.channelId) : undefined,
+          createdAt:
+            typeof t?.createdAt === "number"
+              ? t.createdAt
+              : t?.createdAt
+                ? new Date(t.createdAt).getTime()
+                : Date.now(),
+        };
+      }),
     [rawTasks, channel?.code]
   );
 
@@ -88,6 +120,11 @@ export default function StatusScreen() {
   const [edit, setEdit] = useState<Task | null>(null);
 
   const isLoading = channelsStatus === "loading" && !channel;
+
+  // ——— enforce screen-based color/label here ———
+  const screenMeta = STATUS_BGS[statusKey] ?? STATUS_BGS["in-progress"];
+  const screenCardBg = screenMeta.bgColor;
+  const screenStatusLabel = screenMeta.title;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -122,10 +159,15 @@ export default function StatusScreen() {
           renderItem={({ item }) => (
             <Pressable onPress={() => setEdit(item)}>
               <BoardCard
-                project={channel?.name ?? "—"}
+                project={item.channelCode || ""}
                 title={item.title}
-                description={item.description || ""}
-                statusLabel={STATUS_META[item.status].title}
+                description={item.description}
+                // lock the card color + label to the current screen's status
+                statusLabel={screenStatusLabel}
+                cardBg={screenCardBg}
+                // you can keep these or let BoardCard auto-pick
+                pillBg="#D1FAE5"
+                pillText="#047857"
               />
             </Pressable>
           )}

@@ -596,11 +596,11 @@ export default function ClientDetails() {
                 </View>
 
                 {/* tiny footer note */}
-                <View className="items-center mt-3">
+                {/* <View className="items-center mt-3">
                   <Text className="text-[12px] text-[#6B7280] font-kumbh">
                     Generate Invoice
                   </Text>
-                </View>
+                </View> */}
 
                 {/* Joined (read-only) */}
                 <View className="mt-6">

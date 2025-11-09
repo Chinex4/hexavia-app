@@ -11,7 +11,7 @@ export const fetchPersonalTasks = createAsyncThunk<
   { state: RootState }
 >("personalTasks/fetchAll", async (_, thunkApi) => {
   try {
-    const res = await showPromise(api.get("/personal-task"), "Loading personal tasks…", "Personal tasks loaded");
+    const res = await api.get("/personal-task");
     // console.log(res.data);
     return Array.isArray(res.data) ? res.data : (res.data?.tasks ?? []);
   } catch (e: any) {
