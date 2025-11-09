@@ -27,10 +27,23 @@ export const STATUS_META: Record<
 > = {
   "in-progress": {
     title: "In Progress",
-    bgColor: "#3BA0F5",
-    arrowBg: "#1E8AE4",
+    bgColor: "#F59E0B", // yellow
+    arrowBg: "#D97706", // darker yellow
   },
-  "not-started": { title: "Not Started", bgColor: "#F6A94A", arrowBg: "#E48914" },
-  completed: { title: "Completed", bgColor: "#29C57A", arrowBg: "#1AA962" },
-  canceled: { title: "Canceled", bgColor: "#EF4444", arrowBg: "#DC2626" },
+  "not-started": {
+    title: "Not Started",
+    bgColor: "#EF4444", // red
+    arrowBg: "#DC2626", // darker red
+  },
+  completed: {
+    title: "Completed",
+    bgColor: "#10B981", // green
+    arrowBg: "#059669", // darker green
+  },
+  canceled: {
+    title: "Canceled",
+    bgColor: "#9CA3AF", // grey
+    arrowBg: "#6B7280", // darker grey
+  },
 };
+

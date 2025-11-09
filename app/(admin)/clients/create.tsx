@@ -498,7 +498,7 @@ export default function CreateClient() {
             </View>
 
             {/* Bottom actions – left as requested (disabled while loading) */}
-            <View className="mt-8">
+            {/* <View className="mt-8">
               <Pressable
                 disabled={loading}
                 className={clsx(
@@ -529,7 +529,7 @@ export default function CreateClient() {
                   Generate Invoice
                 </Text>
               </Pressable>
-            </View>
+            </View> */}
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>

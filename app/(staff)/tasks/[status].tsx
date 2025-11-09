@@ -1,12 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Pressable,
-  RefreshControl,
   Text,
   View,
 } from "react-native";
@@ -16,7 +15,7 @@ import BoardCard from "@/components/client/tasks/BoardCard";
 import FabCreate from "@/components/staff/tasks/FabCreate";
 import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import TaskDetailModal from "@/components/staff/tasks/modals/TaskDetailModal";
-import { STATUS_META, StatusKey, Task } from "@/features/staff/types";
+import { StatusKey, Task } from "@/features/staff/types";
 
 import { fromApiStatus } from "@/features/client/statusMap";
 import {
@@ -24,17 +23,39 @@ import {
   selectStatus as selectChannelsStatus,
 } from "@/redux/channels/channels.selectors";
 import { selectChannelById } from "@/redux/channels/channels.slice";
-import {
-  fetchChannelById,
-  fetchChannels,
-} from "@/redux/channels/channels.thunks";
+import { fetchChannelById } from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchPersonalTasks } from "@/redux/personalTasks/personalTasks.thunks";
-import { selectAllPersonalTasks } from "@/redux/personalTasks/personalTasks.selectors";
 
 const PRIMARY = "#4C5FAB";
+
+/** Single source of truth for status colors shown on the cards */
+const STATUS_BGS: Record<
+  StatusKey,
+  { title: string; bgColor: string; arrowBg: string }
+> = {
+  "in-progress": {
+    title: "In Progress",
+    bgColor: "#F59E0B", // yellow
+    arrowBg: "#D97706",
+  },
+  "not-started": {
+    title: "Not Started",
+    bgColor: "#EF4444", // red
+    arrowBg: "#DC2626",
+  },
+  completed: {
+    title: "Completed",
+    bgColor: "#10B981", // green
+    arrowBg: "#059669",
+  },
+  canceled: {
+    title: "Canceled",
+    bgColor: "#9CA3AF", // grey
+    arrowBg: "#6B7280",
+  },
+};
 
 export default function StatusScreen() {
   const params = useLocalSearchParams<{ status: StatusKey }>();
@@ -45,107 +66,80 @@ export default function StatusScreen() {
 
   useEffect(() => {
     if (!user?._id) dispatch(fetchProfile());
-    dispatch(fetchPersonalTasks());
   }, [dispatch, user?._id]);
 
   const userId = user?._id ?? null;
 
+  // pick default channel id for user
   const defaultChannelId = useAppSelector(
     makeSelectDefaultChannelId(userId, "recent")
   );
-  const channelsStatus = useAppSelector(selectChannelsStatus);
 
+  // fetch that channel
+  const channelsStatus = useAppSelector(selectChannelsStatus);
   useEffect(() => {
     if (defaultChannelId) dispatch(fetchChannelById(String(defaultChannelId)));
-    else dispatch(fetchChannels());
   }, [dispatch, defaultChannelId]);
 
+  // read the channel + tasks
   const channel = useAppSelector(selectChannelById(defaultChannelId || "")) as
     | any
     | null;
+
   const rawTasks: any[] = Array.isArray(channel?.tasks) ? channel.tasks : [];
 
-  const channelUITasks: Task[] = useMemo(
+  const uiTasks: Task[] = useMemo(
     () =>
-      rawTasks.map((t) => ({
-        id: String(t?._id ?? t?.id),
-        title: String(t?.name ?? t?.title ?? "Untitled task"),
-        description: t?.description ?? null,
-        status: fromApiStatus(t?.status),
-        channelCode: channel?.code ?? "",
-        channelId: t?.channelId ? String(t.channelId) : undefined,
-        createdAt:
-          typeof t?.createdAt === "number"
-            ? t.createdAt
-            : t?.createdAt
-              ? new Date(t.createdAt).getTime()
-              : Date.now(),
-      })),
+      rawTasks.map((t) => {
+        const normalized = fromApiStatus(t?.status) as StatusKey;
+        return {
+          id: String(t?._id ?? t?.id),
+          title: String(t?.name ?? t?.title ?? "Untitled task"),
+          description: t?.description ?? null,
+          status: normalized, // one of: in-progress | not-started | completed | canceled
+          channelCode: channel?.code ?? "",
+          channelId: t?.channelId ? String(t.channelId) : undefined,
+          createdAt:
+            typeof t?.createdAt === "number"
+              ? t.createdAt
+              : t?.createdAt
+                ? new Date(t.createdAt).getTime()
+                : Date.now(),
+        };
+      }),
     [rawTasks, channel?.code]
   );
 
-  const personal = useAppSelector(selectAllPersonalTasks);
-  const personalTasks: Task[] = useMemo(
-    () =>
-      personal
-        .filter((p) => p.status === statusKey)
-        .map((p) => ({
-          id: p.id,
-          title: p.title,
-          description: p.description as any,
-          status: p.status as StatusKey,
-          channelCode: "personal",
-          channelId: "personal",
-          createdAt: p.createdAt,
-        })),
-    [personal, statusKey]
-  );
-
   const list = useMemo(
-    () =>
-      [
-        ...channelUITasks.filter((t) => t.status === statusKey),
-        ...personalTasks,
-      ].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)),
-    [channelUITasks, personalTasks, statusKey]
+    () => uiTasks.filter((t) => t.status === statusKey),
+    [uiTasks, statusKey]
   );
 
+  // modals
   const [showCreate, setShowCreate] = useState(false);
   const [edit, setEdit] = useState<Task | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-
-  const onRefresh = useCallback(async () => {
-    try {
-      setRefreshing(true);
-      if (defaultChannelId) {
-        await dispatch(fetchChannelById(String(defaultChannelId))).unwrap();
-      } else {
-        await dispatch(fetchChannels()).unwrap();
-      }
-      await dispatch(fetchPersonalTasks()).unwrap();
-    } finally {
-      setRefreshing(false);
-    }
-  }, [dispatch, defaultChannelId]);
 
   const isLoading = channelsStatus === "loading" && !channel;
-  const role = (useAppSelector(selectUser)?.role ?? "staff") as
-      | "staff"
-      | "client";
+
+  // ——— enforce screen-based color/label here ———
+  const screenMeta = STATUS_BGS[statusKey] ?? STATUS_BGS["in-progress"];
+  const screenCardBg = screenMeta.bgColor;
+  const screenStatusLabel = screenMeta.title;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar style="dark" />
 
+      {/* Header */}
       <View className="flex-row items-center justify-between px-4 pt-2 pb-3 mt-5">
         <Pressable
-          onPress={() => router.push(`/(${role})/(tabs)/tasks`)}
+          onPress={() => router.push("/(client)/(tabs)/tasks")}
           className="h-9 w-9 rounded-full items-center justify-center"
         >
           <Ionicons name="chevron-back" size={22} color="#111827" />
         </Pressable>
-        <Text className="font-kumbh text-3xl ml-3 text-[#111827]">
+        <Text className="font-kumbhBold text-2xl ml-3 text-[#111827]">
           Task Boards
         </Text>
         <View className="w-10" />
@@ -165,28 +159,21 @@ export default function StatusScreen() {
           renderItem={({ item }) => (
             <Pressable onPress={() => setEdit(item)}>
               <BoardCard
-                project={
-                  item.channelCode === "personal"
-                    ? "My Tasks"
-                    : (channel?.name ?? "—")
-                }
+                project={item.channelCode || ""}
                 title={item.title}
-                description={item.description || ""}
-                statusLabel={STATUS_META[item.status].title}
+                description={item.description}
+                // lock the card color + label to the current screen's status
+                statusLabel={screenStatusLabel}
+                cardBg={screenCardBg}
+                // you can keep these or let BoardCard auto-pick
+                pillBg="#D1FAE5"
+                pillText="#047857"
               />
             </Pressable>
           )}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#4C5FAB"
-              colors={["#4C5FAB"]}
-            />
-          }
           ListEmptyComponent={
-            <View className="px-4 mt-4">
-              <Text className="font-kumbh text-[#9CA3AF] text-center">
+            <View className="px-4">
+              <Text className="font-kumbh text-center mt-4 text-[#9CA3AF]">
                 No tasks in this category yet.
               </Text>
             </View>
@@ -195,6 +182,8 @@ export default function StatusScreen() {
       )}
 
       <FabCreate onPress={() => setShowCreate(true)} />
+
+      {/* Modals */}
       <CreateTaskModal
         visible={showCreate}
         onClose={() => setShowCreate(false)}
