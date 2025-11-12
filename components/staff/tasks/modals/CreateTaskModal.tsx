@@ -12,9 +12,9 @@ import {
   fetchChannels,
 } from "@/redux/channels/channels.thunks";
 import {
+  assignPersonalTask,
   createPersonalTask,
   fetchPersonalTasks,
-  assignPersonalTask,
 } from "@/redux/personalTasks/personalTasks.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -169,7 +169,7 @@ export default function CreateTaskModal({
         const code = channelCode.trim();
         const channelId = selectedChannelId ?? resolveChannelId(code);
         if (!channelId) {
-          showError("Group Code not found.");
+          showError("Project Code not found.");
           return;
         }
 
@@ -287,7 +287,7 @@ export default function CreateTaskModal({
                       setSelectedChannelId(null);
                       setPicking(true);
                     }}
-                    placeholder="Group Code (e.g. #7190)"
+                    placeholder="Project Code (e.g. #7190)"
                     placeholderTextColor="#9CA3AF"
                     className="font-kumbh rounded-xl bg-[#F3F4F6] px-4 py-3 text-[#111827]"
                     autoCapitalize="none"

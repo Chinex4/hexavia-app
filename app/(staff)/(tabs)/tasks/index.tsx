@@ -361,14 +361,14 @@ export default function TaskScreen() {
             <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-1">
               Tip: Use Filter to narrow by{" "}
               <Text className="text-[#4C5FAB]">Channel</Text> or a specific{" "}
-              <Text className="text-[#4C5FAB]">Group Code</Text>.
+              <Text className="text-[#4C5FAB]">Project Code</Text>.
             </Text>
           ) : (
             <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-1">
               Tip: Use Filter ➜ Mode (
               <Text className="text-[#4C5FAB]">Personal</Text> or{" "}
               <Text className="text-[#4C5FAB]">Channel</Text>) or filter by a
-              specific <Text className="text-[#4C5FAB]">Group Code</Text>.
+              specific <Text className="text-[#4C5FAB]">Project Code</Text>.
             </Text>
           )}
         </View>

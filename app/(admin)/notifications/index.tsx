@@ -1,28 +1,27 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  SectionList,
-  Platform,
-} from "react-native";
+import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import {
+  AlarmClock,
   AtSign,
   Briefcase,
-  AlarmClock,
-  DollarSign,
   ChevronLeft,
-  SlidersHorizontal,
-  Search,
+  DollarSign,
+  Search
 } from "lucide-react-native";
-import * as Notifications from "expo-notifications";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Platform,
+  Pressable,
+  SectionList,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import {
   AppNotification,
-  seedNotifications,
   NotificationKind,
+  seedNotifications,
 } from "@/redux/notifications/notification.types";
 import { registerForPushNotificationsAsync } from "@/redux/notifications/notifications";
 import { StatusBar } from "expo-status-bar";
@@ -142,7 +141,7 @@ export default function NotificationsScreen() {
       return okTab && okQ;
     });
 
-    // Group into sections by day bucket
+    // Project into sections by day bucket
     const map = new Map<string, AppNotification[]>();
     base.forEach((n) => {
       const label = dateBucketLabel(new Date(n.createdAt));

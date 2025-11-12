@@ -1,25 +1,25 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { View, FlatList, Text, Platform, RefreshControl } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, Platform, RefreshControl, Text, View } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 
 import BackHeader from "@/components/BackHeader";
+import FilterModal, { Filters } from "@/components/FIlterModal";
 import SearchBar from "@/components/SearchBar";
 import ChannelCard from "@/components/staff/channels/ChannelCard";
 import JoinableChannelCard from "@/components/staff/channels/JoinableChannelCard"; // NEW
-import FilterModal, { Filters } from "@/components/FIlterModal";
 import useDebounced from "@/hooks/useDebounced";
 import { StatusBar } from "expo-status-bar";
 
-import type { RootState, AppDispatch } from "@/store";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
 import {
-  selectMyChannelsByUserId,
   selectAllChannels,
+  selectMyChannelsByUserId,
 } from "@/redux/channels/channels.selectors"; // NOTE: bring selectAllChannels
-import { useAppSelector } from "@/store/hooks";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
+import type { AppDispatch, RootState } from "@/store";
+import { useAppSelector } from "@/store/hooks";
 
 const PALETTE = [
   // "#37CC86",
@@ -168,7 +168,7 @@ export default function AllChannelsScreen() {
     <View className="flex-1 bg-white">
       <StatusBar style="dark" />
       <View style={viewStyle}>
-        <BackHeader title="All Groups" />
+        <BackHeader title="All Projects" />
         <SearchBar
           value={query}
           onChange={setQuery}
@@ -192,7 +192,7 @@ export default function AllChannelsScreen() {
             ) : (
               <View className="mx-4 mt-4 px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200">
                 <Text className="text-gray-700 font-kumbh">
-                  No group found with that code.
+                  No Project found with that code.
                 </Text>
                 <Text className="text-gray-500 mt-1 text-[12px] font-kumbh">
                   Tip: Try pasting the exact code (with or without “#”, any

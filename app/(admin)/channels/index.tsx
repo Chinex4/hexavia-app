@@ -1,34 +1,33 @@
 // app/(admin)/channels/index.tsx  (or wherever this file lives)
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  FlatList,
-  ActivityIndicator,
-  RefreshControl,
-  Modal, // <- kept for commented block
-  Alert,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
+    /* MoreVertical, */ Copy,
   Plus,
   Search,
-  /* MoreVertical, */ Copy,
 } from "lucide-react-native";
-import * as Clipboard from "expo-clipboard";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator, // <- kept for commented block
+  Alert,
+  FlatList,
+  Pressable,
+  RefreshControl,
+  Text,
+  TextInput,
+  View
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import ChannelCard from "@/components/admin/ChannelCard";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { showSuccess } from "@/components/ui/toast";
 import {
   selectAllChannels,
   selectChannelsState,
 } from "@/redux/channels/channels.slice";
-import { showSuccess } from "@/components/ui/toast";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const TINTS = [
   "#707fbc",
@@ -70,7 +69,7 @@ export default function ChannelsIndex() {
   const onDelete = () => {
     closeMenu();
     if (!selectedId) return;
-    Alert.alert("Delete Group", "Are you sure you want to delete this group? This action cannot be undone.", [
+    Alert.alert("Delete Project", "Are you sure you want to delete this Project? This action cannot be undone.", [
       { text: "Cancel", style: "cancel" },
       { text: "Delete", style: "destructive", onPress: () => { /* dispatch(deleteChannel(selectedId)) */ /* } },
     ]);
@@ -105,15 +104,15 @@ export default function ChannelsIndex() {
 
   const copyCode = async (code?: string) => {
     if (!code) {
-      Alert.alert("No code", "This group has no code to copy.");
+      Alert.alert("No code", "This Project has no code to copy.");
       return;
     }
     try {
       await Clipboard.setStringAsync(code);
-      // Alert.alert("Copied", "Group code copied to clipboard.");
-      showSuccess("Group code copied to clipboard.")
+      // Alert.alert("Copied", "Project code copied to clipboard.");
+      showSuccess("Project code copied to clipboard.")
     } catch (e) {
-      Alert.alert("Error", "Failed to copy group code.");
+      Alert.alert("Error", "Failed to copy Project code.");
     }
   };
 
@@ -128,7 +127,7 @@ export default function ChannelsIndex() {
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbh text-text">Groups</Text>
+          <Text className="text-3xl font-kumbh text-text">Projects</Text>
           <View className="w-10" />
         </View>
 
@@ -141,7 +140,7 @@ export default function ChannelsIndex() {
             <Plus size={18} color="#111827" />
           </View>
           <Text className="text-base font-kumbh text-text">
-            Create New Group
+            Create New Project
           </Text>
         </Pressable>
 
@@ -151,14 +150,14 @@ export default function ChannelsIndex() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search for groups"
+            placeholder="Search for Projects"
             placeholderTextColor="#9CA3AF"
             className="flex-1 px-2 py-3 font-kumbh text-text"
             returnKeyType="search"
           />
         </View>
 
-        <Text className="mt-6 mb-3 text-base font-kumbh text-text">Groups</Text>
+        <Text className="mt-6 mb-3 text-base font-kumbh text-text">Projects</Text>
       </View>
 
       {/* Content */}
@@ -166,7 +165,7 @@ export default function ChannelsIndex() {
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
           <Text className="mt-2 text-gray-500 font-kumbh">
-            Loading groups...
+            Loading Projects...
           </Text>
         </View>
       ) : (
@@ -239,7 +238,7 @@ export default function ChannelsIndex() {
               <Text className="text-center text-gray-500 font-kumbh">
                 {status === "failed" && error
                   ? `Error: ${error}`
-                  : "No groups found."}
+                  : "No Projects found."}
               </Text>
             </View>
           }

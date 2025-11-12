@@ -32,7 +32,7 @@ export default function JoinableChannelCard({
       )}
       {!!item.code && (
         <Text className="mt-3 text-white font-kumbh text-[13px]">
-          Group Code: {String(item.code).toUpperCase()}
+          Project Code: {String(item.code).toUpperCase()}
         </Text>
       )}
 
