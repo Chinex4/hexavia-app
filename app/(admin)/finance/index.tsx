@@ -9,6 +9,9 @@ import {
   Text,
   View,
   RefreshControl,
+  FlatList,
+  TextInput,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -108,6 +111,11 @@ export default function FinanceIndex() {
   const [tab, setTab] = useState<Flow>("Receivables");
   const [hidden, setHidden] = useState(false);
 
+  // client picker modal
+  const [showClientPicker, setShowClientPicker] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
   /* Totals */
   const total = useMemo(() => {
     if (tab === "Receivables") {
@@ -181,6 +189,8 @@ export default function FinanceIndex() {
     return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
   }, [tab, clients, records]);
 
+  console.log(sections[0]);
+
   /* First load + tab switching */
   useEffect(() => {
     if (tab === "Receivables") {
@@ -211,6 +221,17 @@ export default function FinanceIndex() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, dispatch]);
+
+  useEffect(() => {
+    if (!showClientPicker) return;
+    dispatch(
+      fetchClients({
+        page: 1,
+        limit: clientFilters?.limit ?? 20,
+        sortOrder: clientFilters?.sortOrder ?? "desc",
+      }) as any
+    );
+  }, [showClientPicker]);
 
   /* Refresh */
   const onRefresh = useCallback(() => {
@@ -370,7 +391,10 @@ export default function FinanceIndex() {
             onPress={() =>
               item.kind === "expense"
                 ? router.push(`/(admin)/finance/${item.id}`)
-                : router.push(`/(admin)/finance/receivables/${item.id}`)
+                : router.push({
+                    pathname: "/(admin)/clients/installments",
+                    params: { clientId: item.id },
+                  })
             }
           />
         )}
@@ -386,11 +410,25 @@ export default function FinanceIndex() {
 
       {/* Floating button */}
       <Pressable
-        onPress={() =>
-          tab === "Receivables"
-            ? router.push("/(admin)/clients/installments")
-            : router.push("/(admin)/finance/form")
-        }
+        onPress={() => {
+          if (tab === "Receivables") {
+            // ensure we have clients ready when opening the modal
+            if (!clients || clients.length === 0) {
+              dispatch(
+                fetchClients({
+                  page: 1,
+                  limit: clientFilters?.limit ?? 20,
+                  sortOrder: clientFilters?.sortOrder ?? "desc",
+                }) as any
+              );
+            }
+            setClientSearch("");
+            setSelectedClientId(null);
+            setShowClientPicker(true);
+          } else {
+            router.push("/(admin)/finance/form");
+          }
+        }}
         className="absolute right-5 bottom-10 px-4 h-12 rounded-2xl bg-[#4C5FAB] flex-row items-center"
         style={{ paddingHorizontal: 16 }}
       >
@@ -401,6 +439,131 @@ export default function FinanceIndex() {
           {tab === "Expenses" ? "Record Expense" : "Record Receivable"}
         </Text>
       </Pressable>
+
+      {/* ───────── Client Picker Modal ───────── */}
+      <Modal
+        visible={showClientPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowClientPicker(false)}
+      >
+        <View className="flex-1 bg-black/40 justify-end">
+          <View className="bg-white rounded-t-3xl px-5 pt-5 pb-6">
+            <View className="items-center mb-3">
+              <View className="w-16 h-1.5 rounded-full bg-gray-300" />
+            </View>
+
+            <Text className="text-xl font-kumbhBold text-[#111827] mb-1">
+              Record Receivable
+            </Text>
+            <Text className="text-gray-500 font-kumbh mb-4">
+              Select the client to create/install an installment plan for.
+            </Text>
+
+            {/* Search */}
+            <View className="rounded-2xl border border-gray-200 px-4 py-3 mb-3">
+              <TextInput
+                placeholder="Search clients by name…"
+                placeholderTextColor="#9CA3AF"
+                value={clientSearch}
+                onChangeText={setClientSearch}
+                className="font-kumbh text-[#111827]"
+              />
+            </View>
+
+            {/* Client list */}
+            <View className="max-h-[50vh]">
+              <FlatList
+                data={(clients || []).filter((c: any) =>
+                  String(c?.name || "")
+                    .toLowerCase()
+                    .includes(clientSearch.toLowerCase())
+                )}
+                keyExtractor={(c: any) => c._id}
+                ListEmptyComponent={
+                  <Text className="text-center text-gray-400 font-kumbh py-6">
+                    {clientsLoading ? "Loading clients…" : "No clients found"}
+                  </Text>
+                }
+                ItemSeparatorComponent={() => (
+                  <View className="h-[1px] bg-gray-100 mx-1" />
+                )}
+                renderItem={({ item: c }: any) => {
+                  const isSelected = selectedClientId === c._id;
+                  return (
+                    <Pressable
+                      onPress={() =>
+                        setSelectedClientId(isSelected ? null : c._id)
+                      }
+                      className="py-3 flex-row items-center justify-between"
+                    >
+                      <View style={{ flex: 1, paddingRight: 12 }}>
+                        <Text
+                          className={clsx(
+                            "font-kumbh text-[16px]",
+                            isSelected ? "text-[#4C5FAB]" : "text-[#111827]"
+                          )}
+                          numberOfLines={1}
+                        >
+                          {c?.name || "Unnamed client"}
+                        </Text>
+                        <Text className="font-kumbh text-[12px] text-gray-500 mt-1">
+                          Payable:{" "}
+                          {new Intl.NumberFormat("en-NG", {
+                            style: "currency",
+                            currency: "NGN",
+                            maximumFractionDigits: 0,
+                          }).format(Number(c?.payableAmount || 0))}
+                        </Text>
+                      </View>
+                      <View
+                        className={clsx(
+                          "w-5 h-5 rounded-full border items-center justify-center",
+                          isSelected
+                            ? "bg-[#4C5FAB] border-[#4C5FAB]"
+                            : "border-gray-300"
+                        )}
+                      >
+                        {isSelected ? (
+                          <View className="w-2.5 h-2.5 rounded-full bg-white" />
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                }}
+              />
+            </View>
+
+            {/* Actions */}
+            <View className="flex-row mt-5" style={{ gap: 12 }}>
+              <Pressable
+                onPress={() => setShowClientPicker(false)}
+                className="flex-1 h-12 rounded-2xl border border-gray-300 items-center justify-center active:opacity-90"
+              >
+                <Text className="font-kumbh text-[#111827]">Cancel</Text>
+              </Pressable>
+
+              <Pressable
+                disabled={!selectedClientId}
+                onPress={() => {
+                  if (!selectedClientId) return;
+                  setShowClientPicker(false);
+                  router.push({
+                    pathname: "/(admin)/clients/installments",
+                    params: { clientId: selectedClientId },
+                  });
+                }}
+                className={clsx(
+                  "flex-1 h-12 rounded-2xl items-center justify-center active:opacity-90",
+                  selectedClientId ? "bg-[#4C5FAB]" : "bg-gray-300"
+                )}
+              >
+                <Text className="text-white font-kumbhBold">Continue</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
