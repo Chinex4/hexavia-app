@@ -2,10 +2,10 @@ import { api } from "@/api/axios";
 import type { ApiEnvelope, User } from "@/api/types";
 import { showError, showPromise, showSuccess } from "@/components/ui/toast";
 import { saveToken, saveUser } from "@/storage/auth";
+import { RootState } from "@/store";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setUser } from "../user/user.slice";
 import { setLastEmail, setPhase, setSession } from "./auth.slice";
-import { RootState } from "@/store";
 
 type RegisterArgs = {
   fullname: string;
@@ -168,7 +168,7 @@ export const joinChannel = createAsyncThunk(
         err?.response?.message ||
         err?.response?.data?.message ||
         (err?.response?.status === 400
-          ? "Invalid Group Code"
+          ? "Invalid Project Code"
           : "Could not join channel");
 
       showError(msg);

@@ -71,7 +71,7 @@ export default function StaffDetails() {
 
       {/* Channels */}
       <View className="px-6 mt-6">
-        <Text className="text-lg font-kumbhBold text-text mb-2">Groups</Text>
+        <Text className="text-lg font-kumbhBold text-text mb-2">Projects</Text>
         {memberChannels.length > 0 ? (
           memberChannels.map((ch) => (
             <View

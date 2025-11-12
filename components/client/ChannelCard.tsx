@@ -62,7 +62,7 @@ function ChannelCard({ item, width, gap }: Props) {
             {item.subtitle}
           </Text>
           <Text className="text-white/90 font-kumbh text-[12px]">
-            Group Code: {item.code}
+            Project Code: {item.code}
           </Text>
         </View>
       </View>

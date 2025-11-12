@@ -378,7 +378,7 @@ export default function CreateReportScreen() {
     <div class="meta">
       <div><strong>Project:</strong> ${projectName}</div>
       <div><strong>Report Period:</strong> ${period.start} — ${period.end}</div>
-      <div><strong>Groups:</strong> ${channels.join(", ")}</div>
+      <div><strong>Projects:</strong> ${channels.join(", ")}</div>
       <div><strong>Status Filter:</strong> not-started, in-progress, completed</div>
     </div>
 
@@ -406,7 +406,7 @@ export default function CreateReportScreen() {
           <th>#</th>
           <th>Task</th>
           <th>Status</th>
-          <th>Group</th>
+          <th>Project</th>
           <th>Created</th>
           <th>Updated</th>
           <th>Due</th>
@@ -542,7 +542,7 @@ export default function CreateReportScreen() {
         )}
 
         {/* Channels (multi) */}
-        <Text className="mt-5 text-lg font-kumbh text-black">Groups</Text>
+        <Text className="mt-5 text-lg font-kumbh text-black">Projects</Text>
         <Controller
           control={control}
           name="channelIds"

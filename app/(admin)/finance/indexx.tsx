@@ -1,13 +1,13 @@
-import React, { useMemo } from "react";
-import {
-  View,
-  Text,
-  SectionList,
-  Pressable,
-  SafeAreaView,
-} from "react-native";
 import { useRouter } from "expo-router";
 import { ArrowLeft, ArrowUp, Plus } from "lucide-react-native";
+import React, { useMemo } from "react";
+import {
+  Pressable,
+  SafeAreaView,
+  SectionList,
+  Text,
+  View,
+} from "react-native";
 
 type FinanceRecord = {
   id: string;
@@ -109,7 +109,7 @@ export default function FinanceIndex() {
   const router = useRouter();
 
   const sections = useMemo(() => {
-    // group by title
+    // Project by title
     const buckets = new Map<string, FinanceRecord[]>();
     for (const r of MOCK) {
       const key = sectionTitle(new Date(r.date));

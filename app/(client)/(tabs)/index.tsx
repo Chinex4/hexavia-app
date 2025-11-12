@@ -2,30 +2,24 @@ import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Bell, ChevronRight } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
+import { Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import AvatarPlaceholder from "@/components/staff/AvatarPlaceHolder";
-import ChannelCard from "@/components/staff/ChannelCard";
+import { ClientHeader } from "@/components/common/UserHeader";
 import SanctionCard from "@/components/staff/SanctionCard";
 import TaskOverview from "@/components/staff/TaskOverviewCard";
-import CreateChannelCard from "@/components/staff/channels/CreateChannelCard";
 import CreateChannelModal from "@/components/staff/channels/CreateChannelModal";
-import useChannelCardLayout from "@/hooks/useChannelCardLayout";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchProfile } from "@/redux/user/user.thunks";
-import { selectUser } from "@/redux/user/user.slice";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
-import {
-  selectMyChannelsByUserId,
-  selectAllChannels,
-  selectStatus,
-} from "@/redux/channels/channels.selectors";
-import Ionicons from "@expo/vector-icons/Ionicons";
-import SkeletonChannelCard from "@/components/staff/channels/SkeletonChannelCard";
 import HorizontalChannelList from "@/components/staff/channels/HorizontaChannelList";
 import HorizontalChannelSkeletonList from "@/components/staff/channels/HorizontalChannelSkeletonList";
-import { ClientHeader } from "@/components/common/UserHeader";
+import useChannelCardLayout from "@/hooks/useChannelCardLayout";
+import {
+  selectAllChannels,
+  selectStatus
+} from "@/redux/channels/channels.selectors";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { selectUser } from "@/redux/user/user.slice";
+import { fetchProfile } from "@/redux/user/user.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const PALETTE = [
   // "#14D699",
@@ -186,7 +180,7 @@ export default function StaffHome() {
         />
         {/* Channels */}
         <View className="mt-6 flex-row items-center justify-between">
-          <Text className="text-3xl text-gray-900 font-kumbh">Groups</Text>
+          <Text className="text-3xl text-gray-900 font-kumbh">Projects</Text>
           <Pressable
             onPress={() => router.push("/(client)/channels")}
             className="flex-row items-center"

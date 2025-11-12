@@ -51,7 +51,7 @@ function ChannelCard({
             )}
             {!!item.code && (
               <Text className="text-white/90 font-kumbh text-[13px]">
-                Group Code: {item.code.toUpperCase()}
+                Project Code: {item.code.toUpperCase()}
               </Text>
             )}
           </View>

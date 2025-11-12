@@ -1,22 +1,22 @@
 // app/(admin)/index.tsx (AdminDashboard)
-import React, { useMemo, useEffect } from "react";
-import { View, Text, ScrollView, Image, Pressable } from "react-native";
 import { useRouter } from "expo-router";
+import { BarChart3, Bell, ChevronRight, FolderKanban, UserPlus, Users } from "lucide-react-native";
+import React, { useEffect, useMemo } from "react";
+import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Bell, Users, UserPlus, FolderKanban, BarChart3, ChevronRight } from "lucide-react-native";
 
 import AdminHeader from "@/components/admin/AdminHeader";
-import Tile from "@/components/admin/Tile";
+import ProgressRow from "@/components/admin/ProgressRow";
 import SectionCard from "@/components/admin/SectionCard";
 import StatPill from "@/components/admin/StatPiill";
-import ProgressRow from "@/components/admin/ProgressRow";
+import Tile from "@/components/admin/Tile";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchFinance } from "@/redux/finance/finance.thunks";
 import {
-  selectFinanceSummary,
-  selectFinanceListLoading,
+    selectFinanceListLoading,
+    selectFinanceSummary,
 } from "@/redux/finance/finance.selectors";
+import { fetchFinance } from "@/redux/finance/finance.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const N = (v: number) =>
   new Intl.NumberFormat("en-NG", {
@@ -65,7 +65,7 @@ export default function AdminDashboard() {
         <View className="px-5 gap-2">
           <View className="flex-row gap-2">
             <Tile title="Clients" icon={<Users size={22} color="white" />} onPress={() => router.push("/(admin)/clients")} />
-            <Tile title="Groups" icon={<UserPlus size={22} color="white" />} onPress={() => router.push("/(admin)/channels")} />
+            <Tile title="Projects" icon={<UserPlus size={22} color="white" />} onPress={() => router.push("/(admin)/channels")} />
           </View>
           <View className="flex-row gap-2">
             <Tile title="Team" icon={<FolderKanban size={22} color="white" />} onPress={() => router.push("/(admin)/team")} />

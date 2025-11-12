@@ -20,7 +20,7 @@ export default function SearchBar({
         <TextInput
           value={value}
           onChangeText={onChange}
-          placeholder="Search by name or enter Group Code"
+          placeholder="Search by name or enter Project Code"
           placeholderTextColor="#9CA3AF"
           className="flex-1 ml-2 text-gray-800 font-kumbh"
           returnKeyType="search"
