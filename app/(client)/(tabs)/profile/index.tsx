@@ -118,9 +118,7 @@ export default function Profile() {
       setDeleting(true);
       setDeleteError(null);
 
-      // Adjust the endpoint to your actual delete-account route
-      // If your baseURL already has /api/v1, keep it as "/user" or "/account"
-      await api.delete("/api/v1/user", {
+      await api.delete("/account", {
         data: { password: deletePassword.trim() },
       });
 
