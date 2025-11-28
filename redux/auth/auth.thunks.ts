@@ -26,7 +26,7 @@ export const register = createAsyncThunk<
       username: body.username,
       email: body.email.trim().toLowerCase(),
       fullname: body.fullname,
-      expoPushToken, 
+      expoPushToken,
     };
 
     const res = await showPromise(
@@ -37,7 +37,7 @@ export const register = createAsyncThunk<
 
     dispatch(setLastEmail(body.email));
     dispatch(setPhase("awaiting_otp"));
-    showSuccess(`OTP code is ${res.data.otp}`);
+    showSuccess(`OTP code is ${res.data.otp}`, "", 10000); // For demo purposes only
   } catch (err: any) {
     const msg =
       err?.response?.data?.errors?.[0]?.msg ||
@@ -64,7 +64,7 @@ export const login = createAsyncThunk<
     const payload = {
       email: body.email.trim().toLowerCase(),
       password: body.password,
-      expoPushToken: 'djk'
+      expoPushToken: expoPushToken,
     };
 
     // If your ApiEnvelope shape doesn't guarantee token, keep it nullable
