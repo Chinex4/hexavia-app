@@ -134,7 +134,7 @@ export default function StatusScreen() {
       {/* Header */}
       <View className="flex-row items-center justify-between px-4 pt-2 pb-3 mt-5">
         <Pressable
-          onPress={() => router.push("/(client)/(tabs)/tasks")}
+          onPress={() => router.push("/(staff)/(tabs)/tasks")}
           className="h-9 w-9 rounded-full items-center justify-center"
         >
           <Ionicons name="chevron-back" size={22} color="#111827" />
