@@ -7,6 +7,9 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  Modal,
+  TextInput,
+  Alert,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -17,6 +20,7 @@ import { selectUser, selectPhase } from "@/redux/user/user.slice";
 import { logout } from "@/redux/auth/auth.slice";
 import { clearToken, clearUser } from "@/storage/auth";
 import { StatusBar } from "expo-status-bar";
+import { api } from "@/api/axios";
 
 function initialsOf(name?: string) {
   if (!name) return "U";
@@ -53,30 +57,99 @@ export default function Profile() {
   const router = useRouter();
   const user = useSelector(selectUser);
   const phase = useSelector(selectPhase);
+
   const [refreshing, setRefreshing] = useState(false);
+
+  // delete account modal state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await dispatch(fetchProfile());
     setRefreshing(false);
   }, [dispatch]);
+
   useFocusEffect(
     useCallback(() => {
       if (!user) dispatch(fetchProfile());
     }, [dispatch, user])
   );
+
   const avatarUri = user?.profilePicture || undefined;
+
   const logoutHandler = useCallback(() => {
     dispatch(logout());
     clearToken();
     clearUser();
     router.replace("/(auth)/login");
   }, [dispatch, router]);
+
   const role = user?.role ?? "";
   const channel =
     (user as any)?.channel?.name ||
     (user as any)?.channelName ||
     (user as any)?.channel ||
     "";
+
+  const openDeleteModal = useCallback(() => {
+    setDeleteError(null);
+    setDeletePassword("");
+    setShowDeleteModal(true);
+  }, []);
+
+  const closeDeleteModal = useCallback(() => {
+    if (deleting) return;
+    setShowDeleteModal(false);
+    setDeletePassword("");
+    setDeleteError(null);
+  }, [deleting]);
+
+  // 🔥 Call delete-account API here
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deletePassword.trim()) {
+      setDeleteError("Please enter your password.");
+      return;
+    }
+
+    try {
+      setDeleting(true);
+      setDeleteError(null);
+
+      // Adjust the endpoint to your actual delete-account route
+      // If your baseURL already has /api/v1, keep it as "/user" or "/account"
+      await api.delete("/api/v1/user", {
+        data: { password: deletePassword.trim() },
+      });
+
+      closeDeleteModal();
+
+      Alert.alert(
+        "Account deleted",
+        "Your account has been deleted successfully.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              // reuse same cleanup logic
+              logoutHandler();
+            },
+          },
+        ]
+      );
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        "Something went wrong. Please try again.";
+      setDeleteError(message);
+    } finally {
+      setDeleting(false);
+    }
+  }, [deletePassword, closeDeleteModal, logoutHandler]);
 
   const topCard = useMemo(() => {
     return (
@@ -94,7 +167,7 @@ export default function Profile() {
               />
             ) : (
               <Image
-                source={require('@/assets/images/default.jpg')}
+                source={require("@/assets/images/default.jpg")}
                 className="h-20 w-20"
                 resizeMode="cover"
               />
@@ -119,10 +192,11 @@ export default function Profile() {
             )}
           </View>
         </View>
+
         <View className="mt-4 flex-row">
           <Pressable
             className="flex-1 mr-2 items-center justify-center rounded-2xl bg-primary px-4 py-3"
-            onPress={() => router.push("/(client)/profile/edit")}
+            onPress={() => router.push("/(staff)/profile/edit")}
           >
             <Text className="font-kumbhBold text-white">Edit Profile</Text>
           </Pressable>
@@ -139,10 +213,12 @@ export default function Profile() {
     avatarUri,
     channel,
     logoutHandler,
+    openDeleteModal,
     role,
     router,
     user?.fullname,
     user?.username,
+    deleting,
   ]);
 
   return (
@@ -187,6 +263,18 @@ export default function Profile() {
           <InfoRow icon="people" label="Role" value={role} />
         </View>
 
+        <View className="mt-3 items-center px-4">
+          <Pressable
+            className="bg-white shadow-sm w-full py-6 px-4 rounded-lg"
+            onPress={openDeleteModal}
+            disabled={deleting}
+          >
+            <Text className="text-sm font-kumbhBold text-red-600">
+              Delete account
+            </Text>
+          </Pressable>
+        </View>
+
         {/* Loading state overlay if first load */}
         {phase === "loading" && !user && (
           <View className="mt-8 items-center">
@@ -197,6 +285,62 @@ export default function Profile() {
           </View>
         )}
       </ScrollView>
+
+      {/* ⚠️ Delete Account Modal */}
+      <Modal
+        transparent
+        visible={showDeleteModal}
+        animationType="fade"
+        onRequestClose={closeDeleteModal}
+      >
+        <View className="flex-1 bg-black/40 items-center justify-center px-6">
+          <View className="w-full rounded-3xl bg-white p-5">
+            <Text className="text-lg font-kumbhBold text-gray-900 mb-1">
+              Delete account
+            </Text>
+            <Text className="text-sm font-kumbh text-gray-600 mb-4">
+              This action is permanent. Please enter your password to confirm.
+            </Text>
+
+            <Text className="text-xs font-kumbh text-gray-500 mb-1">
+              Password
+            </Text>
+            <TextInput
+              value={deletePassword}
+              onChangeText={setDeletePassword}
+              secureTextEntry
+              placeholder="Enter your password"
+              className="w-full rounded-2xl border border-gray-200 px-3 py-2 font-kumbh text-sm text-gray-900"
+            />
+
+            {deleteError ? (
+              <Text className="mt-2 text-xs font-kumbh text-red-500">
+                {deleteError}
+              </Text>
+            ) : null}
+
+            <View className="mt-5 flex-row justify-end">
+              <Pressable
+                onPress={closeDeleteModal}
+                disabled={deleting}
+                className="mr-3 px-4 py-2 rounded-2xl bg-gray-100"
+              >
+                <Text className="text-sm font-kumbh text-gray-700">Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleConfirmDelete}
+                disabled={deleting}
+                className="px-4 py-2 rounded-2xl bg-red-500 flex-row items-center justify-center"
+              >
+                {deleting && <ActivityIndicator size="small" color="#ffffff" />}
+                <Text className="ml-2 text-sm font-kumbhBold text-white">
+                  {deleting ? "Deleting..." : "Confirm delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

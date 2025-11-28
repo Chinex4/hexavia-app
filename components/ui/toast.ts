@@ -1,20 +1,30 @@
 import Toast from "react-native-toast-message";
 
-export function showSuccess(message: string, description?: string) {
+export function showSuccess(
+  message: string,
+  description?: string,
+  visibilityTime = 3000 // default, but caller can override
+) {
   Toast.show({
     type: "success",
     text1: message,
     text2: description,
     position: "top",
+    visibilityTime,
   });
 }
-export function showError(message: string, description?: string) {
+
+export function showError(
+  message: string,
+  description?: string,
+  visibilityTime = 4000 // default, but caller can override
+) {
   Toast.show({
     type: "error",
     text1: message,
     text2: description,
     position: "top",
-    visibilityTime: 4000,
+    visibilityTime,
   });
 }
 
@@ -33,11 +43,14 @@ export async function showPromise<T>(
   try {
     const res = await p;
     Toast.hide();
-    Toast.show({ type: "success", text1: successMessage, position: "top" });
+    Toast.show({
+      type: "success",
+      text1: successMessage,
+      position: "top",
+      visibilityTime: 3000, // you can also make this a param if you like
+    });
     return res;
   } catch (e: any) {
-    // 🔎 noisy console logging so you can see what's going on
-    // eslint-disable-next-line no-console
     console.log("[showPromise] error", {
       message: e?.message,
       status: e?.response?.status,

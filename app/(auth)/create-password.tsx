@@ -51,11 +51,9 @@ export default function SignupFinalScreen() {
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const dispatch = useAppDispatch();
-  const {
-      phoneNumber,
-    } = useLocalSearchParams<{
-      phoneNumber?: string;
-    }>();
+  const { phoneNumber } = useLocalSearchParams<{
+    phoneNumber?: string;
+  }>();
 
   const {
     control,
@@ -64,7 +62,7 @@ export default function SignupFinalScreen() {
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
-    defaultValues: { channelCode: "", password: "", confirmPassword: "" },
+    defaultValues: { channelCode: "1234", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
@@ -142,6 +140,13 @@ export default function SignupFinalScreen() {
                 </View>
               )}
             />
+
+            {/* 👇 Note about default code */}
+            <Text className="text-xs text-gray-400 mt-1 font-kumbh">
+              Default channel code is{" "}
+              <Text className="font-kumbhBold">1234</Text>.
+            </Text>
+
             {errors.channelCode && (
               <Text className="text-red-500 text-xs mt-1 font-kumbh">
                 {errors.channelCode.message}

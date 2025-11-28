@@ -16,7 +16,9 @@
       "infoPlist": {
         "NSMicrophoneUsageDescription": "We use the mic for sending voice notes.",
         "NSCameraUsageDescription": "We use the camera for sharing photos in chat.",
-        "NSPhotoLibraryUsageDescription": "We need access to your photos to share images."
+        "NSPhotoLibraryUsageDescription": "We use your photos so you can upload a profile picture or media to your chat.",
+        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -74,7 +76,11 @@
       [
         "@jamsch/expo-speech-recognition",
         {
-          "android": { "permissions": ["RECORD_AUDIO"] },
+          "android": {
+            "permissions": [
+              "RECORD_AUDIO"
+            ]
+          },
           "ios": {
             "NSMicrophoneUsageDescription": "We use the microphone to fill text fields by voice.",
             "NSSpeechRecognitionUsageDescription": "We use speech recognition to convert your voice to text."
