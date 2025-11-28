@@ -90,7 +90,7 @@ export default function EditSanction() {
     }
   };
 
-  console.log(getToken())
+  // console.log(getToken())
 
   return (
     <SafeAreaView className="flex-1 bg-background">

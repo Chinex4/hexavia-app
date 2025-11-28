@@ -22,7 +22,6 @@ import { clearToken, clearUser } from "@/storage/auth";
 import { StatusBar } from "expo-status-bar";
 import { api } from "@/api/axios";
 
-
 function initialsOf(name?: string) {
   if (!name) return "U";
   const parts = name.trim().split(/\s+/).slice(0, 2);
@@ -119,9 +118,7 @@ export default function Profile() {
       setDeleting(true);
       setDeleteError(null);
 
-      // Adjust the endpoint to your actual delete-account route
-      // If your baseURL already has /api/v1, keep it as "/user" or "/account"
-      await api.delete("/api/v1/user", {
+      await api.delete("/account", {
         data: { password: deletePassword.trim() },
       });
 
@@ -208,8 +205,6 @@ export default function Profile() {
             <Text className="font-kumbhBold text-white">Log Out</Text>
           </Pressable>
         </View>
-
-        
       </View>
     );
   }, [
@@ -267,7 +262,11 @@ export default function Profile() {
         </View>
 
         <View className="mt-3 items-center px-4">
-          <Pressable className="bg-white w-full py-6 px-4 rounded-lg" onPress={openDeleteModal} disabled={deleting}>
+          <Pressable
+            className="bg-white w-full py-6 px-4 rounded-lg"
+            onPress={openDeleteModal}
+            disabled={deleting}
+          >
             <Text className="text-sm font-kumbhBold text-red-600">
               Delete account
             </Text>
@@ -324,18 +323,14 @@ export default function Profile() {
                 disabled={deleting}
                 className="mr-3 px-4 py-2 rounded-2xl bg-gray-100"
               >
-                <Text className="text-sm font-kumbh text-gray-700">
-                  Cancel
-                </Text>
+                <Text className="text-sm font-kumbh text-gray-700">Cancel</Text>
               </Pressable>
               <Pressable
                 onPress={handleConfirmDelete}
                 disabled={deleting}
                 className="px-4 py-2 rounded-2xl bg-red-500 flex-row items-center justify-center"
               >
-                {deleting && (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                )}
+                {deleting && <ActivityIndicator size="small" color="#ffffff" />}
                 <Text className="ml-2 text-sm font-kumbhBold text-white">
                   {deleting ? "Deleting..." : "Confirm delete"}
                 </Text>

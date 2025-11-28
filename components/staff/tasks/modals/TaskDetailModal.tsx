@@ -114,7 +114,7 @@ export default function TaskDetailModal({
           status: payload.status,
         });
 
-        console.log(res.data);
+        // console.log(res.data);
 
         await dispatch(fetchChannelById(resolvedChannelId));
       }

@@ -189,7 +189,7 @@ export default function FinanceIndex() {
     return Array.from(map.entries()).map(([title, data]) => ({ title, data }));
   }, [tab, clients, records]);
 
-  console.log(sections[0]);
+  // console.log(sections[0]);
 
   /* First load + tab switching */
   useEffect(() => {
