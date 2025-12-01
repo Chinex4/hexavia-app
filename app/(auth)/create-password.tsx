@@ -62,7 +62,7 @@ export default function SignupFinalScreen() {
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
-    defaultValues: { channelCode: "1234", password: "", confirmPassword: "" },
+    defaultValues: { channelCode: "7190", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
