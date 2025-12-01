@@ -2,6 +2,10 @@ import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
 
+export async function registerPushToken(): Promise<string | null> {
+  return getExpoPushToken();
+}
+
 export async function getExpoPushToken(): Promise<string | null> {
   if (!Device.isDevice) return null;
 

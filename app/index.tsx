@@ -8,7 +8,7 @@ import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import * as Notifications from "expo-notifications";
-import { registerPushToken, sendPushTokenToBackend } from "@/utils/pushToken";
+import { registerPushToken } from "@/utils/pushToken";
 
 const PENDING_CHANNEL_KEY = "PENDING_CHANNEL_ID";
 
@@ -71,12 +71,16 @@ export default function Splash() {
 
       if (phase === "idle") {
         router.replace("/(auth)/login");
+      } else if (phase === "onboarding") {
+        // user verified email but hasn’t finished last step
+        router.replace("/(auth)/create-password");
       } else if (phase === "authenticated") {
         const role = user?.role;
         if (role === "client") router.replace("/(client)/(tabs)");
         else if (role === "staff") router.replace("/(staff)/(tabs)");
         else if (role === "admin") router.replace("/(admin)");
-        else router.replace("/(admin)");
+        else if (role === "super-admin") router.replace("/(admin)");
+        else router.replace("/(client)/(tabs)"); // default to client
       }
     }, 3000);
     return () => clearTimeout(timer);

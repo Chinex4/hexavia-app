@@ -4,6 +4,7 @@ export type AuthPhase =
   | "idle"
   | "loading"
   | "awaiting_otp"
+  | "onboarding"
   | "authenticated"
   | "password_reset_pending";
 

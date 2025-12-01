@@ -6,6 +6,8 @@ import { RootState } from "@/store";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setUser } from "../user/user.slice";
 import { setLastEmail, setPhase, setSession } from "./auth.slice";
+import { getExpoPushToken } from "@/utils/pushToken";
+import { setPushToken } from "./auth.slice";
 
 type RegisterArgs = {
   fullname: string;
@@ -20,14 +22,36 @@ export const register = createAsyncThunk<
   { state: RootState; rejectValue: string }
 >("auth/register", async (body, { dispatch, rejectWithValue, getState }) => {
   try {
-    const expoPushToken = getState().auth.pushToken ?? null;
+    // 1) Try to get token from state
+    let expoPushToken = getState().auth.pushToken;
 
-    const payload = {
+    // 2) Fallback: try to fetch a fresh token if none
+    if (!expoPushToken) {
+      try {
+        const tok = await getExpoPushToken();
+        if (tok) {
+          expoPushToken = tok;
+          dispatch(setPushToken(tok));
+        }
+      } catch (e) {
+        // Don’t block signup because of push token
+        expoPushToken = null;
+      }
+    }
+
+    const payload: any = {
       username: body.username,
       email: body.email.trim().toLowerCase(),
       fullname: body.fullname,
-      expoPushToken,
+      expoPushToken: expoPushToken ?? 'hexavia-default-token',
     };
+
+    // IMPORTANT: only add the field if we actually have a token
+    // if (expoPushToken) {
+    //   // Match your backend field name here
+    //   payload.expoPushToken = expoPushToken;
+    //   // or payload.expo_push_token = expoPushToken;
+    // }
 
     const res = await showPromise(
       api.post<ApiEnvelope>("/auth/register", payload),
@@ -37,7 +61,7 @@ export const register = createAsyncThunk<
 
     dispatch(setLastEmail(body.email));
     dispatch(setPhase("awaiting_otp"));
-    showSuccess(`OTP code is ${res.data.otp}`, "", 10000); // For demo purposes only
+    showSuccess(`OTP code is ${res.data.otp}`, "", 10000);
   } catch (err: any) {
     const msg =
       err?.response?.data?.errors?.[0]?.msg ||
@@ -59,15 +83,30 @@ export const login = createAsyncThunk<
   { state: RootState; rejectValue: string }
 >("auth/login", async (body, { dispatch, rejectWithValue, getState }) => {
   try {
-    const expoPushToken = getState().auth.pushToken ?? null;
+    let expoPushToken = getState().auth.pushToken;
 
-    const payload = {
+    if (!expoPushToken) {
+      try {
+        const tok = await getExpoPushToken();
+        if (tok) {
+          expoPushToken = tok;
+          dispatch(setPushToken(tok));
+        }
+      } catch (e) {
+        expoPushToken = null;
+      }
+    }
+
+    const payload: any = {
       email: body.email.trim().toLowerCase(),
       password: body.password,
-      expoPushToken: expoPushToken,
     };
 
-    // If your ApiEnvelope shape doesn't guarantee token, keep it nullable
+    if (expoPushToken) {
+      // Again, match your backend naming
+      payload.expoPushToken = expoPushToken;
+    }
+
     const res = await showPromise(
       api.post<ApiEnvelope>("/auth/login", payload),
       "Logging in…",
@@ -75,16 +114,16 @@ export const login = createAsyncThunk<
     );
 
     const user = (res.data as any).user;
-    const token = (res.data as any).token ?? null; // ✅ normalize to nullable
+    const token = (res.data as any).token ?? null;
 
     dispatch(setLastEmail(body.email));
     dispatch(setPhase("authenticated"));
     dispatch(setUser(user));
     if (token) await saveToken(token);
     if (user) await saveUser(user);
-    dispatch(setSession({ user, token })); // token can be null
+    dispatch(setSession({ user, token }));
 
-    return { user, token }; // ✅ matches LoginResult
+    return { user, token };
   } catch (err: any) {
     const msg =
       err?.response?.data?.errors?.[0]?.msg ||
@@ -118,6 +157,7 @@ export const verifyEmail = createAsyncThunk(
       if (user) await saveUser(user);
 
       dispatch(setSession({ user, token: token ?? null }));
+      dispatch(setPhase("onboarding"));
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
@@ -147,7 +187,7 @@ export const joinChannel = createAsyncThunk(
   "auth/joinChannel",
   async (
     body: { channelCode: string; password: string; phoneNumber?: string },
-    { rejectWithValue }
+    { dispatch, rejectWithValue }
   ) => {
     try {
       const res = await showPromise(
@@ -162,6 +202,8 @@ export const joinChannel = createAsyncThunk(
         "Finalizing account…",
         "Channel joined and password set"
       );
+      dispatch(setPhase("authenticated"));
+
       return res.data;
     } catch (err: any) {
       const msg =
