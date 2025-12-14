@@ -17,6 +17,7 @@ import { ArrowLeft } from "lucide-react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   resendRegisterOtp,
+  forgotPassword as forgotPasswordThunk,
   verifyEmail as verifyThunk,
 } from "@/redux/auth/auth.thunks";
 import { RootState } from "@/store";
@@ -90,7 +91,11 @@ export default function OtpVerification() {
 
   const resend = async () => {
     if (seconds > 0) return;
-    await dispatch(resendRegisterOtp(realEmail));
+    if (type === "forgotPassword") {
+      await dispatch(forgotPasswordThunk({ email: realEmail }));
+    } else {
+      await dispatch(resendRegisterOtp(realEmail));
+    }
     setSeconds(RESEND_SECS);
   };
 
