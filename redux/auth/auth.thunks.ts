@@ -1,7 +1,7 @@
 import { api } from "@/api/axios";
 import type { ApiEnvelope, User } from "@/api/types";
 import { showError, showPromise, showSuccess } from "@/components/ui/toast";
-import { saveToken, saveUser } from "@/storage/auth";
+import { getToken, saveToken, saveUser } from "@/storage/auth";
 import { RootState } from "@/store";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setUser } from "../user/user.slice";
@@ -61,7 +61,6 @@ export const register = createAsyncThunk<
 
     dispatch(setLastEmail(body.email));
     dispatch(setPhase("awaiting_otp"));
-    showSuccess(`OTP code is ${res.data.otp}`, "", 10000);
   } catch (err: any) {
     const msg =
       err?.response?.data?.errors?.[0]?.msg ||
@@ -149,9 +148,17 @@ export const verifyEmail = createAsyncThunk(
         "Email verified"
       );
 
-      const token = (res.data.token ?? null) as string | null;
+      // Backend sometimes nests token/user under `data`
+      const token =
+        (res.data as any)?.token ??
+        (res.data as any)?.accessToken ??
+        (res.data as any)?.data?.token ??
+        (res.data as any)?.data?.accessToken ??
+        null;
       const user =
-        (res.data.user as any) || ((res.data.data as any)?.user ?? null);
+        (res.data as any)?.user ??
+        (res.data as any)?.data?.user ??
+        null;
 
       if (token) await saveToken(token);
       if (user) await saveUser(user);
@@ -228,6 +235,10 @@ export const forgotPassword = createAsyncThunk(
         "Verifying…",
         "OTP sent to your email. Purpose is to reset password."
       );
+
+      // Keep the real email around so subsequent OTP + reset steps
+      // can use the unmasked value instead of the masked display string.
+      dispatch(setLastEmail(body.email));
     } catch (err: any) {
       const msg =
         err?.response?.data?.message ||
