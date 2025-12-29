@@ -287,7 +287,7 @@ export default function CreateTaskModal({
                       setSelectedChannelId(null);
                       setPicking(true);
                     }}
-                    placeholder="Project Code (e.g. #7190)"
+                    placeholder="Project Code (e.g. #1234)"
                     placeholderTextColor="#9CA3AF"
                     className="font-kumbh rounded-xl bg-[#F3F4F6] px-4 py-3 text-[#111827]"
                     autoCapitalize="none"
