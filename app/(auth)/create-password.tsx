@@ -62,7 +62,7 @@ export default function SignupFinalScreen() {
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
-    defaultValues: { channelCode: "7190", password: "", confirmPassword: "" },
+    defaultValues: { channelCode: "1234", password: "", confirmPassword: "" },
   });
 
   const onSubmit = async (values: FormValues) => {
@@ -144,7 +144,7 @@ export default function SignupFinalScreen() {
             {/* 👇 Note about default code */}
             <Text className="text-xs text-gray-400 mt-1 font-kumbh">
               Default channel code is{" "}
-              <Text className="font-kumbhBold">7190</Text>.
+              <Text className="font-kumbhBold">1234</Text>.
             </Text>
 
             {errors.channelCode && (
