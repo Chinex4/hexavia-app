@@ -22,10 +22,8 @@ export const register = createAsyncThunk<
   { state: RootState; rejectValue: string }
 >("auth/register", async (body, { dispatch, rejectWithValue, getState }) => {
   try {
-    // 1) Try to get token from state
     let expoPushToken = getState().auth.pushToken;
 
-    // 2) Fallback: try to fetch a fresh token if none
     if (!expoPushToken) {
       try {
         const tok = await getExpoPushToken();
@@ -45,13 +43,6 @@ export const register = createAsyncThunk<
       fullname: body.fullname,
       expoPushToken: expoPushToken ?? 'hexavia-default-token',
     };
-
-    // IMPORTANT: only add the field if we actually have a token
-    // if (expoPushToken) {
-    //   // Match your backend field name here
-    //   payload.expoPushToken = expoPushToken;
-    //   // or payload.expo_push_token = expoPushToken;
-    // }
 
     const res = await showPromise(
       api.post<ApiEnvelope>("/auth/register", payload),
