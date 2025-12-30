@@ -16,7 +16,8 @@ import {
   RefreshControl,
   Text,
   TextInput,
-  View
+  View,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -26,7 +27,7 @@ import {
   selectAllChannels,
   selectChannelsState,
 } from "@/redux/channels/channels.slice";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { deleteChannelById, fetchChannels } from "@/redux/channels/channels.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const TINTS = [
@@ -59,22 +60,9 @@ export default function ChannelsIndex() {
 
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-
-  /* ===== Channel Actions (commented out as requested) =====
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const openMenu = (id: string) => { setSelectedId(id); setMenuOpen(true); };
-  const closeMenu = () => setMenuOpen(false);
-  const onEdit = () => { if (selectedId) { closeMenu(); router.push({ pathname: "/(admin)/channels/[id]/edit", params: { id: selectedId } }); } };
-  const onDelete = () => {
-    closeMenu();
-    if (!selectedId) return;
-    Alert.alert("Delete Project", "Are you sure you want to delete this Project? This action cannot be undone.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => { /* dispatch(deleteChannel(selectedId)) */ /* } },
-    ]);
-  };
-  ========================================================= */
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [actionTarget, setActionTarget] = useState<{ id: string; name?: string } | null>(null);
 
   useEffect(() => {
     dispatch(fetchChannels());
@@ -114,6 +102,40 @@ export default function ChannelsIndex() {
     } catch (e) {
       Alert.alert("Error", "Failed to copy Project code.");
     }
+  };
+
+  const openActions = (id: string, name?: string) => {
+    setActionTarget({ id, name });
+    setSheetOpen(true);
+  };
+
+  const closeActions = () => setSheetOpen(false);
+
+  const confirmDelete = (channelId: string, name?: string) => {
+    closeActions();
+    if (!channelId) return;
+    Alert.alert(
+      "Delete Project",
+      `Are you sure you want to delete "${name || "this project"}"? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingId(channelId);
+            try {
+              await dispatch(deleteChannelById({ channelId })).unwrap();
+              showSuccess("Project deleted");
+            } catch (err) {
+              // errors already toasted in thunk
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -194,6 +216,7 @@ export default function ChannelsIndex() {
                     params: { channelId: item._id },
                   });
                 }}
+                onLongPress={() => openActions(item._id, item.name)}
               />
 
               {/* Copy icon (replaces ellipsis). No background behind it. */}
@@ -210,7 +233,7 @@ export default function ChannelsIndex() {
                 }}
                 hitSlop={8}
               >
-                <Copy size={18} color="#ffffff" />
+                <Copy size={12} color="#ffffff" />
               </Pressable>
 
               {/* ===== Channel Actions button (commented out) =====
@@ -245,11 +268,19 @@ export default function ChannelsIndex() {
         />
       )}
 
-      {/* ===== Channel Actions modal (commented out) =====
-      <Modal transparent visible={menuOpen} animationType="fade" onRequestClose={closeMenu}>
+      <Modal
+        transparent
+        visible={sheetOpen}
+        animationType="fade"
+        onRequestClose={closeActions}
+      >
         <Pressable
-          onPress={closeMenu}
-          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "flex-end" }}
+          onPress={closeActions}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.3)",
+            justifyContent: "flex-end",
+          }}
         >
           <View
             style={{
@@ -259,22 +290,30 @@ export default function ChannelsIndex() {
               borderTopRightRadius: 16,
             }}
           >
-            <Text className="text-center font-kumbhBold text-base mb-3">Channel Actions</Text>
-            <Pressable onPress={onEdit} className="py-3">
-              <Text className="text-center font-kumbh text-blue-700">Edit channel</Text>
+            <Text className="text-center font-kumbhBold text-base mb-3">
+              Channel Actions
+            </Text>
+            <Pressable
+              onPress={() =>
+                actionTarget &&
+                confirmDelete(actionTarget.id, actionTarget.name)
+              }
+              disabled={!actionTarget || deletingId === actionTarget?.id}
+              className="py-3"
+            >
+              <Text className="text-center font-kumbh text-red-600">
+                {deletingId === actionTarget?.id ? "Deleting..." : "Delete channel"}
+              </Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />
-            <Pressable onPress={onDelete} className="py-3">
-              <Text className="text-center font-kumbh text-red-600">Delete channel</Text>
-            </Pressable>
-            <View className="h-[1px] bg-gray-200" />
-            <Pressable onPress={closeMenu} className="py-3">
-              <Text className="text-center font-kumbh text-gray-700">Cancel</Text>
+            <Pressable onPress={closeActions} className="py-3">
+              <Text className="text-center font-kumbh text-gray-700">
+                Cancel
+              </Text>
             </Pressable>
           </View>
         </Pressable>
       </Modal>
-      ================================================ */}
     </SafeAreaView>
   );
 }
