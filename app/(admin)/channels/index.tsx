@@ -126,7 +126,7 @@ export default function ChannelsIndex() {
             setDeletingId(channelId);
             try {
               await dispatch(deleteChannelById({ channelId })).unwrap();
-              showSuccess("Project deleted");
+              // showSuccess("Project deleted");
             } catch (err) {
               // errors already toasted in thunk
             } finally {

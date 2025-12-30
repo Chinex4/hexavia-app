@@ -27,18 +27,24 @@ import type {
 function extractErrorMessage(err: unknown): string {
   const ax = err as AxiosError<any>;
   const data = ax?.response?.data as any;
+  const retryAfter = data?.retryAfter;
   const firstArrayError =
     Array.isArray(data?.errors) && data.errors.length
       ? data.errors[0]?.msg || data.errors[0] // support express-validator or arrays
       : null;
 
-  return (
+  const base =
     data?.message ||
     data?.error ||
     firstArrayError ||
     ax?.message ||
-    "Something went wrong. Please try again."
-  );
+    "Something went wrong. Please try again.";
+
+  if (ax?.response?.status === 429 && retryAfter) {
+    return `${base} (Retry after: ${retryAfter})`;
+  }
+
+  return base;
 }
 
 export const fetchChannels = createAsyncThunk<
@@ -96,8 +102,8 @@ export const createChannel = createAsyncThunk<
   try {
     const res = await showPromise(
       api.post<CreateChannelResponse>("/channel", body),
-      "Creating channel…",
-      "Channel created"
+      "Creating project...",
+      "Project created"
     );
     return res.data.channel as Channel;
   } catch (err) {
@@ -174,17 +180,19 @@ export const deleteChannelById = createAsyncThunk<
 >("channels/deleteChannel", async (body, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.post<DeleteChannelResponse>("/channel/delete", body),
-      "Deleting channel…",
-      "Channel deleted"
+      api.delete<DeleteChannelResponse>("/admin/channels", { data: body }),
+      "Deleting project...",
+      "Project deleted"
     );
-    return (res.data as any)?.channelId ?? body.channelId;
+
+    return res.data?.channelId ?? body.channelId;
   } catch (err) {
     const msg = extractErrorMessage(err);
     showError(msg);
     return rejectWithValue(msg);
   }
 });
+
 
 // CHANNEL TASKS & RESOURCES
 export const createChannelTask = createAsyncThunk<

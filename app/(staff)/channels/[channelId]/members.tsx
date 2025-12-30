@@ -23,6 +23,7 @@ import { selectChannelById } from "@/redux/channels/channels.selectors";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
+import { StatusBar } from "expo-status-bar";
 
 type MemberItem = {
   id: string;
@@ -155,6 +156,7 @@ export default function ChannelInfoScreen() {
     if (!canManageMembers) return;
     if (adminUsers?.length) return;
     dispatch(fetchAdminUsers());
+    dispatch(fetchAdminUsers({ role: "client" } as any));
   }, [adminUsers?.length, canManageMembers, dispatch]);
 
   const userMap = useMemo(() => {
@@ -309,7 +311,7 @@ export default function ChannelInfoScreen() {
     return Array.from(byId.values());
   }, [channel, me?._id, userMap]);
 
-  // console.log(members)
+  console.log(members)
 
   const isLoading = !channel && !!channelId;
 
@@ -427,6 +429,7 @@ export default function ChannelInfoScreen() {
 
   return (
     <View className="flex-1 bg-white">
+      <StatusBar style="dark" />
       {HeaderBar}
 
       <FlatList

@@ -47,6 +47,8 @@ import { uploadSingle } from "@/redux/upload/upload.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchMessages } from "@/redux/chat/chat.thunks";
 import { buildMentionables, type Mentionable } from "@/utils/handles";
+import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
 
 const TYPE: "community" | "direct" = "community";
 
@@ -58,6 +60,8 @@ export default function ChatScreen() {
   const user = useAppSelector(selectUser);
   const meId = user?._id;
   const channelId = typeof rawId === "string" ? rawId : rawId?.[0];
+
+  const adminUsers = useAppSelector(selectAdminUsers);
 
   const channelSel = useMemo(() => selectChannelById(channelId), [channelId]);
   const channel = useAppSelector(channelSel);
@@ -518,6 +522,22 @@ export default function ChatScreen() {
 
   const isAdmin = me?.role === "admin" || me?.role === "super-admin";
 
+  // Ensure we have user details for mentions
+  useEffect(() => {
+    if (adminUsers?.length) return;
+    dispatch(fetchAdminUsers());
+    dispatch(fetchAdminUsers({ role: "client" } as any));
+  }, [adminUsers?.length, dispatch]);
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const u of adminUsers ?? []) {
+      if (!u?._id) continue;
+      map.set(String(u._id), u);
+    }
+    return map;
+  }, [adminUsers]);
+
   const handleOpenResources = () => {
     router.push({
       pathname: resourcesPath as any,
@@ -577,10 +597,35 @@ export default function ChatScreen() {
 
   // ...inside component:
   const members = (channel as any)?.members ?? []; // [{_id, name/displayName, avatar}, ...]
-  const mentionables = useMemo<Mentionable[]>(
-    () => buildMentionables(members, meId as any),
-    [members, meId]
-  );
+
+  const mentionables = useMemo<Mentionable[]>(() => {
+    const enriched = (members as any[]).map((m: any, idx: number) => {
+      const raw = typeof m === "string" ? { _id: m } : m?.user || m?.member || m;
+      const id =
+        raw?._id ?? raw?.id ?? m?.userId ?? m?.memberId ?? `member-${idx}`;
+      const userInfo = id ? userMap.get(String(id)) : null;
+      const name =
+        userInfo?.fullname ||
+        userInfo?.username ||
+        userInfo?.email ||
+        raw?.name ||
+        raw?.fullName ||
+        raw?.username ||
+        raw?.displayName ||
+        "Member";
+      return {
+        _id: String(id),
+        name,
+        displayName: name,
+        avatar:
+          userInfo?.profilePicture ??
+          raw?.profilePicture ??
+          raw?.avatar ??
+          undefined,
+      };
+    });
+    return buildMentionables(enriched, meId as any);
+  }, [members, meId, userMap]);
 
   // Build a quick lookup map for bubble highlighting
   const mentionMap = useMemo(

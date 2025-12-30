@@ -59,7 +59,19 @@ const adminSlice = createSlice({
       })
       .addCase(fetchAdminUsers.fulfilled, (state, action) => {
         state.fetchingUsers = false;
-        state.users = action.payload.data ?? [];
+        const incoming = action.payload.data ?? [];
+        if (incoming.length === 0) {
+          state.count = action.payload.count ?? state.users.length;
+          return;
+        }
+        const byId: Record<string, AdminUser> = {};
+        for (const u of state.users) {
+          if (u?._id) byId[u._id] = { ...byId[u._id], ...u };
+        }
+        for (const u of incoming) {
+          if (u?._id) byId[u._id] = { ...byId[u._id], ...u };
+        }
+        state.users = Object.values(byId);
         state.count = action.payload.count ?? state.users.length;
       })
       .addCase(fetchAdminUsers.rejected, (state, action) => {
