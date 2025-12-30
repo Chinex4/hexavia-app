@@ -94,6 +94,46 @@ export default function Composer({
 
   return (
     <View className="px-5 pb-3 bg-white">
+      {/* Mention list */}
+      {open && results.length ? (
+        <View
+          className="mb-2 rounded-2xl bg-white border border-gray-200 shadow"
+          style={{ maxHeight: 220 }}
+        >
+          <View className="flex-row items-center justify-between px-3 py-2">
+            <Text className="text-[12px] text-gray-700 font-kumbhBold">
+              Mention someone
+            </Text>
+            <Pressable onPress={() => setOpen(false)} hitSlop={8}>
+              <X size={14} color="#6B7280" />
+            </Pressable>
+          </View>
+          <FlatList
+            data={results}
+            keyExtractor={(m) => m.id}
+            keyboardShouldPersistTaps="always"
+            showsVerticalScrollIndicator
+            style={{ maxHeight: 180 }}
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => insertMention(item)}
+                className="px-3 py-2 rounded-xl flex-row items-center"
+              >
+                <View className="flex-1">
+                  <Text className="text-[13px] text-gray-900 font-kumbhBold">
+                    {item.name}
+                  </Text>
+                  <Text className="text-[11px] text-gray-500">@{item.handle}</Text>
+                </View>
+                <Text className="text-[12px] text-[#4C5FAB] font-kumbhBold">
+                  Mention
+                </Text>
+              </Pressable>
+            )}
+          />
+        </View>
+      ) : null}
+
       {/* Reply bar */}
       {replyTo ? (
         <View className="mb-2 px-4 py-2 rounded-2xl bg-[#E1E4F6] flex-row items-start">
@@ -159,33 +199,6 @@ export default function Composer({
           <Send size={20} color="#fff" />
         </Pressable>
       </View>
-
-      {/* Typeahead */}
-      {open && results.length ? (
-        <View className="absolute left-5 right-5 -top-44 rounded-2xl bg-white shadow px-2 py-2 border border-gray-200">
-          <FlatList
-            data={results}
-            keyExtractor={(m) => m.id}
-            keyboardShouldPersistTaps="always"
-            renderItem={({ item }) => (
-              <Pressable
-                onPress={() => insertMention(item)}
-                className="px-3 py-2 rounded-xl flex-row items-center"
-              >
-                {/* avatar (optional) */}
-                <View className="h-7 w-7 rounded-full bg-gray-200 mr-3 overflow-hidden">
-                  {/* if you have Image, swap this View for Image */}
-                </View>
-                <View className="flex-1">
-                  <Text className="text-[13px] text-gray-900 font-kumbhBold">{item.name}</Text>
-                  <Text className="text-[11px] text-gray-500">@{item.handle}</Text>
-                </View>
-                <Text className="text-[12px] text-[#4C5FAB] font-kumbhBold">Mention</Text>
-              </Pressable>
-            )}
-          />
-        </View>
-      ) : null}
 
       {trayOpen ? (
         <Text className="text-[11px] text-gray-400 mt-2 ml-1">
