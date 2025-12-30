@@ -14,6 +14,8 @@ import type {
   RemoveMemberResponse,
   UpdateMemberRoleBody,
   UpdateMemberRoleResponse,
+  DeleteChannelBody,
+  DeleteChannelResponse,
   CreateTaskBody,
   CreateTaskResponse,
   UpdateTaskBody,
@@ -157,6 +159,26 @@ export const updateChannelMemberRole = createAsyncThunk<
       "Member role updated"
     );
     return res.data.channel as Channel;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+// DELETE CHANNEL (assumed endpoint)
+export const deleteChannelById = createAsyncThunk<
+  string,
+  DeleteChannelBody,
+  { rejectValue: string }
+>("channels/deleteChannel", async (body, { rejectWithValue }) => {
+  try {
+    const res = await showPromise(
+      api.post<DeleteChannelResponse>("/channel/delete", body),
+      "Deleting channel…",
+      "Channel deleted"
+    );
+    return (res.data as any)?.channelId ?? body.channelId;
   } catch (err) {
     const msg = extractErrorMessage(err);
     showError(msg);

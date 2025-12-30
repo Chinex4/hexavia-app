@@ -62,6 +62,18 @@ export interface AddMemberResponse {
 export interface RemoveMemberBody {
   channelId: string;
   userId: string;
+  // Some backends require the member's channel type (e.g., "pm", "normal")
+  type?: string;
+}
+
+export interface DeleteChannelBody {
+  channelId: string;
+}
+
+export interface DeleteChannelResponse {
+  message?: string;
+  success?: boolean;
+  channelId?: string;
 }
 export interface RemoveMemberResponse {
   message: string;

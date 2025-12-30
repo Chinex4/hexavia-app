@@ -8,21 +8,28 @@ import {
   RefreshControl,
   ActivityIndicator,
   Pressable,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, User } from "lucide-react-native";
+import { ChevronLeft } from "lucide-react-native";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import {
+  fetchChannelById,
+  removeMemberFromChannel,
+} from "@/redux/channels/channels.thunks";
 import { selectChannelById } from "@/redux/channels/channels.selectors";
 import { selectUser } from "@/redux/user/user.slice";
+import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
 
 type MemberItem = {
   id: string;
   name: string;
   avatar?: string | null;
   role?: string | null;
+  channelType?: string | null;
 };
 
 function initialsFrom(name?: string | null) {
@@ -43,36 +50,63 @@ function Chip({ children }: { children: React.ReactNode }) {
 function RowMember({
   item,
   onPress,
+  onRemove,
+  canRemove,
+  isRemoving,
 }: {
   item: MemberItem;
   onPress?: () => void;
+  onRemove?: () => void;
+  canRemove?: boolean;
+  isRemoving?: boolean;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      className="flex-row items-center px-5 py-3 border-b border-gray-100 active:bg-gray-50"
-    >
-      {item.avatar ? (
-        <Image
-          source={{ uri: item.avatar }}
-          className="w-10 h-10 rounded-full"
-        />
-      ) : (
-        <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center">
-          <Text className="text-gray-700 font-semibold font-kumbh">
-            {initialsFrom(item.name)}
-          </Text>
-        </View>
-      )}
-      <View className="ml-3 flex-1">
-        <Text className="text-base font-medium text-gray-900 font-kumbh">
-          {item.name || "Member"}
-        </Text>
-        {!!item.role && (
-          <Text className="text-xs text-gray-500 font-kumbh">{item.role}</Text>
+    <View className="flex-row items-center px-5 py-3 border-b border-gray-100">
+      <Pressable
+        onPress={onPress}
+        className="flex-row items-center flex-1 active:bg-gray-50"
+        disabled={!onPress}
+      >
+        {item.avatar ? (
+          <Image
+            source={{ uri: item.avatar }}
+            className="w-10 h-10 rounded-full"
+          />
+        ) : (
+          <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center">
+            <Text className="text-gray-700 font-semibold font-kumbh">
+              {initialsFrom(item.name)}
+            </Text>
+          </View>
         )}
-      </View>
-    </Pressable>
+        <View className="ml-3 flex-1">
+          <Text className="text-base font-medium text-gray-900 font-kumbh">
+            {item.name || "Member"}
+          </Text>
+          {!!item.role && (
+            <Text className="text-xs text-gray-500 font-kumbh">
+              {item.role}
+            </Text>
+          )}
+        </View>
+      </Pressable>
+
+      {canRemove && (
+        <Pressable
+          onPress={onRemove}
+          disabled={isRemoving}
+          className="bg-red-50 px-3 py-2 rounded-full active:bg-red-100"
+        >
+          {isRemoving ? (
+            <ActivityIndicator size="small" color="#dc2626" />
+          ) : (
+            <Text className="text-xs font-semibold text-red-600 font-kumbh">
+              Remove
+            </Text>
+          )}
+        </Pressable>
+      )}
+    </View>
   );
 }
 
@@ -85,7 +119,7 @@ export default function ChannelInfoScreen() {
   const router = useRouter();
 
   const me = useAppSelector(selectUser);
-  //   console.log(me?.role);
+  const adminUsers = useAppSelector(selectAdminUsers);
   const path =
     me?.role === "client"
       ? "/(client)/(tabs)/chats/[channelId]"
@@ -93,7 +127,6 @@ export default function ChannelInfoScreen() {
         ? "/(staff)/(tabs)/chats/[channelId]"
         : "/(admin)/chats/[channelId]";
 
-  // ✅ Memoize selector factory
   const channelSel = useMemo(
     () => selectChannelById(channelId ?? ""),
     [channelId]
@@ -101,6 +134,7 @@ export default function ChannelInfoScreen() {
   const channel = useAppSelector(channelSel);
 
   const [refreshing, setRefreshing] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const onRefresh = useCallback(async () => {
     if (!channelId) return;
@@ -112,6 +146,64 @@ export default function ChannelInfoScreen() {
     }
   }, [dispatch, channelId]);
 
+  const meRole = (me?.role ?? "").toLowerCase();
+  const canManageMembers = meRole === "admin" || meRole === "super-admin";
+  const meId = me?._id ? String(me._id) : null;
+
+  // Fetch users when admins view so we can map member ids to user details.
+  React.useEffect(() => {
+    if (!canManageMembers) return;
+    if (adminUsers?.length) return;
+    dispatch(fetchAdminUsers());
+  }, [adminUsers?.length, canManageMembers, dispatch]);
+
+  const userMap = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const u of adminUsers ?? []) {
+      if (!u?._id) continue;
+      map.set(String(u._id), u);
+    }
+    return map;
+  }, [adminUsers]);
+
+  const tryRemoveMember = useCallback(
+    async (member: MemberItem) => {
+      if (!channelId) return;
+      const rawType = (member.channelType || "normal").toLowerCase();
+      const type = rawType === "member" ? "normal" : rawType;
+      setRemovingId(member.id);
+      try {
+        await dispatch(
+          removeMemberFromChannel({ channelId, userId: member.id, type })
+        ).unwrap();
+      } catch (err) {
+        console.warn("[channel/remove-member] failed", err);
+      } finally {
+        setRemovingId(null);
+      }
+    },
+    [dispatch, channelId]
+  );
+
+  const confirmRemove = useCallback(
+    (member: MemberItem) => {
+      if (!member?.id || !channelId) return;
+      Alert.alert(
+        "Remove member",
+        `Remove ${member.name || "this member"} from the channel?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Remove",
+            style: "destructive",
+            onPress: () => tryRemoveMember(member),
+          },
+        ]
+      );
+    },
+    [channelId, tryRemoveMember]
+  );
+
   const members: MemberItem[] = useMemo(() => {
     if (!channel) return [];
 
@@ -121,24 +213,46 @@ export default function ChannelInfoScreen() {
 
     // If API already provides members, normalize and return.
     if (rawMembers.length > 0) {
-      return rawMembers.map((m: any) => {
-        const user =
-          typeof m === "string" ? { _id: m } : m?.user || m?.member || m;
+      const mapped: MemberItem[] = rawMembers.map((m: any, idx: number) => {
+        const user = m;
+        const userId =
+          user?._id ??
+          user?.id ??
+          m?.userId ??
+          m?.memberId ??
+          `member-${idx}`;
+        const userInfo = userMap.get(String(userId));
+        const rawType = m?.type ?? m?.memberType ?? "normal";
         return {
-          id: String(
-            user?._id ?? user?.id ?? m?.userId ?? m?.memberId ?? Math.random()
-          ),
+          id: String(userId),
           name: String(
-            user?.name ??
+            userInfo?.fullname ??
+              userInfo?.username ??
+              userInfo?.email ??
+              user?.name ??
               user?.fullName ??
               user?.username ??
               user?.displayName ??
-              "Admin"
+              "Member"
           ),
-          avatar: user?.profilePicture ?? user?.avatar ?? null,
-          role: m?.role ?? user?.role ?? null,
+          avatar:
+            userInfo?.profilePicture ??
+            user?.profilePicture ??
+            user?.avatar ??
+            null,
+          role: userInfo?.role ?? m?.role ?? user?.role ?? null,
+          channelType: rawType ? String(rawType) : null,
         };
       });
+      const seen = new Set<string>();
+      const deduped: MemberItem[] = [];
+      for (const curr of mapped) {
+        const id = curr.id || `member-${deduped.length}`;
+        if (seen.has(id)) continue;
+        seen.add(id);
+        deduped.push({ ...curr, id });
+      }
+      return deduped;
     }
 
     // Fallback: derive members from createdBy + contributors in resources
@@ -146,7 +260,6 @@ export default function ChannelInfoScreen() {
 
     // 1) Owner / creator
     const cb = (channel as any).createdBy;
-    console.log(cb);
     if (cb) {
       const id = String(typeof cb === "string" ? cb : (cb?._id ?? ""));
       if (id) {
@@ -183,7 +296,7 @@ export default function ChannelInfoScreen() {
       }
     }
 
-    // Optional: include current user if they’re in context and absent
+    // Optional: include current user if they're in context and absent
     if (me?._id && !byId.has(String(me._id))) {
       byId.set(String(me._id), {
         id: String(me._id),
@@ -194,7 +307,9 @@ export default function ChannelInfoScreen() {
     }
 
     return Array.from(byId.values());
-  }, [channel, me?._id]);
+  }, [channel, me?._id, userMap]);
+
+  // console.log(members)
 
   const isLoading = !channel && !!channelId;
 
@@ -305,7 +420,7 @@ export default function ChannelInfoScreen() {
         className="flex-1 bg-white items-center justify-center"
       >
         <ActivityIndicator />
-        <Text className="text-gray-600 mt-3 font-kumbh">Loading channel…</Text>
+        <Text className="text-gray-600 mt-3 font-kumbh">Loading channel...</Text>
       </View>
     );
   }
@@ -318,14 +433,25 @@ export default function ChannelInfoScreen() {
         data={members}
         keyExtractor={(m) => m.id}
         ListHeaderComponent={header}
-        renderItem={({ item }) => (
-          <RowMember
-            item={item}
-            onPress={() => {
-              // e.g., router.push({ pathname: "/(staff)/users/[userId]", params: { userId: item.id }});
-            }}
-          />
-        )}
+        renderItem={({ item }) => {
+          const memberRole = (item.role ?? "").toLowerCase();
+          const isPrivileged = ["admin", "super-admin"].includes(memberRole);
+          const isSelf = meId === item.id;
+          const canRemoveMember =
+            canManageMembers && !isSelf && !isPrivileged;
+
+          return (
+            <RowMember
+              item={item}
+              onPress={() => {
+                // e.g., router.push({ pathname: "/(staff)/users/[userId]", params: { userId: item.id }});
+              }}
+              canRemove={canRemoveMember}
+              isRemoving={removingId === item.id}
+              onRemove={() => confirmRemove(item)}
+            />
+          );
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }

@@ -12,6 +12,7 @@ import {
   createChannelTask,
   updateChannelTask,
   uploadChannelResources,
+  deleteChannelById,
 } from "./channels.thunks";
 
 const normalizeCode = (c: string) => c.trim().toUpperCase().replace(/\s+/g, "");
@@ -55,6 +56,16 @@ function upsertOne(state: ChannelsState, channel: Channel) {
   state.byId[channel._id] = { ...state.byId[channel._id], ...channel };
   if (!state.allIds.includes(channel._id)) state.allIds.push(channel._id);
   indexChannel(state, channel);
+}
+
+function removeOne(state: ChannelsState, channelId: ChannelId) {
+  delete state.byId[channelId];
+  state.allIds = state.allIds.filter((id) => id !== channelId);
+  // also remove from code index
+  for (const [code, id] of Object.entries(state.codeIndex)) {
+    if (id === channelId) delete state.codeIndex[code];
+  }
+  if (state.currentChannelId === channelId) state.currentChannelId = null;
 }
 
 const channelsSlice = createSlice({
@@ -212,6 +223,23 @@ const channelsSlice = createSlice({
         upsertOne(state, action.payload);
       })
       .addCase(uploadChannelResources.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    // Delete channel
+    builder
+      .addCase(deleteChannelById.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(deleteChannelById.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const id = action.payload;
+        if (id) removeOne(state, id);
+      })
+      .addCase(deleteChannelById.rejected, (state, action) => {
         state.status = "failed";
         state.error =
           (action.payload as string) ?? action.error.message ?? null;

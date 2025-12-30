@@ -47,6 +47,7 @@ export interface AddMemberBody {
 export interface RemoveMemberBody {
   channelId: string;
   userId: string;
+  type?: ChannelMemberType | "normal";
 }
 
 export interface UpdateMemberRoleBody {
