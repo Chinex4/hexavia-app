@@ -1,3 +1,10 @@
+export type ChatTaggedUser = {
+  id: string;
+  handle?: string;
+  name?: string;
+  avatar?: string;
+};
+
 export type ChatMessage = {
   id: string;
   temp?: boolean;
@@ -12,6 +19,7 @@ export type ChatMessage = {
   mimeType?: string;
   durationMs?: number;
   replyTo?: { id: string; preview: string; senderName?: string };
+  taggedUsers?: ChatTaggedUser[];
 };
 
 export type ThreadId = string;

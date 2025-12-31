@@ -13,12 +13,14 @@ export type ChannelResource = {
   resourceUpload: string;
   mime?: string | null;
   category?: ChannelResourceCategory;
+  publicId?: string | null;
 };
 export type ApiResource = {
   name: string;
   description: string;
   category: ChannelResourceCategory;
   resourceUpload: string;
+  publicId: string;
 };
 
 export type UploadResourcesBody = {

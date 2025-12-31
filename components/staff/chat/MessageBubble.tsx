@@ -1,31 +1,31 @@
-import React, { useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  Image,
-  Modal,
-  TouchableWithoutFeedback,
-  Dimensions,
-  Linking,
-} from "react-native";
-import type { Message } from "@/types/chat";
-import { formatTime } from "@/utils/format";
-import {
-  Check,
-  CheckCheck,
-  Loader2,
-  PlayCircle,
-  PauseCircle,
-  FileText,
-  X,
-} from "lucide-react-native";
-import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import * as WebBrowser from "expo-web-browser";
-import * as Sharing from "expo-sharing";
-import { useAppSelector } from "@/store/hooks";
 import { selectUserById } from "@/redux/user/user.selectors";
 import { selectUser } from "@/redux/user/user.slice";
+import { useAppSelector } from "@/store/hooks";
+import type { Message } from "@/types/chat";
+import { formatTime } from "@/utils/format";
+import { useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
+import * as Sharing from "expo-sharing";
+import * as WebBrowser from "expo-web-browser";
+import {
+    Check,
+    CheckCheck,
+    FileText,
+    Loader2,
+    PauseCircle,
+    PlayCircle,
+    X,
+} from "lucide-react-native";
+import React, { useMemo, useState } from "react";
+import {
+    Dimensions,
+    Image,
+    Linking,
+    Modal,
+    Pressable,
+    Text,
+    TouchableWithoutFeedback,
+    View,
+} from "react-native";
 
 /** -------------------------
  * Helpers
@@ -308,6 +308,15 @@ export default function MessageBubble({
   const displayName = isMe ? "You" : msg.senderName || other?.name || "Member";
   const avatar = isMe ? me?.profilePicture : msg.avatar || other?.avatarUrl;
 
+  const normalizedMentionMap = useMemo(() => {
+    if (!mentionMap) return undefined;
+    const m: Record<string, (typeof mentionMap)[string]> = {};
+    Object.values(mentionMap).forEach(
+      (v) => (m[v.handle.toLowerCase()] = v)
+    );
+    return m;
+  }, [mentionMap]);
+
   const BubbleCore = (
     <>
       <ReplyPreview msg={msg} />
@@ -353,14 +362,7 @@ export default function MessageBubble({
         renderTextWithMentionsAndLinks(
           msg.text,
           // Normalize keys to lowercase for O(1) lookup
-          useMemo(() => {
-            if (!mentionMap) return undefined;
-            const m: Record<string, (typeof mentionMap)[string]> = {};
-            Object.values(mentionMap).forEach(
-              (v) => (m[v.handle.toLowerCase()] = v)
-            );
-            return m;
-          }, [mentionMap]),
+          normalizedMentionMap,
           // Optional: handle tap on @handle (navigate to profile, open sheet, etc.)
           (handle) => {
             const meta = mentionMap?.[handle];

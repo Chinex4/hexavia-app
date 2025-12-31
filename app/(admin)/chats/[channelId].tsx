@@ -4,10 +4,20 @@ import BottomStack from "@/components/staff/chat/BottomStack";
 import ChatHeader from "@/components/staff/chat/ChatHeader";
 import Composer from "@/components/staff/chat/Composer";
 import MessageBubble from "@/components/staff/chat/MessageBubble";
+import { useKeyboardSpacer } from "@/hooks/useKeyboardSpacer";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
+import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
 import { selectChannelById } from "@/redux/channels/channels.slice";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import { fetchChannelById, uploadChannelResources } from "@/redux/channels/channels.thunks";
+import { selectMessagesForCurrent } from "@/redux/chat/chat.selectors";
+import { ensureThread, setCurrentThread } from "@/redux/chat/chat.slice";
+import { fetchMessages } from "@/redux/chat/chat.thunks";
+import { uploadSingle } from "@/redux/upload/upload.thunks";
+import { selectUser } from "@/redux/user/user.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type { AttachmentKind, Message, ReplyMeta } from "@/types/chat";
+import type { ChatTaggedUser } from "@/types/chat-model";
+import { buildMentionables, type Mentionable } from "@/utils/handles";
 import {
   AudioModule,
   RecordingPresets,
@@ -16,8 +26,8 @@ import {
   useAudioRecorderState,
 } from "expo-audio";
 import * as Clipboard from "expo-clipboard";
-import * as FileSystem from "expo-file-system/legacy";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -39,16 +49,6 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from "react-native-safe-area-context";
-import { useKeyboardSpacer } from "@/hooks/useKeyboardSpacer";
-import { uploadChannelResources } from "@/redux/channels/channels.thunks";
-import { selectMessagesForCurrent } from "@/redux/chat/chat.selectors";
-import { ensureThread, setCurrentThread } from "@/redux/chat/chat.slice";
-import { uploadSingle } from "@/redux/upload/upload.thunks";
-import { selectUser } from "@/redux/user/user.slice";
-import { fetchMessages } from "@/redux/chat/chat.thunks";
-import { buildMentionables, type Mentionable } from "@/utils/handles";
-import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
-import { selectAdminUsers } from "@/redux/admin/admin.slice";
 
 const TYPE: "community" | "direct" = "community";
 
@@ -183,7 +183,7 @@ export default function ChatScreen() {
         uploadSingle({ uri: dest || srcUri, name, type })
       );
       if (uploadSingle.fulfilled.match(uploadAction)) {
-        const { url } = uploadAction.payload;
+        const { url, publicId } = uploadAction.payload;
 
         const secs = Math.max(
           1,
@@ -198,6 +198,7 @@ export default function ChatScreen() {
                   name,
                   description: `Voice note • ${secs}s`,
                   resourceUpload: url,
+                  publicId: publicId ?? name,
                 },
               ],
             })
@@ -215,18 +216,6 @@ export default function ChatScreen() {
   const handleMicPress = async () => {
     if (recorderState.isRecording) await stopRecording(false);
     else await startRecording();
-  };
-
-  const sendChannel = (text: string) => {
-    if (!text.trim() || !channelId) return;
-    dispatch({ type: "chat/sendChannel", payload: { meId, channelId, text } });
-  };
-
-  const sendWithReply = (text: string, meta: ReplyMeta | null) => {
-    const textToSend = meta
-      ? `${meta.senderName}: ${meta.preview}\n${text}`
-      : text;
-    sendChannel(textToSend);
   };
 
   const openSheetFor = (m: Message) => {
@@ -254,7 +243,7 @@ export default function ChatScreen() {
     },
   ];
 
-  const ALWAYS_SNAP_TO_BOTTOM = true;
+  const ALWAYS_SNAP_TO_BOTTOM = false;
   const atBottomRef = useRef(true);
   const isInteractingRef = useRef(false);
   const lastRealMsgIdRef = useRef<string | null>(null);
@@ -315,7 +304,7 @@ export default function ChatScreen() {
             uploadSingle({ uri: a.uri, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
-            const { url } = uploadAction.payload;
+            const { url, publicId } = uploadAction.payload;
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -325,6 +314,7 @@ export default function ChatScreen() {
                       name,
                       description: "Image shared in chat",
                       resourceUpload: url,
+                      publicId: publicId ?? name,
                     },
                   ],
                 })
@@ -363,7 +353,7 @@ export default function ChatScreen() {
             uploadSingle({ uri: a.uri, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
-            const { url } = uploadAction.payload;
+            const { url, publicId } = uploadAction.payload;
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -373,6 +363,7 @@ export default function ChatScreen() {
                       name,
                       description: "Photo captured in chat",
                       resourceUpload: url,
+                      publicId: publicId ?? name,
                     },
                   ],
                 })
@@ -406,7 +397,7 @@ export default function ChatScreen() {
             uploadSingle({ uri: a.uri, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
-            const { url } = uploadAction.payload;
+            const { url, publicId } = uploadAction.payload;
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -416,6 +407,7 @@ export default function ChatScreen() {
                       name,
                       description: "Document shared in chat",
                       resourceUpload: url,
+                      publicId: publicId ?? name,
                     },
                   ],
                 })
@@ -452,7 +444,7 @@ export default function ChatScreen() {
             uploadSingle({ uri: dest, name, type })
           );
           if (uploadSingle.fulfilled.match(uploadAction)) {
-            const { url } = uploadAction.payload;
+            const { url, publicId } = uploadAction.payload;
             if (channelId) {
               await dispatch(
                 uploadChannelResources({
@@ -462,6 +454,7 @@ export default function ChatScreen() {
                       name,
                       description: "Audio file shared in chat",
                       resourceUpload: url,
+                      publicId: publicId ?? name,
                     },
                   ],
                 })
@@ -584,19 +577,9 @@ export default function ChatScreen() {
   const lastSendRef = useRef(0);
   const MIN_INTERVAL_MS = 350;
 
-  const handleSend = (text: string) => {
-    const now = Date.now();
-    if (now - lastSendRef.current < MIN_INTERVAL_MS) return;
-    lastSendRef.current = now;
-    const meta = replyTo;
-    sendWithReply(text, meta);
-    setReplyTo(null);
-    setTrayOpen(false);
-    scrollToEnd();
-  };
-
   // ...inside component:
   const members = (channel as any)?.members ?? []; // [{_id, name/displayName, avatar}, ...]
+  // console.log(members, channel);
 
   const mentionables = useMemo<Mentionable[]>(() => {
     const enriched = (members as any[]).map((m: any, idx: number) => {
@@ -627,11 +610,74 @@ export default function ChatScreen() {
     return buildMentionables(enriched, meId as any);
   }, [members, meId, userMap]);
 
-  // Build a quick lookup map for bubble highlighting
+  // Build a quick lookup map for bubble highlighting and mentions
   const mentionMap = useMemo(
-    () => Object.fromEntries(mentionables.map((m) => [m.handle, m])),
+    () =>
+      Object.fromEntries(
+        mentionables
+          .map((m) => [m.handle?.toLowerCase() ?? "", m])
+          .filter(([key]) => Boolean(key))
+      ),
     [mentionables]
   );
+
+  const buildTaggedUsers = useCallback(
+    (content: string) => {
+      if (!content) return [];
+      const seen = new Set<string>();
+      const matches = content.matchAll(/@([a-z0-9._-]+)/gi);
+      const tagged: ChatTaggedUser[] = [];
+      for (const match of matches) {
+        const handle = match[1];
+        if (!handle) continue;
+        const normalized = handle.toLowerCase();
+        if (seen.has(normalized)) continue;
+        const mention = mentionMap[normalized];
+        if (!mention) continue;
+        seen.add(normalized);
+        tagged.push({
+          id: mention.id,
+          name: mention.name,
+          handle: mention.handle,
+          avatar: mention.avatar,
+        });
+      }
+      return tagged;
+    },
+    [mentionMap]
+  );
+
+  const sendChannel = useCallback(
+    (text: string, taggedUsers: ChatTaggedUser[] = []) => {
+      if (!text.trim() || !channelId || !meId) return;
+      dispatch({
+        type: "chat/sendChannel",
+        payload: { meId, channelId, text, taggedUsers },
+      });
+    },
+    [channelId, dispatch, meId]
+  );
+
+  const sendWithReply = useCallback(
+    (text: string, meta: ReplyMeta | null) => {
+      const textToSend = meta
+        ? `${meta.senderName}: ${meta.preview}\n${text}`
+        : text;
+      const taggedUsers = buildTaggedUsers(textToSend);
+      sendChannel(textToSend, taggedUsers);
+    },
+    [buildTaggedUsers, sendChannel]
+  );
+
+  const handleSend = (text: string) => {
+    const now = Date.now();
+    if (now - lastSendRef.current < MIN_INTERVAL_MS) return;
+    lastSendRef.current = now;
+    const meta = replyTo;
+    sendWithReply(text, meta);
+    setReplyTo(null);
+    setTrayOpen(false);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-white">

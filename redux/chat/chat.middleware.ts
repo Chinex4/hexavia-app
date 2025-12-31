@@ -1,24 +1,45 @@
-import type { Middleware, AnyAction } from "@reduxjs/toolkit";
+import { closeSocket, connectSocket, getSocket } from "@/realtime/socket";
+import type { RootState } from "@/store";
+import type { ChatMessage, ChatTaggedUser } from "@/types/chat-model";
+import type { AnyAction, Middleware } from "@reduxjs/toolkit";
+import * as Notifications from "expo-notifications";
 import {
-  wsConnecting,
-  wsConnected,
-  wsDisconnected,
-  joinedChannel,
-  ensureThread,
   addMessageToThread,
-  replaceTempId,
-  setMessageStatus,
+  ensureThread,
+  joinedChannel,
   markReadBulk,
+  replaceTempId,
   setError,
   setMe,
+  setMessageStatus,
+  wsConnected,
+  wsConnecting,
+  wsDisconnected,
 } from "./chat.slice";
-import { connectSocket, closeSocket, getSocket } from "@/realtime/socket";
-import type { RootState } from "@/store";
-import type { ChatMessage } from "@/types/chat-model";
-import * as Notifications from "expo-notifications";
 
 let lastEmitAt = 0;
 const EMIT_GAP = 250;
+const normalizeTaggedUsers = (list?: any[]): ChatTaggedUser[] => {
+  if (!Array.isArray(list)) return [];
+  const seen = new Set<string>();
+  return list
+    .map((item) => {
+      if (!item) return null;
+      const rawId =
+        item._id ?? item.id ?? item.userId ?? item.memberId ?? (typeof item === "string" ? item : null);
+      if (!rawId) return null;
+      const id = String(rawId);
+      if (seen.has(id)) return null;
+      seen.add(id);
+      return {
+        id,
+        handle: typeof item.handle === "string" ? item.handle : undefined,
+        name: item.name ?? item.displayName ?? item.username,
+        avatar: item.avatar ?? item.profilePicture,
+      } as const;
+    })
+    .filter((u) => u !== null) as ChatTaggedUser[];
+};
 
 export const chatMiddleware: Middleware<{}, RootState> =
   (store) => (next) => (action) => {
@@ -117,6 +138,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
                 data.attachment?.mimeType ??
                 (looksImage ? "image/jpeg" : undefined),
               durationMs: data.attachment?.durationMs,
+              taggedUsers: normalizeTaggedUsers(data.taggedUsers),
             };
 
             store.dispatch(ensureThread({ id: threadId, kind: "community" }));
@@ -256,22 +278,25 @@ export const chatMiddleware: Middleware<{}, RootState> =
       }
 
       case "chat/sendChannel": {
-        const { meId, channelId, text, attachment } = a.payload as {
-          meId: string;
-          channelId: string;
-          text: string;
-          attachment?: {
-            mediaUri: string;
-            mimeType: string;
-            durationMs?: number;
+        const { meId, channelId, text, attachment, taggedUsers } =
+          a.payload as {
+            meId: string;
+            channelId: string;
+            text: string;
+            attachment?: {
+              mediaUri: string;
+              mimeType: string;
+              durationMs?: number;
+            };
+            taggedUsers?: ChatTaggedUser[];
           };
-        };
         const socket = getSocket();
         const tempId = `temp_${Date.now().toString(36)}_${Math.random()
           .toString(36)
           .slice(2, 8)}`;
 
         store.dispatch(ensureThread({ id: channelId, kind: "community" }));
+        const normalizedTaggedUsers = normalizeTaggedUsers(taggedUsers);
         store.dispatch(
           addMessageToThread({
             threadId: channelId,
@@ -286,6 +311,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
               mediaUri: attachment?.mediaUri,
               mimeType: attachment?.mimeType,
               durationMs: attachment?.durationMs,
+              taggedUsers: normalizedTaggedUsers,
             },
           })
         );
@@ -301,7 +327,13 @@ export const chatMiddleware: Middleware<{}, RootState> =
           console.log("[send] ch", { meId, channelId, text });
           socket.emit(
             "sendChannelMessage",
-            { senderId: meId, channelId, message: text, attachment },
+            {
+              senderId: meId,
+              channelId,
+              message: text,
+              attachment,
+              taggedUsers: normalizedTaggedUsers,
+            },
             (ack?: { _id?: string; read?: boolean }) => {
               if (ack?._id) {
                 store.dispatch(replaceTempId({ tempId, realId: ack._id }));

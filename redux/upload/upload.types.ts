@@ -10,6 +10,7 @@ export type UploadResult = {
   url: string;
   filename?: string | null;
   message?: string | null;
+  publicId?: string | null;
 };
 
 export type UploadState = {
