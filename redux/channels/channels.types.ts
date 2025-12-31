@@ -119,6 +119,7 @@ export interface UploadResourcesBody {
     name: string;
     description?: string | null;
     resourceUpload: string;
+    publicId: string;
   }>;
 }
 export interface UploadResourcesResponse {

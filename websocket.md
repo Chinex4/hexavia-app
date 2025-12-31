@@ -7,7 +7,7 @@ This document describes the WebSocket events for real-time messaging in the appl
 
 ### Endpoint
 ```javascript
-const socket = io('https://hexavia.onrender.com', {
+const socket = io('https://hexavia.cloud', {
   transports: ['websocket'],
   autoConnect: true
 });

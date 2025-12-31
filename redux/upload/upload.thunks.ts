@@ -18,6 +18,18 @@ const mimeFromExt: Record<string, string> = {
   heif: "image/heif",
 };
 
+const extractPublicId = (body: any) => {
+  return (
+    body?.data?.public_id ??
+    body?.data?.publicId ??
+    body?.public_id ??
+    body?.publicId ??
+    body?.result?.public_id ??
+    body?.result?.publicId ??
+    null
+  );
+};
+
 export const uploadSingle = createAsyncThunk<
   UploadResult,
   UploadInput,
@@ -56,10 +68,13 @@ export const uploadSingle = createAsyncThunk<
 
     if (!url) throw new Error("No URL returned from upload");
 
+    const publicId = extractPublicId(body) || name;
+
     return {
       url,
       filename: body?.filename ?? name,
       message: body?.message ?? null,
+      publicId,
     };
   } catch (err: any) {
     const msg =

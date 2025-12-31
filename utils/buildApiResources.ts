@@ -1,4 +1,5 @@
 import { extOf } from "@/utils/getMime";
+import { slugifyFilename } from "@/utils/slugAndCloudinary";
 
 type ApiResource = {
   name: string;
@@ -7,6 +8,7 @@ type ApiResource = {
   resourceUpload: string;
   mime?: string;
   filename?: string;
+  publicId: string;
 };
 
 export function makeDescriptionFromName(name?: string | null) {
@@ -21,6 +23,7 @@ export function toApiResources(
     name: string;
     mime?: string;
     category: ApiResource["category"];
+    publicId?: string;
   }>
 ): ApiResource[] {
   return items.map((r) => ({
@@ -28,6 +31,7 @@ export function toApiResources(
     description: makeDescriptionFromName(r.name),
     category: r.category,
     resourceUpload: r.url,
+    publicId: r.publicId || slugifyFilename(r.name),
     // mime: r.mime,    
     // filename: r.name,
   }));

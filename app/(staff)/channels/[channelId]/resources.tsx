@@ -114,7 +114,8 @@ export default function ChannelResourcesScreen() {
       await dispatch(uploadChannelResources(payload as any)).unwrap();
       showSuccess("Resources added to Project");
       await dispatch(fetchChannelById(channelId!)).unwrap();
-    } catch {
+    } catch (error) {
+      console.log("Failed to save resources to DB", error);
       // errors are already toasted in thunk usually; soft-fail here
     }
   };
@@ -129,7 +130,13 @@ export default function ChannelResourcesScreen() {
     if ((res as any).canceled) return;
 
     const assets = (res as any).assets || [];
-    const staged: Array<{ url: string; name: string; mime?: string; category: "image" }> = [];
+    const staged: Array<{
+      url: string;
+      name: string;
+      mime?: string;
+      category: "image";
+      publicId?: string;
+    }> = [];
 
     for (const a of assets) {
       const origName = (a as any).fileName || "image.jpg";
@@ -140,8 +147,16 @@ export default function ChannelResourcesScreen() {
           uploadSingle({ uri: (a as any).uri, name: safeName, type: mime })
         ).unwrap();
         const cleanUrl = ensureHttpUrl(normalizeCloudinaryUrl(up.url));
-        staged.push({ url: cleanUrl, name: safeName, mime, category: "image" });
-      } catch {}
+        staged.push({
+          url: cleanUrl,
+          name: safeName,
+          mime,
+          category: "image",
+          publicId: up.publicId ?? safeName,
+        });
+      } catch (error) {
+        console.log("Failed to upload image", error);
+      }
     }
     if (staged.length) {
       await doSaveToDb({ channelId: channelId!, resources: toApiResources(staged) });
@@ -156,7 +171,13 @@ export default function ChannelResourcesScreen() {
     if ((res as any).canceled) return;
 
     const files = Array.isArray((res as any).assets) ? (res as any).assets : [res];
-    const staged: Array<{ url: string; name: string; mime?: string; category: "document" | "audio" | "other" }> = [];
+    const staged: Array<{
+      url: string;
+      name: string;
+      mime?: string;
+      category: "document" | "audio" | "other";
+      publicId?: string;
+    }> = [];
 
     for (const f of files as any[]) {
       const origName = f.name || "file";
@@ -173,7 +194,13 @@ export default function ChannelResourcesScreen() {
             : mime.startsWith("audio/")
             ? "audio"
             : "other";
-        staged.push({ url: cleanUrl, name: safeName, mime, category });
+        staged.push({
+          url: cleanUrl,
+          name: safeName,
+          mime,
+          category,
+          publicId: up.publicId ?? safeName,
+        });
       } catch {}
     }
 
@@ -215,7 +242,15 @@ export default function ChannelResourcesScreen() {
           ? "audio"
           : "other"; // treat general web links as "other"
 
-      const staged = [{ url: normalized, name: safeName, mime, category}];
+      const staged = [
+        {
+          url: normalized,
+          name: safeName,
+          mime,
+          category,
+          publicId: safeName,
+        },
+      ];
       await doSaveToDb({ channelId: channelId!, resources: toApiResources(staged as any) });
 
       // reset form & close
@@ -292,13 +327,13 @@ export default function ChannelResourcesScreen() {
             {channel?.name ? `${channel.name} Resources` : "Project Resources"}
           </Text>
           {/* New: quick add link */}
-          <Pressable
+          {/* <Pressable
             onPress={() => setShowLinkModal(true)}
             className="h-9 w-9 rounded-xl items-center justify-center mr-1.5"
             accessibilityLabel="Add link"
           >
             <Link2 size={20} color="#111827" />
-          </Pressable>
+          </Pressable> */}
           <Pressable
             onPress={() => setChooser(true)}
             className="h-9 w-9 rounded-xl items-center justify-center"
