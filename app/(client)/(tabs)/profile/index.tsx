@@ -56,6 +56,8 @@ export default function Profile() {
   const dispatch = useAppDispatch();
   const router = useRouter();
   const user = useSelector(selectUser);
+  // console.log(user)
+
   const phase = useSelector(selectPhase);
 
   const [refreshing, setRefreshing] = useState(false);

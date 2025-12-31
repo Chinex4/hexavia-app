@@ -22,6 +22,7 @@ import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { selectAllChannels } from "@/redux/channels/channels.slice";
 
 const PALETTE = [
   "#14D699",
@@ -56,6 +57,7 @@ export default function StaffHome() {
     dispatch(fetchProfile());
   }, [dispatch]);
   const userId = user?._id ?? null;
+    const allChannels = useAppSelector(selectAllChannels) ?? [];
   
   const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
   // const channels = useAppSelector(selectAllChannels);
@@ -81,7 +83,7 @@ export default function StaffHome() {
     () =>
       [
         { kind: "create", id: "create" as const },
-        ...channels.map((c: any) => ({
+        ...allChannels.map((c: any) => ({
           kind: "channel" as const,
           id: String(c._id),
           title: c.name,

@@ -21,20 +21,18 @@ import {
 } from "@/redux/channels/channels.thunks";
 import { selectChannelById } from "@/redux/channels/channels.selectors";
 import { selectUser } from "@/redux/user/user.slice";
-import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
-import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { StatusBar } from "expo-status-bar";
 
 type MemberItem = {
   id: string;
-  name: string;
+  username: string;
   avatar?: string | null;
   role?: string | null;
   channelType?: string | null;
 };
 
-function initialsFrom(name?: string | null) {
-  const s = String(name ?? "").trim();
+function initialsFrom(value?: string | null) {
+  const s = String(value ?? "").trim();
   if (!s) return "??";
   const [a, b] = s.split(/\s+/);
   return ((a?.[0] ?? "") + (b?.[0] ?? "")).toUpperCase() || "?";
@@ -76,13 +74,13 @@ function RowMember({
         ) : (
           <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center">
             <Text className="text-gray-700 font-semibold font-kumbh">
-              {initialsFrom(item.name)}
+              {initialsFrom(item.username)}
             </Text>
           </View>
         )}
         <View className="ml-3 flex-1">
           <Text className="text-base font-medium text-gray-900 font-kumbh">
-            {item.name || "Member"}
+            {item.username || "Member"}
           </Text>
           {!!item.role && (
             <Text className="text-xs text-gray-500 font-kumbh">
@@ -120,7 +118,6 @@ export default function ChannelInfoScreen() {
   const router = useRouter();
 
   const me = useAppSelector(selectUser);
-  const adminUsers = useAppSelector(selectAdminUsers);
   const path =
     me?.role === "client"
       ? "/(client)/(tabs)/chats/[channelId]"
@@ -133,7 +130,6 @@ export default function ChannelInfoScreen() {
     [channelId]
   );
   const channel = useAppSelector(channelSel);
-
   const [refreshing, setRefreshing] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
 
@@ -150,23 +146,6 @@ export default function ChannelInfoScreen() {
   const meRole = (me?.role ?? "").toLowerCase();
   const canManageMembers = meRole === "admin" || meRole === "super-admin";
   const meId = me?._id ? String(me._id) : null;
-
-  // Fetch users when admins view so we can map member ids to user details.
-  React.useEffect(() => {
-    if (!canManageMembers) return;
-    if (adminUsers?.length) return;
-    dispatch(fetchAdminUsers());
-    dispatch(fetchAdminUsers({ role: "client" } as any));
-  }, [adminUsers?.length, canManageMembers, dispatch]);
-
-  const userMap = useMemo(() => {
-    const map = new Map<string, any>();
-    for (const u of adminUsers ?? []) {
-      if (!u?._id) continue;
-      map.set(String(u._id), u);
-    }
-    return map;
-  }, [adminUsers]);
 
   const tryRemoveMember = useCallback(
     async (member: MemberItem) => {
@@ -192,7 +171,7 @@ export default function ChannelInfoScreen() {
       if (!member?.id || !channelId) return;
       Alert.alert(
         "Remove member",
-        `Remove ${member.name || "this member"} from the channel?`,
+        `Remove ${member.username || "this member"} from the channel?`,
         [
           { text: "Cancel", style: "cancel" },
           {
@@ -213,36 +192,30 @@ export default function ChannelInfoScreen() {
       ? (channel as any).members
       : [];
 
-    // If API already provides members, normalize and return.
     if (rawMembers.length > 0) {
       const mapped: MemberItem[] = rawMembers.map((m: any, idx: number) => {
-        const user = m;
+        const source = m?._id ?? m ?? {};
         const userId =
-          user?._id ??
-          user?.id ??
+          source?._id ??
+          source?.id ??
           m?.userId ??
           m?.memberId ??
           `member-${idx}`;
-        const userInfo = userMap.get(String(userId));
         const rawType = m?.type ?? m?.memberType ?? "normal";
+        const username =
+          source?.username ??
+          source?.name ??
+          source?.email ??
+          source?.displayName ??
+          `member-${idx}`;
         return {
           id: String(userId),
-          name: String(
-            userInfo?.fullname ??
-              userInfo?.username ??
-              userInfo?.email ??
-              user?.name ??
-              user?.fullName ??
-              user?.username ??
-              user?.displayName ??
-              "Member"
-          ),
+          username,
           avatar:
-            userInfo?.profilePicture ??
-            user?.profilePicture ??
-            user?.avatar ??
+            source?.profilePicture ??
+            source?.avatar ??
             null,
-          role: userInfo?.role ?? m?.role ?? user?.role ?? null,
+          role: source?.role ?? m?.role ?? "member",
           channelType: rawType ? String(rawType) : null,
         };
       });
@@ -257,17 +230,15 @@ export default function ChannelInfoScreen() {
       return deduped;
     }
 
-    // Fallback: derive members from createdBy + contributors in resources
     const byId = new Map<string, MemberItem>();
 
-    // 1) Owner / creator
     const cb = (channel as any).createdBy;
     if (cb) {
-      const id = String(typeof cb === "string" ? cb : (cb?._id ?? ""));
+      const id = String(typeof cb === "string" ? cb : cb?._id ?? "");
       if (id) {
         byId.set(id, {
           id,
-          name:
+          username:
             (typeof cb === "string"
               ? "Owner"
               : cb?.username || cb?.name || cb?.email || "Owner") + " (Owner)",
@@ -277,7 +248,6 @@ export default function ChannelInfoScreen() {
       }
     }
 
-    // 2) Contributors (anyone who uploaded a resource)
     const resArr: any[] = Array.isArray((channel as any)?.resources)
       ? (channel as any).resources
       : [];
@@ -287,8 +257,7 @@ export default function ChannelInfoScreen() {
       if (!byId.has(uid)) {
         byId.set(uid, {
           id: uid,
-          name:
-            // If the uploader is the owner, reuse owner name; else generic
+          username:
             uid === (typeof cb === "string" ? cb : cb?._id)
               ? (cb?.username || cb?.name || cb?.email || "Owner") + " (Owner)"
               : "Admin",
@@ -298,20 +267,17 @@ export default function ChannelInfoScreen() {
       }
     }
 
-    // Optional: include current user if they're in context and absent
     if (me?._id && !byId.has(String(me._id))) {
       byId.set(String(me._id), {
         id: String(me._id),
-        name: me?.fullname || me?.username || me?.email || "You",
+        username: me?.fullname || me?.username || me?.email || "You",
         avatar: (me as any)?.profilePicture ?? null,
         role: "you",
       });
     }
 
     return Array.from(byId.values());
-  }, [channel, me?._id, userMap]);
-
-  console.log(members)
+  }, [channel, me?._id]);
 
   const isLoading = !channel && !!channelId;
 

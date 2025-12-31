@@ -17,4 +17,5 @@ export type User = {
   phoneNumber?: string | null;
   profilePicture?: string | null;
   channelCode?: string | null;
+  expoPushToken?: string | null;
 };

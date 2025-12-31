@@ -107,7 +107,7 @@ export default function AllChannelsScreen() {
 
   // ------- existing data list (for MY channels), still searchable by name
   const data = useMemo(() => {
-    const keyed = myChannels
+    const keyed = allChannels
       .filter(Boolean)
       .map((c: any) => ({ ...c, __key: makeKey(c) }))
       .filter((c: any) => c.__key.length > 0);

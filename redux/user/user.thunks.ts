@@ -3,6 +3,8 @@ import { api } from "@/api/axios";
 import { showPromise, showError, showSuccess } from "@/components/ui/toast";
 import { saveUser } from "@/storage/auth";
 import type { ApiEnvelope, User } from "@/api/types";
+import { getExpoPushToken } from "@/utils/pushToken";
+import type { RootState } from "@/store";
 
 export const fetchProfile = createAsyncThunk<
   User,
@@ -24,17 +26,37 @@ export const fetchProfile = createAsyncThunk<
   }
 });
 
+export type UpdateProfileArgs = {
+  username?: string;
+  fullname?: string;
+  profilePicture?: string;
+  expoPushToken?: string | null;
+};
+
 export const updateProfile = createAsyncThunk<
   User,
-  { username?: string; fullname?: string; profilePicture?: string },
-  { rejectValue: string }
->("user/updateProfile", async (body, { rejectWithValue }) => {
+  UpdateProfileArgs,
+  { state: RootState; rejectValue: string }
+>("user/updateProfile", async (body, { rejectWithValue, getState }) => {
   try {
+    const currentUser = getState().user.user;
+    const hasStoredPush = Boolean(currentUser?.expoPushToken);
+    let pushToken: string | null | undefined = body.expoPushToken;
+
+    if (!pushToken && !hasStoredPush) {
+      try {
+        pushToken = await getExpoPushToken();
+      } catch (e) {
+        pushToken = null;
+      }
+    }
+
     const payload: Record<string, any> = {};
     if (body.username !== undefined) payload.username = body.username;
     if (body.fullname !== undefined) payload.fullname = body.fullname;
     if (body.profilePicture !== undefined)
       payload.profilePicture = body.profilePicture;
+    if (pushToken) payload.expoPushToken = pushToken;
 
     const res = await showPromise(
       api.put<ApiEnvelope<User>>("/users/profile", payload),
