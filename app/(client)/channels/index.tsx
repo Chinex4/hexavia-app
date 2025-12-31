@@ -64,7 +64,7 @@ export default function AllChannelsScreen() {
 
   // All channels (for the code-based search)
   const allChannels = useAppSelector(selectAllChannels);
-  // console.log(allChannels)
+  // console.log(allChannels);
 
   useEffect(() => {
     if (status === "idle") dispatch(fetchChannels());
@@ -107,7 +107,7 @@ export default function AllChannelsScreen() {
 
   // ------- existing data list (for MY channels), still searchable by name
   const data = useMemo(() => {
-    const keyed = myChannels
+    const keyed = allChannels
       .filter(Boolean)
       .map((c) => ({ ...c, __key: makeKey(c) }))
       .filter((c) => c.__key.length > 0);

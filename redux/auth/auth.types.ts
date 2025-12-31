@@ -15,5 +15,5 @@ export type AuthState = {
   error: string | null;
   lastEmailForOtp: string | null;
   hydrated: boolean;
-  pushToken?: string | null;
+  pushToken: string | null;
 };

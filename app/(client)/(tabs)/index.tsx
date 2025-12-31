@@ -118,7 +118,7 @@ export default function StaffHome() {
     () =>
       [
         { kind: "create", id: "create" as const },
-        ...channels.map((c) => ({
+        ...allChannels.map((c) => ({
           kind: "channel" as const,
           id: String(c._id),
           title: c.name,

@@ -22,7 +22,7 @@ export const register = createAsyncThunk<
   { state: RootState; rejectValue: string }
 >("auth/register", async (body, { dispatch, rejectWithValue, getState }) => {
   try {
-    let expoPushToken = getState().auth.pushToken;
+    let expoPushToken: string | null = getState().auth.pushToken;
 
     if (!expoPushToken) {
       try {
@@ -37,18 +37,64 @@ export const register = createAsyncThunk<
       }
     }
 
-    const payload: any = {
-      username: body.username,
-      email: body.email.trim().toLowerCase(),
-      fullname: body.fullname,
-      expoPushToken: expoPushToken ?? 'hexavia-default-token',
+    const buildPayload = () => {
+      const payload: any = {
+        username: body.username,
+        email: body.email.trim().toLowerCase(),
+        fullname: body.fullname,
+      };
+
+      if (expoPushToken) {
+        payload.expoPushToken = expoPushToken;
+      }
+
+      return payload;
     };
 
-    const res = await showPromise(
-      api.post<ApiEnvelope>("/auth/register", payload),
-      "Creating account…",
-      "OTP sent to your email"
-    );
+    const attemptRegister = () =>
+      showPromise(
+        api.post<ApiEnvelope>("/auth/register", buildPayload()),
+        "Creating account…",
+        "OTP sent to your email"
+      );
+
+    let registered = false;
+    let registerError: any;
+
+    try {
+      await attemptRegister();
+      registered = true;
+    } catch (err: any) {
+      registerError = err;
+    }
+
+    if (!registered && registerError) {
+      const status = registerError?.response?.status;
+      if (status === 406 && !expoPushToken) {
+        // Backend still expects a push token, so prompt once more.
+        try {
+          const tok = await getExpoPushToken();
+          if (tok) {
+            expoPushToken = tok;
+            dispatch(setPushToken(tok));
+          }
+        } catch (tokenErr) {
+          expoPushToken = null;
+        }
+
+        if (expoPushToken) {
+          try {
+            await attemptRegister();
+            registered = true;
+            registerError = null;
+          } catch (err: any) {
+            registerError = err;
+          }
+        }
+      }
+    }
+
+    if (!registered) throw registerError ?? new Error("Registration failed");
 
     dispatch(setLastEmail(body.email));
     dispatch(setPhase("awaiting_otp"));

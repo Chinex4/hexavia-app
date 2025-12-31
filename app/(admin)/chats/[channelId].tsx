@@ -5,8 +5,6 @@ import ChatHeader from "@/components/staff/chat/ChatHeader";
 import Composer from "@/components/staff/chat/Composer";
 import MessageBubble from "@/components/staff/chat/MessageBubble";
 import { useKeyboardSpacer } from "@/hooks/useKeyboardSpacer";
-import { selectAdminUsers } from "@/redux/admin/admin.slice";
-import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
 import { selectChannelById } from "@/redux/channels/channels.slice";
 import { fetchChannelById, uploadChannelResources } from "@/redux/channels/channels.thunks";
 import { selectMessagesForCurrent } from "@/redux/chat/chat.selectors";
@@ -60,8 +58,6 @@ export default function ChatScreen() {
   const user = useAppSelector(selectUser);
   const meId = user?._id;
   const channelId = typeof rawId === "string" ? rawId : rawId?.[0];
-
-  const adminUsers = useAppSelector(selectAdminUsers);
 
   const channelSel = useMemo(() => selectChannelById(channelId), [channelId]);
   const channel = useAppSelector(channelSel);
@@ -516,21 +512,6 @@ export default function ChatScreen() {
   const isAdmin = me?.role === "admin" || me?.role === "super-admin";
 
   // Ensure we have user details for mentions
-  useEffect(() => {
-    if (adminUsers?.length) return;
-    dispatch(fetchAdminUsers());
-    dispatch(fetchAdminUsers({ role: "client" } as any));
-  }, [adminUsers?.length, dispatch]);
-
-  const userMap = useMemo(() => {
-    const map = new Map<string, any>();
-    for (const u of adminUsers ?? []) {
-      if (!u?._id) continue;
-      map.set(String(u._id), u);
-    }
-    return map;
-  }, [adminUsers]);
-
   const handleOpenResources = () => {
     router.push({
       pathname: resourcesPath as any,
@@ -583,32 +564,40 @@ export default function ChatScreen() {
 
   const mentionables = useMemo<Mentionable[]>(() => {
     const enriched = (members as any[]).map((m: any, idx: number) => {
-      const raw = typeof m === "string" ? { _id: m } : m?.user || m?.member || m;
-      const id =
-        raw?._id ?? raw?.id ?? m?.userId ?? m?.memberId ?? `member-${idx}`;
-      const userInfo = id ? userMap.get(String(id)) : null;
-      const name =
-        userInfo?.fullname ||
-        userInfo?.username ||
-        userInfo?.email ||
-        raw?.name ||
-        raw?.fullName ||
-        raw?.username ||
-        raw?.displayName ||
-        "Member";
+      const base = typeof m === "string" ? { _id: m } : m;
+      const entry = base?.user ?? base?.member ?? base;
+      const profile =
+        entry?._id && typeof entry._id === "object" ? entry._id : entry;
+      const rawId =
+        entry?._id ??
+        entry?.id ??
+        profile?._id ??
+        profile?.id ??
+        m?.userId ??
+        m?.memberId ??
+        `member-${idx}`;
+      const username =
+        profile?.username ??
+        profile?.name ??
+        profile?.fullName ??
+        profile?.email ??
+        profile?.displayName ??
+        (typeof profile === "string" ? profile : undefined) ??
+        `member-${idx}`;
+      const resolvedId =
+        typeof rawId === "object" && rawId !== null
+          ? rawId._id ?? rawId.id ?? JSON.stringify(rawId)
+          : rawId;
       return {
-        _id: String(id),
-        name,
-        displayName: name,
+        _id: String(resolvedId),
+        name: username,
+        displayName: username,
         avatar:
-          userInfo?.profilePicture ??
-          raw?.profilePicture ??
-          raw?.avatar ??
-          undefined,
+          profile?.profilePicture ?? profile?.avatar ?? profile?.photo ?? undefined,
       };
     });
     return buildMentionables(enriched, meId as any);
-  }, [members, meId, userMap]);
+  }, [members, meId]);
 
   // Build a quick lookup map for bubble highlighting and mentions
   const mentionMap = useMemo(
