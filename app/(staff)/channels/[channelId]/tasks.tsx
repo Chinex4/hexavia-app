@@ -30,6 +30,8 @@ import {
   makeSelectChannelTasksByStatus,
 } from "@/redux/channels/channels.selectors";
 
+import { STATUS_META } from "@/features/staff/types";
+
 const PRIMARY = "#4C5FAB";
 
 // Tabs you want to show
@@ -80,6 +82,7 @@ export default function StatusScreen() {
   );
 
   const allChannelTasks = useAppSelector(selectAllChannelTasks);
+  // console.log("All channel tasks:", allChannelTasks);
   const list = useAppSelector(selectChannelTasksByStatus);
 
   // modals
@@ -157,7 +160,6 @@ export default function StatusScreen() {
         <FlatList
           contentContainerStyle={{
             paddingBottom: 120,
-            paddingHorizontal: 16,
             paddingTop: 12,
           }}
           data={list}
@@ -172,6 +174,8 @@ export default function StatusScreen() {
                 statusLabel={
                   TABS.find((t) => t.key === item.status)?.label ?? item.status
                 }
+                cardBg={STATUS_META[item.status].bgColor}
+                pillBg={STATUS_META[item.status].arrowBg}
               />
             </Pressable>
           )}

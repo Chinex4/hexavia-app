@@ -1,23 +1,24 @@
 // app/_layout.tsx
-import React, { useEffect } from "react";
-import { Platform, View } from "react-native";
+import { persistor, store, type RootState } from "@/store";
+import { useFonts } from "expo-font";
 import { Slot, router } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import { useFonts } from "expo-font";
+import React, { useEffect } from "react";
+import { Platform, View } from "react-native";
 import { Provider } from "react-redux";
-import { persistor, store, type RootState } from "@/store";
 
-import "../global.css";
-import { TasksProvider } from "@/features/staff/tasksStore";
 import { attachStore } from "@/api/axios";
+import { TasksProvider } from "@/features/staff/tasksStore";
 import Toast from "react-native-toast-message";
+import "../global.css";
 
-import * as Notifications from "expo-notifications";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { PersistGate } from "redux-persist/integration/react";
-import { getExpoPushToken } from "@/utils/pushToken";
+import { TOAST_BOTTOM_OFFSET, toastConfig } from "@/components/ui/toast";
 import { setPushToken } from "@/redux/auth/auth.slice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { getExpoPushToken } from "@/utils/pushToken";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
+import { PersistGate } from "redux-persist/integration/react";
 
 SplashScreen.preventAutoHideAsync();
 attachStore(store);
@@ -67,13 +68,21 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <Provider store={store}>
-      <PersistGate loading={null} persistor={persistor}>
-        <TasksProvider>
-          <AppFrame />
-        </TasksProvider>
-      </PersistGate>
-    </Provider>
+    <>
+      <Provider store={store}>
+        <PersistGate loading={null} persistor={persistor}>
+          <TasksProvider>
+            <AppFrame />
+          </TasksProvider>
+        </PersistGate>
+      </Provider>
+      <Toast
+        config={toastConfig}
+        position="bottom"
+        bottomOffset={TOAST_BOTTOM_OFFSET}
+        visibilityTime={4000}
+      />
+    </>
   );
 }
 
@@ -125,10 +134,6 @@ function AppFrame() {
   return (
     <View style={{ flex: 1 }}>
       <Slot />
-      <Toast
-        topOffset={Platform.select({ ios: 60, android: 40 })}
-        visibilityTime={2500}
-      />
     </View>
   );
 }

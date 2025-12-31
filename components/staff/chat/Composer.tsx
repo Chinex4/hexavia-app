@@ -1,4 +1,3 @@
-// components/staff/chat/Composer.tsx
 import React, { useMemo, useRef, useState } from "react";
 import { View, TextInput, Pressable, Text, FlatList } from "react-native";
 import { Paperclip, Mic, Send, X } from "lucide-react-native";
@@ -15,7 +14,7 @@ type Props = {
   recordDurationMs?: number;
   onMicPress?: () => void;
   onCancelRecording?: () => void;
-  mentionables: Mentionable[];        // ← NEW
+  mentionables: Mentionable[]; // ← NEW
 };
 
 export default function Composer({
@@ -31,8 +30,8 @@ export default function Composer({
   mentionables,
 }: Props) {
   const [text, setText] = useState("");
-  const [query, setQuery] = useState("");       // after "@"
-  const [open, setOpen] = useState(false);      // show typeahead
+  const [query, setQuery] = useState(""); // after "@"
+  const [open, setOpen] = useState(false); // show typeahead
   const inputRef = useRef<TextInput>(null);
 
   const mm = Math.floor(recordDurationMs / 60000);
@@ -45,7 +44,7 @@ export default function Composer({
     const q = query.trim().toLowerCase();
     if (!q) return mentionables.slice(0, 6);
     return mentionables
-      .filter(m => m.name.toLowerCase().includes(q) || m.handle.includes(q))
+      .filter((m) => m.name.toLowerCase().includes(q) || m.handle.includes(q))
       .slice(0, 8);
   }, [open, query, mentionables]);
 
@@ -86,7 +85,7 @@ export default function Composer({
   const commit = () => {
     const val = text.trim();
     if (!val) return;
-    onSend(val);            // no backend change; we send plain text containing @handles
+    onSend(val); // no backend change; we send plain text containing @handles
     setText("");
     setOpen(false);
     setQuery("");
@@ -123,7 +122,9 @@ export default function Composer({
                   <Text className="text-[13px] text-gray-900 font-kumbhBold">
                     {item.name}
                   </Text>
-                  <Text className="text-[11px] text-gray-500">@{item.handle}</Text>
+                  <Text className="text-[11px] text-gray-500">
+                    @{item.handle}
+                  </Text>
                 </View>
                 <Text className="text-[12px] text-[#4C5FAB] font-kumbhBold">
                   Mention
@@ -196,7 +197,11 @@ export default function Composer({
           className="ml-3 h-12 w-12 rounded-full items-center justify-center"
           style={{ backgroundColor: "#4C5FAB" }}
         >
-          <Send size={20} color="#fff" />
+          {isRecording || text.trim() ? (
+            <Send size={20} color="#fff" />
+          ) : (
+            <Mic size={20} color="#fff" />
+          )}
         </Pressable>
       </View>
 
