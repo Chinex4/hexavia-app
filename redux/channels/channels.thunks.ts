@@ -1,27 +1,28 @@
+import { api } from "@/api/axios";
+import { showError, showPromise, showSuccess } from "@/components/ui/toast";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import type { AxiosError } from "axios";
-import { api } from "@/api/axios";
-import { showPromise, showError } from "@/components/ui/toast";
 import type {
-  Channel,
-  CreateChannelResponse,
-  GetChannelsResponse,
-  GenerateCodeResponse,
-  GetChannelByIdResponse,
   AddMemberBody,
   AddMemberResponse,
+  Channel,
+  CreateChannelResponse,
+  CreateTaskBody,
+  CreateTaskResponse,
+  DeleteChannelBody,
+  DeleteChannelResponse,
+  GenerateCodeResponse,
+  GetChannelByCodeResponse,
+  GetChannelByIdResponse,
+  GetChannelsResponse,
+  JoinChannelResponse,
   RemoveMemberBody,
   RemoveMemberResponse,
   UpdateMemberRoleBody,
   UpdateMemberRoleResponse,
-  DeleteChannelBody,
-  DeleteChannelResponse,
-  CreateTaskBody,
-  CreateTaskResponse,
   UpdateTaskBody,
   UpdateTaskResponse,
-  UploadResourcesBody,
-  UploadResourcesResponse,
+  UploadResourcesBody
 } from "./channels.types";
 
 function extractErrorMessage(err: unknown): string {
@@ -236,7 +237,7 @@ export const uploadChannelResources = createAsyncThunk<
 >("channels/uploadResources", async (body, { rejectWithValue }) => {
   try {
     const res = await showPromise(
-      api.post<UploadResourcesResponse>(`/channel/upload-resources`, body),
+      api.post(`/channel/upload-resources`, body),
       "Uploading resources…",
       "Resources uploaded"
     );
@@ -249,10 +250,44 @@ export const uploadChannelResources = createAsyncThunk<
     }
     return channel as Channel;
   } catch (err: any) {
-    const msg =
-      err?.response?.data?.message ||
-      err?.message ||
-      "Failed to upload resources";
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const fetchChannelByCode = createAsyncThunk<
+  Channel,
+  string,
+  { rejectValue: string }
+>("channels/fetchByCode", async (code, { rejectWithValue }) => {
+  try {
+    const res = await api.get<GetChannelByCodeResponse>(`/channel/${code}/code`);
+    return res.data.channel;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    return rejectWithValue(msg);
+  }
+});
+
+export const joinChannel = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("channels/join", async (code, { rejectWithValue }) => {
+  try {
+    console.log("Joining channel with code:", code);
+    const res = await api.put<JoinChannelResponse>("/channel/join", { code: `#${code}` });
+    console.log("Join response:", res.data);
+    if (res.status === 200) {
+      showSuccess("Joined channel successfully");
+      return res.data.message;
+    } else {
+      throw new Error(res.data.message || "Failed to join channel");
+    }
+  } catch (err) {
+    // console.error("Join channel error:", err);
+    const msg = extractErrorMessage(err);
     showError(msg);
     return rejectWithValue(msg);
   }

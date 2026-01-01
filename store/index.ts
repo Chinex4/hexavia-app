@@ -2,28 +2,28 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 
 import {
-  persistStore,
-  persistReducer,
-  FLUSH,
-  REHYDRATE,
-  PAUSE,
-  PERSIST,
-  PURGE,
-  REGISTER,
+    FLUSH,
+    PAUSE,
+    PERSIST,
+    persistStore,
+    PURGE,
+    REGISTER,
+    REHYDRATE
 } from "redux-persist";
 
-import authReducer from "@/redux/auth/auth.slice";
-import userReducer from "@/redux/user/user.slice";
-import channelsReducer from "@/redux/channels/channels.slice";
-import uploadReducer from "@/redux/upload/upload.slice";
-import sanctionsReducer from "@/redux/sanctions/sanctions.slice";
 import adminReducer from "@/redux/admin/admin.slice";
+import authReducer from "@/redux/auth/auth.slice";
+import channelsReducer from "@/redux/channels/channels.slice";
+import { chatMiddleware } from "@/redux/chat/chat.middleware";
 import chatReducer from "@/redux/chat/chat.slice";
 import clientReducer from "@/redux/client/client.slice";
-import installmentsReducer from "@/redux/installments/installments.slice";
 import financeReducer from "@/redux/finance/finance.slice";
+import installmentsReducer from "@/redux/installments/installments.slice";
+import notificationsReducer from "@/redux/notifications/notifications.slice";
 import personalTasksReducer from "@/redux/personalTasks/personalTasks.slice";
-import { chatMiddleware } from "@/redux/chat/chat.middleware";
+import sanctionsReducer from "@/redux/sanctions/sanctions.slice";
+import uploadReducer from "@/redux/upload/upload.slice";
+import userReducer from "@/redux/user/user.slice";
 
 // 1) Define rootReducer so types don’t depend on the constructed store
 export const rootReducer = combineReducers({
@@ -38,6 +38,7 @@ export const rootReducer = combineReducers({
   installments: installmentsReducer,
   finance: financeReducer,
   personalTasks: personalTasksReducer,
+  notifications: notificationsReducer,
 });
 
 // 2) Export RootState from the reducer (no circular reference)

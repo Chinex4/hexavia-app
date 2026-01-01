@@ -33,7 +33,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { fromApiStatus } from "@/features/client/statusMap";
-import { selectMyChannelsByUserId } from "@/redux/channels/channels.selectors";
+import { selectAllChannels, selectMyChannelsByUserId } from "@/redux/channels/channels.selectors";
 import {
   fetchChannelById,
   fetchChannels,
@@ -107,7 +107,7 @@ export default function TaskScreen() {
   }, [dispatch]);
 
   // Channels derived for this user
-  const myChannels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
+  const myChannels = useAppSelector(selectAllChannels);
 
   // Fetch channel details (tasks) when needed, with throttle & dedupe
   useEffect(() => {

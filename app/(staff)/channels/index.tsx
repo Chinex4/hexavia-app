@@ -15,7 +15,7 @@ import {
   selectAllChannels,
   selectMyChannelsByUserId,
 } from "@/redux/channels/channels.selectors"; // NOTE: bring selectAllChannels
-import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { fetchChannelByCode, fetchChannels, joinChannel } from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import type { AppDispatch, RootState } from "@/store";
@@ -53,6 +53,13 @@ export default function AllChannelsScreen() {
   const status = useSelector((s: RootState) => s.channels.status);
   const user = useAppSelector(selectUser);
 
+  const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounced(query, 250);
+
+  const [codeSearchResult, setCodeSearchResult] = useState<any>(null);
+  const [codeSearchStatus, setCodeSearchStatus] = useState<"idle" | "loading" | "succeeded" | "failed">("idle");
+
+
   useEffect(() => {
     dispatch(fetchProfile());
   }, [dispatch]);
@@ -61,6 +68,7 @@ export default function AllChannelsScreen() {
 
   // My channels (existing list)
   const myChannels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
+  const myChannelIds = new Set(myChannels.map((c: any) => String(c?._id ?? c?.id)));
 
   // All channels (for the code-based search)
   const allChannels = useAppSelector(selectAllChannels);
@@ -70,13 +78,32 @@ export default function AllChannelsScreen() {
     if (status === "idle") dispatch(fetchChannels());
   }, [status, dispatch]);
 
+  // Effect for code search
+  useEffect(() => {
+    const normalized = normalizeCodeLoose(debouncedQuery);
+    if (normalized.length === 4) {
+      setCodeSearchStatus("loading");
+      dispatch(fetchChannelByCode(normalized))
+        .unwrap()
+        .then((channel) => {
+          setCodeSearchResult(channel);
+          setCodeSearchStatus("succeeded");
+        })
+        .catch(() => {
+          setCodeSearchResult(null);
+          setCodeSearchStatus("failed");
+        });
+    } else {
+      setCodeSearchResult(null);
+      setCodeSearchStatus("idle");
+    }
+  }, [debouncedQuery, dispatch]);
+
   const onRefresh = useCallback(() => {
     dispatch(fetchChannels());
   }, [dispatch]);
 
-  const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounced(query, 250);
-
+  
   const [filters, setFilters] = useState<Filters>({
     department: "All",
     unreadOnly: false,
@@ -84,19 +111,14 @@ export default function AllChannelsScreen() {
   });
   const [filterOpen, setFilterOpen] = useState(false);
 
-  // ----- code lookup across ALL channels (not just mine)
+  // ----- code lookup via API (when exactly 4 chars normalized)
   const codeMatch = useMemo(() => {
-    const q = normalizeCodeLoose(debouncedQuery);
-    if (!q) return null;
-
-    // Find by any plausible code field
-    const found = allChannels.find((c: any) => {
-      const codeCandidates = [c?.code].filter(Boolean) as string[];
-      return codeCandidates.some((cc) => normalizeCodeLoose(cc) === q);
-    });
-
-    return found ?? null;
-  }, [allChannels, debouncedQuery]);
+    const normalized = normalizeCodeLoose(debouncedQuery);
+    if (normalized.length === 4 && codeSearchStatus === "succeeded") {
+      return codeSearchResult;
+    }
+    return null;
+  }, [debouncedQuery, codeSearchResult, codeSearchStatus]);
 
   const alreadyMember = useMemo(() => {
     if (!codeMatch || !userId) return false;
@@ -121,7 +143,15 @@ export default function AllChannelsScreen() {
       }
     }
 
-    let list = deduped.slice();
+    let list = deduped.filter((c) => {
+      if (codeMatch && !alreadyMember) {
+        const targetId = String((codeMatch as any)?._id ?? (codeMatch as any)?.id);
+        const cId = String(c?._id ?? c?.id);
+        return cId !== targetId;
+      }
+      return true;
+    }).map((c) => ({ ...c, isMember: myChannelIds.has(String(c._id ?? c.id)) }));
+
     const q = debouncedQuery.trim().toLowerCase();
 
     // keep existing behavior: name/desc/department search for MY list
@@ -147,22 +177,20 @@ export default function AllChannelsScreen() {
       );
     }
     return list;
-  }, [myChannels, debouncedQuery, filters]);
+  }, [debouncedQuery, filters, allChannels, codeMatch, alreadyMember, myChannelIds]);
 
   const viewStyle = {
     flex: 1,
     marginTop: Platform.select({ ios: 60, android: 40 }),
   };
 
-  // click handler for the join button (temporary: just log)
+  // click handler for the join button
   const handleJoin = useCallback((channel: any) => {
-    console.log("[join-request] channel:", {
-      id: channel?._id ?? channel?.id,
-      name: channel?.name,
-      code: channel?.code,
-    });
-    // TODO: dispatch a thunk here when the backend endpoint is available
-  }, []);
+    const code = normalizeCodeLoose(channel?.code || "");
+    if (code) {
+      dispatch(joinChannel(code));
+    }
+  }, [dispatch]);
 
   return (
     <View className="flex-1 bg-white">
@@ -176,9 +204,13 @@ export default function AllChannelsScreen() {
         />
 
         {/* --- CODE MATCH AREA: shows when user typed a code that matches any channel --- */}
-        {!!debouncedQuery && (
+        {!!debouncedQuery && normalizeCodeLoose(debouncedQuery).length === 4 && (
           <View>
-            {codeMatch ? (
+            {codeSearchStatus === "loading" ? (
+              <View className="mx-4 mt-4 px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200">
+                <Text className="text-gray-700 font-kumbh">Searching for project...</Text>
+              </View>
+            ) : codeMatch ? (
               <JoinableChannelCard
                 item={{
                   id: String((codeMatch as any)?._id ?? (codeMatch as any)?.id),
@@ -189,17 +221,16 @@ export default function AllChannelsScreen() {
                 onJoin={handleJoin}
                 disabled={alreadyMember}
               />
-            ) : (
+            ) : codeSearchStatus === "failed" ? (
               <View className="mx-4 mt-4 px-4 py-3 rounded-2xl bg-gray-50 border border-gray-200">
                 <Text className="text-gray-700 font-kumbh">
                   No Project found with that code.
                 </Text>
                 <Text className="text-gray-500 mt-1 text-[12px] font-kumbh">
-                  Tip: Try pasting the exact code (with or without “#”, any
-                  case).
+                  Tip: Try pasting the exact code (with or without #, any case).
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
         )}
 
@@ -211,6 +242,8 @@ export default function AllChannelsScreen() {
             <ChannelCard
               item={item}
               colorOverride={(item as any)?.color || colorFor(item.__key)}
+              isMember={item.isMember}
+              onJoin={handleJoin}
             />
           )}
           contentContainerStyle={{ paddingBottom: 24, paddingTop: 0 }}

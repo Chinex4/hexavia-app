@@ -16,7 +16,7 @@ import {
   selectAllChannels,
   selectStatus
 } from "@/redux/channels/channels.selectors";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { fetchChannels, joinChannel } from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -30,10 +30,12 @@ const PALETTE = [
   // "#9B7BF3",
   "#4c5fab",
 ];
-const colorFor = (key: string) => {
+const colorFor = (key?: string) => {
+  const safeKey = String(key ?? "");
   let hash = 0;
-  for (let i = 0; i < key.length; i++)
-    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < safeKey.length; i++) {
+    hash = (hash * 31 + safeKey.charCodeAt(i)) >>> 0;
+  }
   return PALETTE[hash % PALETTE.length];
 };
 
@@ -95,6 +97,7 @@ export default function StaffHome() {
     if (!userId) return [];
     return allChannels.filter((ch: any) => hasUser(ch, userId));
   }, [allChannels, userId]);
+  const myChannelIds = new Set(channels.map((c: any) => c._id));
   // console.log(channels[0].members.map(m => m._id), userId)
 
 
@@ -106,6 +109,10 @@ export default function StaffHome() {
   }, [status, dispatch]);
 
   const [showCreate, setShowCreate] = useState(false);
+
+  const handleJoin = (code: string) => {
+    dispatch(joinChannel(code.replace(/^#/, "")));
+  };
 
   const { GAP, CARD_WIDTH } = useChannelCardLayout();
   const CARD_WIDTH_NARROW = Math.max(250, CARD_WIDTH - 40);
@@ -126,9 +133,10 @@ export default function StaffHome() {
           code: c.code,
           logo: (c as any)?.logo ?? undefined,
           color: colorFor(c._id || (c as any)?.code || c.name),
+          isMember: myChannelIds.has(c._id),
         })),
       ] as const,
-    [channels]
+    [allChannels, myChannelIds]
   );
 
   type ChannelCardItem = {
@@ -193,7 +201,7 @@ export default function StaffHome() {
         {isLoading ? (
           <HorizontalChannelSkeletonList outerPadding={20} />
         ) : (
-          <HorizontalChannelList items={channelItems} />
+          <HorizontalChannelList items={channelItems} onJoin={handleJoin} />
         )}
         {/* Task */}
         <TaskOverview />
