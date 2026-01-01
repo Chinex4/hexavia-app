@@ -23,21 +23,14 @@ function ChannelCard({ item, width, gap, isMember = true, onJoin }: Props) {
   const router = useRouter();
 
   const handlePress = () => {
-    if (isMember) {
-      router.push({
-        pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
-        params: { channelId: item.id },
-      });
-    } else if (onJoin) {
-      onJoin(item.code);
-    }
+    router.push({
+      pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
+      params: { channelId: item.id },
+    });
   };
 
   return (
-    <Pressable
-      onPress={handlePress}
-      style={{ width, marginRight: gap }}
-    >
+    <Pressable onPress={handlePress} style={{ width, marginRight: gap }}>
       <View
         className="rounded-2xl p-4"
         style={{
@@ -71,15 +64,9 @@ function ChannelCard({ item, width, gap, isMember = true, onJoin }: Props) {
             {item.subtitle}
           </Text>
           <View className="ml-2">
-            {isMember ? (
-              <Text className="text-white/90 font-kumbh text-[12px]">
-                Code: {item.code}
-              </Text>
-            ) : (
-              <View className="bg-white/20 px-3 py-1 rounded-full">
-                <Text className="text-white font-kumbh text-[12px]">Join</Text>
-              </View>
-            )}
+            <Text className="text-white/90 font-kumbh text-[12px]">
+              Code: {item.code}
+            </Text>
           </View>
         </View>
       </View>
