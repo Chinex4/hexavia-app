@@ -1,7 +1,7 @@
 import { yupResolver } from "@hookform/resolvers/yup";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Bell, ChevronDown, Plus } from "lucide-react-native";
+import { ArrowLeft, ChevronDown, Plus } from "lucide-react-native";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -422,7 +422,7 @@ export default function CreateClient() {
             {/* Amount + Status */}
             <View className="flex-row gap-3">
               <View className="flex-1">
-                <Field label="Payable Amount">
+                <Field label="Receivable Amount">
                   <Controller
                     control={control}
                     name="payableAmount"

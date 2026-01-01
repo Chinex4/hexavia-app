@@ -138,7 +138,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
                 data.attachment?.mimeType ??
                 (looksImage ? "image/jpeg" : undefined),
               durationMs: data.attachment?.durationMs,
-              taggedUsers: normalizeTaggedUsers(data.taggedUsers),
+              taggedUsers: normalizeTaggedUsers(data.taggedUsers ?? data.tag),
             };
 
             store.dispatch(ensureThread({ id: threadId, kind: "community" }));
@@ -297,6 +297,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
 
         store.dispatch(ensureThread({ id: channelId, kind: "community" }));
         const normalizedTaggedUsers = normalizeTaggedUsers(taggedUsers);
+        const tag = normalizedTaggedUsers.map((u) => u.id);
         store.dispatch(
           addMessageToThread({
             threadId: channelId,
@@ -325,6 +326,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
 
         if (socket?.connected) {
           console.log("[send] ch", { meId, channelId, text });
+          console.log("[sendChannelMessage] tag:", tag);
           socket.emit(
             "sendChannelMessage",
             {
@@ -332,7 +334,7 @@ export const chatMiddleware: Middleware<{}, RootState> =
               channelId,
               message: text,
               attachment,
-              taggedUsers: normalizedTaggedUsers,
+              tag,
             },
             (ack?: { _id?: string; read?: boolean }) => {
               if (ack?._id) {

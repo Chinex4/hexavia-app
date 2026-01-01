@@ -32,10 +32,12 @@ const PALETTE = [
   "#4C5FAB",
   "#9B7BF3",
 ];
-const colorFor = (key: string) => {
+const colorFor = (key?: string) => {
+  const safeKey = String(key ?? "");
   let hash = 0;
-  for (let i = 0; i < key.length; i++)
-    hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  for (let i = 0; i < safeKey.length; i++) {
+    hash = (hash * 31 + safeKey.charCodeAt(i)) >>> 0;
+  }
   return PALETTE[hash % PALETTE.length];
 };
 
