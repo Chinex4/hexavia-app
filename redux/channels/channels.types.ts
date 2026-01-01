@@ -122,7 +122,18 @@ export interface UploadResourcesBody {
     publicId: string;
   }>;
 }
-export interface UploadResourcesResponse {
-  message: string;
+export interface GetChannelByCodeResponse {
+  success: boolean;
   channel: Channel;
+  message: string;
+}
+
+export interface JoinChannelBody {
+  code: string;
+}
+
+export interface JoinChannelResponse {
+  success: boolean;
+  message: string;
+  channel?: Channel;
 }

@@ -15,14 +15,14 @@ import SkeletonChannelCard from "@/components/staff/channels/SkeletonChannelCard
 import useChannelCardLayout from "@/hooks/useChannelCardLayout";
 import {
   selectMyChannelsByUserId,
-  selectStatus
+  selectStatus,
 } from "@/redux/channels/channels.selectors";
-import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { selectAllChannels } from "@/redux/channels/channels.slice";
+import { fetchChannels, joinChannel } from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { selectAllChannels } from "@/redux/channels/channels.slice";
 
 const PALETTE = [
   "#14D699",
@@ -49,6 +49,8 @@ function prettyRole(role?: string | null) {
 }
 
 export default function StaffHome() {
+  const [showCreate, setShowCreate] = useState(false);
+
   const router = useRouter();
   const dispatch = useAppDispatch();
 
@@ -57,11 +59,10 @@ export default function StaffHome() {
     dispatch(fetchProfile());
   }, [dispatch]);
   const userId = user?._id ?? null;
-    const allChannels = useAppSelector(selectAllChannels) ?? [];
-  
+  const allChannels = useAppSelector(selectAllChannels) ?? [];
+
   const channels = useAppSelector((s) => selectMyChannelsByUserId(s, userId));
-  // const channels = useAppSelector(selectAllChannels);
-  // console.log(channels);
+  const myChannelIds = new Set(channels.map((c: any) => c._id));
 
   const status = useAppSelector(selectStatus);
   // console.log("Channels:", channels);
@@ -70,7 +71,9 @@ export default function StaffHome() {
     if (status === "idle") dispatch(fetchChannels());
   }, [status, dispatch]);
 
-  const [showCreate, setShowCreate] = useState(false);
+  const handleJoin = (code: string) => {
+    dispatch(joinChannel(code.replace(/^#/, "")));
+  };
 
   const { GAP, CARD_WIDTH } = useChannelCardLayout();
   const CARD_WIDTH_NARROW = Math.max(250, CARD_WIDTH - 40);
@@ -91,9 +94,10 @@ export default function StaffHome() {
           code: c.code,
           logo: (c as any)?.logo ?? undefined,
           color: colorFor(c._id || (c as any)?.code || c.name),
+          isMember: myChannelIds.has(c._id),
         })),
       ] as const,
-    [channels]
+    [allChannels, myChannelIds]
   );
 
   const isLoading = status === "loading" && channels.length === 0;
@@ -144,7 +148,13 @@ export default function StaffHome() {
               ) : item.kind === "skeleton" ? (
                 <SkeletonChannelCard width={CARD_WIDTH_NARROW} gap={GAP} />
               ) : (
-                <ChannelCard width={CARD_WIDTH_NARROW} gap={GAP} item={item} />
+                <ChannelCard
+                  width={CARD_WIDTH_NARROW}
+                  gap={GAP}
+                  item={item}
+                  isMember={item.isMember}
+                  onJoin={handleJoin}
+                />
               )
             }
             ListEmptyComponent={

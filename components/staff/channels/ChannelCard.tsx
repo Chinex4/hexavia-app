@@ -14,19 +14,30 @@ type CardChannel = {
 function ChannelCard({
   item,
   colorOverride,
+  isMember = true,
+  onJoin,
 }: {
   item: CardChannel;
   colorOverride: string;
+  isMember?: boolean;
+  onJoin?: (code: string) => void;
 }) {
   const router = useRouter();
+
+  const handlePress = () => {
+    if (isMember) {
+      router.push({
+        pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
+        params: { channelId: item.id },
+      });
+    } else if (onJoin && item.code) {
+      onJoin(item.code);
+    }
+  };
+
   return (
     <Pressable
-      // onPress={() =>
-      //   router.push({
-      //     pathname: "/(client)/(tabs)/chats/[channelId]" as any,
-      //     params: { channelId: item.id },
-      //   })
-      // }
+      onPress={handlePress}
       android_ripple={{ color: "#eee" }}
       style={{ backgroundColor: colorOverride }}
       className="mx-4 mt-4 rounded-2xl p-6 overflow-hidden"
@@ -49,11 +60,13 @@ function ChannelCard({
                 {item.description}
               </Text>
             )}
-            {!!item.code && (
-              <Text className="text-white/90 font-kumbh text-[13px]">
-                Project Code: {item.code.toUpperCase()}
-              </Text>
-            )}
+            <View className="flex-row items-center">
+              {!!item.code && (
+                <Text className="text-white/90 font-kumbh text-[13px]">
+                  Project Code: {item.code.toUpperCase()}
+                </Text>
+              )}
+            </View>
           </View>
         </View>
 

@@ -15,18 +15,27 @@ type Props = {
   item: ChannelCardItem;
   width: number;
   gap: number;
+  isMember?: boolean;
+  onJoin?: (code: string) => void;
 };
 
-function ChannelCard({ item, width, gap }: Props) {
+function ChannelCard({ item, width, gap, isMember = true, onJoin }: Props) {
   const router = useRouter();
+
+  const handlePress = () => {
+    if (isMember) {
+      router.push({
+        pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
+        params: { channelId: item.id },
+      });
+    } else if (onJoin) {
+      onJoin(item.code);
+    }
+  };
+
   return (
     <Pressable
-      onPress={() =>
-        router.push({
-          pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
-          params: { channelId: item.id },
-        })
-      }
+      onPress={handlePress}
       style={{ width, marginRight: gap }}
     >
       <View
@@ -54,16 +63,24 @@ function ChannelCard({ item, width, gap }: Props) {
         </View>
 
         {/* Bottom (no member avatars to keep it clean & light) */}
-        <View className="mt-4 flex-row justify-between items-center">
+        <View className="mt-4 flex-row justify-between items-end">
           <Text
-            className="text-white/90 w-[89px] leading-5 text-[13px] font-kumbh"
-            numberOfLines={3}
+            className="text-white/90 flex-1 leading-5 text-[13px] font-kumbh"
+            numberOfLines={2}
           >
             {item.subtitle}
           </Text>
-          <Text className="text-white/90 font-kumbh text-[12px]">
-            Project Code: {item.code}
-          </Text>
+          <View className="ml-2">
+            {isMember ? (
+              <Text className="text-white/90 font-kumbh text-[12px]">
+                Code: {item.code}
+              </Text>
+            ) : (
+              <View className="bg-white/20 px-3 py-1 rounded-full">
+                <Text className="text-white font-kumbh text-[12px]">Join</Text>
+              </View>
+            )}
+          </View>
         </View>
       </View>
     </Pressable>

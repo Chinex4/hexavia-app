@@ -18,7 +18,13 @@ export const selectStatus = (s: RootState) => selectChannelsState(s).status;
 
 export const selectAllChannels = createSelector(
   [selectById, selectAllIds],
-  (byId, allIds) => allIds.map((id) => byId[id])
+  (byId, allIds) => allIds.map((id) => byId[id]).filter(Boolean)
+);
+
+
+export const selectFirstChannelId = createSelector(
+  [selectAllIds],
+  (allIds) => (allIds && allIds.length ? String(allIds[0]) : null)
 );
 
 // console.log(selectAllChannels);

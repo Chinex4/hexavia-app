@@ -1,12 +1,11 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Tabs } from "expo-router";
-import React from "react";
+import { Tabs, useRouter } from "expo-router";
+import React, { useEffect } from "react";
 import { Text, View } from "react-native";
-import { TasksProvider } from "@/features/staff/tasksStore";
-import { useRouter } from "expo-router";
-import { useAppSelector } from "@/store/hooks";
-import { selectUser } from "@/redux/user/user.slice";
-import { makeSelectDefaultChannelId } from "@/redux/channels/channels.selectors";
+
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectFirstChannelId } from "@/redux/channels/channels.selectors";
+import { fetchChannels } from "@/redux/channels/channels.thunks";
 
 const PRIMARY = "#4C5FAB";
 const INACTIVE = "#9CA3AF";
@@ -55,12 +54,15 @@ function TabButton({
 
 export default function StaffTabsLayout() {
   const router = useRouter();
-  const user = useAppSelector(selectUser);
-  const userId = user?._id ?? null;
+  const dispatch = useAppDispatch();
 
-  const defaultChannelId = useAppSelector(
-    makeSelectDefaultChannelId(userId, "recent")
-  );
+  // ✅ make sure channels exist so "first id" is not null
+  useEffect(() => {
+    dispatch(fetchChannels());
+  }, [dispatch]);
+
+  const firstChannelId = useAppSelector(selectFirstChannelId);
+
   return (
     <Tabs
       screenOptions={{
@@ -93,6 +95,7 @@ export default function StaffTabsLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="tasks/index"
         options={{
@@ -106,15 +109,16 @@ export default function StaffTabsLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="chats/[channelId]"
         listeners={{
           tabPress: (e) => {
-            if (!defaultChannelId) return; // let it open normally if none
+            if (!firstChannelId) return;
             e.preventDefault();
             router.push({
-              pathname: "/(staff)/(tabs)/chats/[channelId]",
-              params: { channelId: defaultChannelId },
+              pathname: "/(client)/(tabs)/chats/[channelId]",
+              params: { channelId: firstChannelId },
             });
           },
         }}
@@ -129,6 +133,7 @@ export default function StaffTabsLayout() {
           ),
         }}
       />
+
       <Tabs.Screen
         name="profile/index"
         options={{

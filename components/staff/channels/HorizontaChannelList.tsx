@@ -1,9 +1,9 @@
 // components/staff/channels/HorizontalChannelList.tsx
-import React from "react";
-import { FlatList, View, Text, Pressable } from "react-native";
-import { RefreshCw } from "lucide-react-native";
 import ChannelCard from "@/components/client/ChannelCard";
 import useChannelCardLayout from "@/hooks/useChannelCardLayout";
+import { RefreshCw } from "lucide-react-native";
+import React from "react";
+import { FlatList, Pressable, Text, View } from "react-native";
 
 type ChannelCardItem = {
   id: string;
@@ -12,16 +12,19 @@ type ChannelCardItem = {
   logo?: string;
   color: string;
   code: string;
+  isMember?: boolean;
 };
 
 export default function HorizontalChannelList({
   items,
   outerPadding = 20,
   onRefreshPress,
+  onJoin,
 }: {
   items: ChannelCardItem[];
   outerPadding?: number;
   onRefreshPress?: () => void;
+  onJoin?: (code: string) => void;
 }) {
   const { GAP, CARD_WIDTH } = useChannelCardLayout();
   const CARD_WIDTH_NARROW = Math.max(250, CARD_WIDTH - 40);
@@ -159,7 +162,13 @@ export default function HorizontalChannelList({
         data={items}
         keyExtractor={(it) => it.id}
         renderItem={({ item }) => (
-          <ChannelCard item={item} width={CARD_WIDTH_NARROW} gap={GAP} />
+          <ChannelCard 
+            item={item} 
+            width={CARD_WIDTH_NARROW} 
+            gap={GAP} 
+            isMember={item.isMember}
+            onJoin={onJoin}
+          />
         )}
         showsHorizontalScrollIndicator={false}
         bounces={false}

@@ -1,19 +1,21 @@
-import { createSelector, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import type { RootState } from "@/store";
-import type { Channel, ChannelId } from "./channels.types";
+import { createSelector, createSlice, PayloadAction } from "@reduxjs/toolkit";
 import {
-  fetchChannels,
-  fetchChannelById,
-  createChannel,
-  generateChannelCode,
-  addMemberToChannel,
-  removeMemberFromChannel,
-  updateChannelMemberRole,
-  createChannelTask,
-  updateChannelTask,
-  uploadChannelResources,
-  deleteChannelById,
+    addMemberToChannel,
+    createChannel,
+    createChannelTask,
+    deleteChannelById,
+    fetchChannelByCode,
+    fetchChannelById,
+    fetchChannels,
+    generateChannelCode,
+    joinChannel,
+    removeMemberFromChannel,
+    updateChannelMemberRole,
+    updateChannelTask,
+    uploadChannelResources,
 } from "./channels.thunks";
+import type { Channel, ChannelId } from "./channels.types";
 
 const normalizeCode = (c: string) => c.trim().toUpperCase().replace(/\s+/g, "");
 
@@ -240,6 +242,38 @@ const channelsSlice = createSlice({
         if (id) removeOne(state, id);
       })
       .addCase(deleteChannelById.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    // Fetch channel by code
+    builder
+      .addCase(fetchChannelByCode.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(fetchChannelByCode.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        upsertOne(state, action.payload);
+      })
+      .addCase(fetchChannelByCode.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    // Join channel
+    builder
+      .addCase(joinChannel.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(joinChannel.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        upsertOne(state, action.payload);
+      })
+      .addCase(joinChannel.rejected, (state, action) => {
         state.status = "failed";
         state.error =
           (action.payload as string) ?? action.error.message ?? null;

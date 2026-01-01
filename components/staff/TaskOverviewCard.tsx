@@ -6,9 +6,13 @@ import { FlatList, Image, Pressable, Text, View } from "react-native";
 import {
   makeSelectDefaultChannelId,
   selectStatus as selectChannelsStatus,
+  selectFirstChannelId,
 } from "@/redux/channels/channels.selectors";
 import { selectChannelById } from "@/redux/channels/channels.slice";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import {
+  fetchChannelById,
+  fetchChannels,
+} from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -35,28 +39,27 @@ type UiTask = {
 
 export default function TasksOverviewCard() {
   const dispatch = useAppDispatch();
-
-  // ensure we have a user (to compute default channel)
   const user = useAppSelector(selectUser);
   useEffect(() => {
-    if (!user?._id) dispatch(fetchProfile());
-  }, [dispatch, user?._id]);
+    dispatch(fetchProfile());
+  }, [dispatch]);
 
-  const userId = user?._id ?? null;
-
-  // pick default channel for this user (same selector you already use)
-  const defaultChannelId = useAppSelector(
-    makeSelectDefaultChannelId(userId, "recent")
-  );
-
-  // fetch that channel (to get tasks[])
+  // ✅ make sure channels list exists so "first channel" is not null
   const channelsStatus = useAppSelector(selectChannelsStatus);
   useEffect(() => {
-    if (defaultChannelId) dispatch(fetchChannelById(String(defaultChannelId)));
-  }, [dispatch, defaultChannelId]);
+    if (channelsStatus === "idle") dispatch(fetchChannels());
+  }, [dispatch, channelsStatus]);
 
-  // read channel (and its tasks) from store
-  const channel = useAppSelector(selectChannelById(defaultChannelId || "")) as
+  // ✅ first channel in all channels
+  const firstChannelId = useAppSelector(selectFirstChannelId);
+
+  // ✅ fetch that channel (to hydrate tasks[])
+  useEffect(() => {
+    if (firstChannelId) dispatch(fetchChannelById(String(firstChannelId)));
+  }, [dispatch, firstChannelId]);
+
+  // ✅ read channel from store
+  const channel = useAppSelector(selectChannelById(firstChannelId || "")) as
     | any
     | null;
 
@@ -84,10 +87,11 @@ export default function TasksOverviewCard() {
     [tasks]
   );
 
-  // console.log(channel);
-
-  const loading = channelsStatus === "loading" && !channel;
+  const loading = (channelsStatus === "loading" && !channel) || !firstChannelId;
   const hydrated = !!channel && channelsStatus !== "loading";
+
+  const viewAllTasksPath =
+    user?.role === "staff" ? "/(staff)/(tabs)/tasks" : "/(client)/(tabs)/tasks";
 
   return (
     <View className="mt-6 rounded-2xl border border-gray-200 bg-white px-4 py-6">
@@ -146,7 +150,7 @@ export default function TasksOverviewCard() {
       <Pressable
         className="mt-2 w-full rounded-xl py-4 items-center"
         style={{ backgroundColor: "#4C5FAB" }}
-        onPress={() => router.push({ pathname: "/(staff)/(tabs)/tasks" })}
+        onPress={() => router.push({ pathname: viewAllTasksPath })}
       >
         <Text className="text-white font-semibold font-kumbh">
           View All Tasks
