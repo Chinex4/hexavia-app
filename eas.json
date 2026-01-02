@@ -10,12 +10,14 @@
     },
     "preview": {
       "distribution": "internal",
-      "android": { "gradleCommand": ":app:bundleRelease" }
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
       "autoIncrement": true,
       "android": {
-        "gradleCommand": ":app:bundleRelease"
+        "buildType": "apk"
       }
     }
   },
