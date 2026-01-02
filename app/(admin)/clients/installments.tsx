@@ -62,9 +62,9 @@ const BG_INPUT = "#F7F9FC";
 /* ====== Customize these for your brand ====== */
 const COMPANY_NAME = "Hexavia"; // header: "Hexavia Invoice"
 const ACCOUNT_DETAILS = {
-  accountName: "Hexavia Technologies Ltd.",
-  accountNumber: "0123456789",
-  bankName: "GTBank",
+  accountName: "Hexavia Consulting",
+  accountNumber: "8035202891",
+  bankName: "Moniepoint Microfinance Bank",
 };
 const PROOF_INSTRUCTION =
   "After payment, please upload or attach your proof of payment (POP) for verification. Thank you.";
