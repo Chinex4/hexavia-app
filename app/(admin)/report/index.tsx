@@ -7,7 +7,7 @@ import * as Print from "expo-print";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
 import { Asset } from "expo-asset";
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 import { ArrowLeft, Check, ChevronDown, Share2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -118,6 +118,21 @@ function statusBadgeColor(s: string) {
   }
 }
 
+function slugFileName(s: string) {
+  return (s || "project")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^\w\-]+/g, "") // remove weird chars
+    .slice(0, 80);
+}
+
+function yyyymmdd(d: Date) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /* ───────── component ───────── */
 export default function CreateReportScreen() {
   const router = useRouter();
@@ -190,7 +205,7 @@ export default function CreateReportScreen() {
         });
         if (active) {
           setLogoDataUrl(
-            base64 ? `data:image/png;base64,${base64}` : asset.uri ?? null
+            base64 ? `data:image/png;base64,${base64}` : (asset.uri ?? null)
           );
         }
       } catch (error) {
@@ -801,6 +816,7 @@ export default function CreateReportScreen() {
   const onGenerate = handleSubmit(async (values) => {
     setIsGenerating(true);
     setLastPdfUri(null);
+
     try {
       const rows = getRowsFromSelection(values.channelIds);
       const summary = buildSummary(rows);
@@ -811,14 +827,27 @@ export default function CreateReportScreen() {
         rows,
         summary,
       });
+      const project = slugFileName(values.projectName);
+      const start = values.startDate ? yyyymmdd(values.startDate) : "start";
+      const end = values.endDate ? yyyymmdd(values.endDate) : "end";
 
-      const filename = `tasks_report_${values.projectName.replace(/\s+/g, "_")}_${Date.now()}.pdf`;
+      const filename = `${project}_${start}_to_${end}.pdf`;
+
       const result = await Print.printToFileAsync({
         html,
         base64: Platform.OS === "web",
       });
 
       setLastPdfUri(result.uri);
+      let shareUri = result.uri;
+
+      if (Platform.OS !== "web") {
+        const dest = FileSystem.documentDirectory + filename;
+        await FileSystem.copyAsync({ from: result.uri, to: dest });
+        shareUri;
+        shareUri = dest;
+        setLastPdfUri(dest);
+      }
 
       if (Platform.OS === "web") {
         if ((result as any).base64) {
@@ -830,7 +859,7 @@ export default function CreateReportScreen() {
           await Print.printAsync({ html });
         }
       } else {
-        await Sharing.shareAsync(result.uri, {
+        await Sharing.shareAsync(shareUri, {
           UTI: "com.adobe.pdf",
           mimeType: "application/pdf",
           dialogTitle: "Export PDF",
@@ -862,7 +891,7 @@ export default function CreateReportScreen() {
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
       <View
-        style={{ marginTop: Platform.select({ android: 60, ios: 60 }) }}
+        style={{ marginTop: Platform.select({ android: 60, ios: 20 }) }}
         className="px-5 flex-row items-center justify-between"
       >
         <Pressable

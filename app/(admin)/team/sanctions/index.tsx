@@ -1,38 +1,26 @@
 // app/(admin)/team/sanctions/index.tsx
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import clsx from "clsx";
+import { useRouter } from "expo-router";
+import { ArrowLeft } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  View,
-  Text,
-  Pressable,
-  FlatList,
   ActivityIndicator,
+  FlatList,
+  Pressable,
   RefreshControl,
-  Modal,
-  TextInput,
-  Switch,
+  Text,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  Pencil,
-  ShieldAlert,
-  User2,
-  Calendar,
-} from "lucide-react-native";
-import clsx from "clsx";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  fetchSanctions,
-  updateSanction,
-} from "@/redux/sanctions/sanctions.thunks";
 import {
   selectSanctions,
-  selectSanctionsLoading,
   selectSanctionsError,
+  selectSanctionsLoading,
   selectSanctionsUpdating,
 } from "@/redux/sanctions/sanctions.slice";
+import { fetchSanctions } from "@/redux/sanctions/sanctions.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 type RowStatus = "Active" | "Resolved";
 
@@ -46,14 +34,7 @@ export default function SanctionsView() {
   const updating = useAppSelector(selectSanctionsUpdating);
   const error = useAppSelector(selectSanctionsError) ?? null;
 
-  const [filter, setFilter] = useState<RowStatus | "All">("All");
   const [refreshing, setRefreshing] = useState(false);
-
-  // modal state
-  const [editOpen, setEditOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [editReason, setEditReason] = useState<string>("");
-  const [editActive, setEditActive] = useState<boolean>(true);
 
   useEffect(() => {
     dispatch(fetchSanctions() as any);
@@ -68,52 +49,27 @@ export default function SanctionsView() {
     }
   }, [dispatch]);
 
-  const data = useMemo(() => {
-    return rows
-      .map((r: any) => {
-        const recipient =
-          r?.sanctionUser?.username ||
-          r?.sanctionUser?.email ||
-          r?.user?.username ||
-          r?.user?.fullname ||
-          "Unknown";
-        const dateStr = r?.date || r?.createdAt || "";
-        const status: RowStatus = r?.isActive ? "Active" : "Resolved";
-        return {
-          id: r._id,
-          date: dateStr,
-          recipient,
-          reason: r?.reason ?? "—",
-          status,
-          raw: r,
-        };
-      })
-      .filter((r) => (filter === "All" ? true : r.status === filter));
-  }, [rows, filter]);
-
-  const openEdit = useCallback((item: any) => {
-    setEditId(item.id);
-    setEditReason(item.raw?.reason ?? "");
-    setEditActive(!!item.raw?.isActive);
-    setEditOpen(true);
-  }, []);
-
-  const closeEdit = useCallback(() => {
-    setEditOpen(false);
-    setEditId(null);
-  }, []);
-
-  const handleSave = useCallback(async () => {
-    if (!editId) return;
-    await dispatch(
-      updateSanction({
-        sanctionId: editId,
-        reason: editReason?.trim() || undefined,
-        isActive: editActive,
-      }) as any
-    ).unwrap();
-    setEditOpen(false);
-  }, [dispatch, editId, editReason, editActive]);
+  const staffs = useMemo(() => {
+    const map = new Map();
+    rows.forEach((r: any) => {
+      const user = r?.sanctionUser || r?.user;
+      if (!user || !user._id) return;
+      const id = user._id;
+      if (!map.has(id)) {
+        map.set(id, {
+          id,
+          name: user.username || user.email || user.fullname || "Unknown",
+          sanctions: [],
+        });
+      }
+      map.get(id).sanctions.push(r);
+    });
+    return Array.from(map.values()).map((staff) => ({
+      ...staff,
+      activeCount: staff.sanctions.filter((s: any) => s.isActive).length,
+      totalCount: staff.sanctions.length,
+    }));
+  }, [rows]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#F8FAFC]">
@@ -129,31 +85,6 @@ export default function SanctionsView() {
         <View className="w-10" />
       </View>
 
-      {/* Pills */}
-      <View className="px-5 flex-row gap-2">
-        {(["All", "Active", "Resolved"] as const).map((tab) => (
-          <Pressable
-            key={tab}
-            onPress={() => setFilter(tab)}
-            className={clsx(
-              "px-4 py-2 rounded-full border",
-              filter === tab
-                ? "bg-primary border-primary"
-                : "bg-white border-gray-200"
-            )}
-          >
-            <Text
-              className={clsx(
-                "text-sm font-kumbhBold",
-                filter === tab ? "text-white" : "text-gray-700"
-              )}
-            >
-              {tab}
-            </Text>
-          </Pressable>
-        ))}
-      </View>
-
       {/* List */}
       {loading && rows.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -164,127 +95,55 @@ export default function SanctionsView() {
         </View>
       ) : (
         <FlatList
-          data={data}
+          data={staffs}
           keyExtractor={(i) => i.id}
           contentContainerClassName="px-5 pt-4 pb-10"
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           ItemSeparatorComponent={() => <View className="h-3" />}
-          renderItem={({ item }) => (
-            <Card>
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-2">
-                  <ShieldBadge status={item.status} />
-                  {/* <Text className="text-gray-900 font-kumbhBold text-base">
-                    {item.status}
-                  </Text> */}
-                </View>
-                <Pressable
-                  onPress={() => openEdit(item)}
-                  className="px-3 py-2 rounded-xl bg-gray-100 active:bg-gray-200"
-                >
-                  <View className="flex-row items-center gap-1">
-                    <Pencil size={16} color="#374151" />
-                    <Text className="text-gray-800 font-kumbhBold text-xs">
-                      Edit
-                    </Text>
-                  </View>
-                </Pressable>
-              </View>
-
-              <Divider />
-
-              <Row icon={<Calendar size={16} color="#6366F1" />}>
-                <Label>Date</Label>
-                <Value>{formatDate(item.date)}</Value>
-              </Row>
-
-              <Row icon={<User2 size={16} color="#6366F1" />}>
-                <Label>Recipient</Label>
-                <Value numberOfLines={1}>{item.recipient}</Value>
-              </Row>
-
-              <Row icon={<ShieldAlert size={16} color="#6366F1" />}>
-                <Label>Reason</Label>
-                <Value>{item.reason}</Value>
-              </Row>
-            </Card>
-          )}
+          renderItem={({ item }) => <StaffCard item={item} />}
           ListEmptyComponent={
             <View className="px-5 py-12">
               <Text className="text-center text-gray-500 font-kumbh">
-                {error ? `Error: ${error}` : "No sanctions found."}
+                {error ? `Error: ${error}` : "No staffs with sanctions found."}
               </Text>
             </View>
           }
         />
       )}
-
-      {/* Edit Modal */}
-      <Modal
-        transparent
-        visible={editOpen}
-        animationType="slide"
-        onRequestClose={closeEdit}
-      >
-        <View className="flex-1 bg-black/40 items-center justify-end">
-          <View className="w-full rounded-t-3xl bg-white p-5">
-            <View className="items-center mb-3">
-              <View className="w-12 h-1.5 rounded-full bg-gray-300" />
-            </View>
-
-            <Text className="text-gray-900 font-kumbhBold text-lg mb-3">
-              Update Sanction
-            </Text>
-
-            <Text className="text-gray-700 font-kumbh mb-2">Reason</Text>
-            <TextInput
-              placeholder="Enter reason"
-              placeholderTextColor="#9CA3AF"
-              value={editReason}
-              onChangeText={setEditReason}
-              className="bg-gray-50 text-gray-900 rounded-xl px-4 py-3 font-kumbh mb-4 border border-gray-200"
-              multiline
-            />
-
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-gray-700 font-kumbh">Active</Text>
-              <Switch
-                value={editActive}
-                onValueChange={setEditActive}
-                trackColor={{ true: "#7C3AED", false: "#D1D5DB" }}
-              />
-            </View>
-
-            <View className="flex-row gap-3">
-              <Pressable
-                onPress={closeEdit}
-                className="flex-1 rounded-2xl bg-gray-100 py-3 items-center"
-              >
-                <Text className="text-gray-800 font-kumbhBold">Cancel</Text>
-              </Pressable>
-              <Pressable
-                disabled={updating}
-                onPress={handleSave}
-                className={clsx(
-                  "flex-1 rounded-2xl py-3 items-center",
-                  updating ? "bg-[#7C3AED]/60" : "bg-[#7C3AED]"
-                )}
-              >
-                <Text className="text-white font-kumbhBold">
-                  {updating ? "Saving…" : "Save"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
 
 /* ───────── light-themed building blocks ───────── */
+
+function StaffCard({ item }: { item: any }) {
+  const router = useRouter();
+  return (
+    <Pressable
+      onPress={() =>
+        router.push({
+          pathname: "/(admin)/team/sanctions/[staffId]",
+          params: { staffId: item.id, name: item.name },
+        } as any)
+      }
+    >
+      <Card>
+        <View className="flex-row items-center justify-between">
+          <View>
+            <Text className="text-gray-900 font-kumbhBold text-base">
+              {item.name}
+            </Text>
+            <Text className="text-gray-600 font-kumbh text-sm">
+              {item.totalCount} sanctions ({item.activeCount} active)
+            </Text>
+          </View>
+        </View>
+      </Card>
+    </Pressable>
+  );
+}
 
 function Card({ children }: { children: React.ReactNode }) {
   return (

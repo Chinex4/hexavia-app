@@ -8,8 +8,34 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { promoteUser, toggleUserSuspension } from "@/redux/admin/admin.thunks";
-import { selectAllChannels, selectChannelsForUser } from "@/redux/channels/channels.slice";
+import {
+  selectAllChannels,
+  selectChannelsForUser,
+} from "@/redux/channels/channels.slice";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
+
+import { dialPhone, openEmail } from "@/utils/contact";
+import { Mail, MessageCircle, Phone as PhoneIcon } from "lucide-react-native";
+import { Linking } from "react-native";
+
+function openWhatsApp(phone?: string) {
+  if (!phone) return;
+
+  // keep only digits (and +)
+  const digits = phone.replace(/[^\d+]/g, "");
+
+  // WhatsApp wants country code, no leading 0. Example: 2348012345678
+  // If your numbers are stored like "080..." you should normalize to 234...
+  // This keeps it simple; adjust if you already store intl format.
+  const normalized = digits.startsWith("0")
+    ? `234${digits.slice(1)}`
+    : digits.startsWith("+")
+      ? digits.slice(1)
+      : digits;
+
+  const url = `https://wa.me/${normalized}`;
+  Linking.openURL(url).catch(() => {});
+}
 
 export default function StaffDetails() {
   const router = useRouter();
@@ -55,14 +81,49 @@ export default function StaffDetails() {
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
         <Text className="text-3xl font-kumbh text-text">Staff Details</Text>
-                  <View className="w-10"/>
-        
+        <View className="w-10" />
       </View>
 
       {/* Details */}
       <View className="px-6 mt-4">
         <Row label="Name" value={name} />
-        <Row label="Email" value={user.email ?? "—"} />
+        <Row
+          label="Email"
+          value={user.email ?? "—"}
+          actions={
+            user.email
+              ? [
+                  {
+                    icon: Mail,
+                    onPress: () => openEmail(user.email),
+                    label: "Send email",
+                  },
+                ]
+              : undefined
+          }
+        />
+
+        <Row
+          label="Phone"
+          value={user.phoneNumber ?? "—"}
+          actions={
+            user.phoneNumber
+              ? [
+                  {
+                    icon: PhoneIcon,
+                    onPress: () => dialPhone(user.phoneNumber),
+                    label: "Call",
+                  },
+                  {
+                    icon: MessageCircle,
+                    onPress: () => openWhatsApp(user.phoneNumber),
+                    label: "WhatsApp",
+                  },
+                ]
+              : undefined
+          }
+        />
+
         <Row label="Username" value={user.username ?? "—"} />
         <Row label="Role" value={user.role} />
         <Row label="Joined" value={joined} />
@@ -147,16 +208,59 @@ export default function StaffDetails() {
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+type RowAction = {
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+  onPress: () => void;
+  label?: string;
+};
+
+function Row({
+  label,
+  value,
+  actions,
+}: {
+  label: string;
+  value: string;
+  actions?: RowAction[];
+}) {
   return (
-    <View className="flex-row items-center justify-between py-4">
-      <Text className="text-base text-gray-700 font-kumbh">{label}</Text>
-      <Text className="text-base text-text font-kumbhBold max-w-[60%] text-right">
-        {value}
+    <View className="flex-row items-center py-4">
+      <Text
+        className="text-base text-gray-700 font-kumbh w-28"
+        numberOfLines={1}
+      >
+        {label}
       </Text>
+
+      <View className="flex-1 flex-row items-center justify-end min-w-0">
+        <Text
+          className="text-base text-text font-kumbhBold max-w-[65%] text-right"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {value}
+        </Text>
+
+        {actions?.length ? (
+          <View className="flex-row items-center ml-3">
+            {actions.map((action, idx) => (
+              <Pressable
+                key={`${label}-act-${idx}`}
+                onPress={action.onPress}
+                className="w-9 h-9 rounded-full border border-gray-200 bg-white items-center justify-center ml-2"
+                accessibilityLabel={action.label}
+                hitSlop={8}
+              >
+                <action.icon size={16} color="#111827" />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
+
 function formatDate(d?: string) {
   if (!d) return "—";
   try {

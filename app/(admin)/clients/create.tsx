@@ -30,7 +30,7 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 type FormValues = {
   name?: string;
   projectName?: string;
-  phone?: string;
+  phoneNumber?: string;
   email?: string;
   industry?: string;
   staffSize?: string;
@@ -50,7 +50,7 @@ const schema: yup.ObjectSchema<FormValues> = yup.object({
   name: yup.string().trim().optional(),
   projectName: yup.string().trim().optional(),
   email: yup.string().trim().optional(),
-  phone: yup.string().trim().optional(),
+  phoneNumber: yup.string().trim().optional(),
   industry: yup.string().trim().optional(),
   staffSize: yup
     .string()
@@ -134,7 +134,7 @@ export default function CreateClient() {
       name: "",
       projectName: "",
       email: "",
-      phone: "",
+      phoneNumber: "",
       industry: "",
       staffSize: "",
       description: "",
@@ -154,7 +154,7 @@ export default function CreateClient() {
     const payload: ClientCreateInput = {
       name: values.name?.trim() || "",
       projectName: values.projectName?.trim() || "",
-      phone: values.phone?.trim() || undefined,
+      phoneNumber: values.phoneNumber?.trim() || undefined,
       email: values.email?.trim() || undefined,
       engagement: values.engagement?.trim() || undefined,
       industry: values.industry?.trim() || undefined,
@@ -301,14 +301,14 @@ export default function CreateClient() {
               <ErrorText msg={errors.email.message} />
             ) : null}
 
-            {/* Phone */}
-            <Field label="Phone Number">
+            {/* phoneNumber */}
+            <Field label="phoneNumber Number">
               <Controller
                 control={control}
-                name="phone"
+                name="phoneNumber"
                 render={({ field: { value, onChange } }) => (
                   <Input
-                    placeholder="Enter Phone Number"
+                    placeholder="Enter phoneNumber Number"
                     keyboardType="numeric"
                     value={value}
                     onChangeText={onChange}
@@ -316,8 +316,8 @@ export default function CreateClient() {
                 )}
               />
             </Field>
-            {errors.phone?.message ? (
-              <ErrorText msg={errors.phone.message} />
+            {errors.phoneNumber?.message ? (
+              <ErrorText msg={errors.phoneNumber.message} />
             ) : null}
 
             {/* Industry + Staff size */}
