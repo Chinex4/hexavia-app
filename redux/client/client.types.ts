@@ -9,6 +9,8 @@ export interface Client {
   _id: string;
   name: string;
   projectName?: string;
+  phone?: string;
+  email?: string;
   engagement?: string;
   industry?: string;
   staffSize?: number;
@@ -56,6 +58,8 @@ export interface ClientListResponse {
 export interface ClientCreateInput {
   name: string;
   projectName?: string;
+  phone?: string;
+  email?: string;
   engagement?: string;
   industry?: string;
   staffSize?: number;

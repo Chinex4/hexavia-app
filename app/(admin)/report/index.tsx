@@ -6,6 +6,8 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as Print from "expo-print";
 import { useRouter } from "expo-router";
 import * as Sharing from "expo-sharing";
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system";
 import { ArrowLeft, Check, ChevronDown, Share2 } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -22,6 +24,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import logoIcon from "@/assets/images/logo-icon.png";
 import * as yup from "yup";
 
 /* ───────── types ───────── */
@@ -148,6 +151,7 @@ export default function CreateReportScreen() {
   >(null);
   const [tempDate, setTempDate] = useState<Date | null>(null);
   const [showDate, setShowDate] = useState(false);
+  const [logoDataUrl, setLogoDataUrl] = useState<string | null>(null);
 
   const openDatePicker = (which: "start" | "end", current?: Date | null) => {
     setActiveDateField(which);
@@ -173,6 +177,32 @@ export default function CreateReportScreen() {
   };
 
   /* channels load */
+  useEffect(() => {
+    let active = true;
+    const loadLogo = async () => {
+      try {
+        const asset = Asset.fromModule(logoIcon);
+        await asset.downloadAsync();
+        const uri = asset.localUri ?? asset.uri;
+        if (!uri || !active) return;
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: "base64",
+        });
+        if (active) {
+          setLogoDataUrl(
+            base64 ? `data:image/png;base64,${base64}` : asset.uri ?? null
+          );
+        }
+      } catch (error) {
+        console.warn("Unable to inline report logo", error);
+      }
+    };
+    loadLogo();
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     dispatch(fetchChannels());
   }, [dispatch]);
@@ -308,37 +338,86 @@ export default function CreateReportScreen() {
   }) {
     const { projectName, period, channels, rows, summary } = payload;
 
-    const tableRows = rows
-      .map(
-        (r, i) => `
+    const tableBody =
+      rows.length > 0
+        ? rows
+            .map(
+              (r, i) => `
         <tr>
           <td>${i + 1}</td>
-          <td>${r.title}</td>
-          <td><span style="padding:3px 8px;border-radius:12px;background:${statusBadgeColor(
+          <td class="task-title">${r.title}</td>
+          <td><span class="status-pill" style="background:${statusBadgeColor(
             r.status
           )};color:#fff;">${r.status}</span></td>
-          <td>${r.channelName ?? ""}</td>
+          <td>${r.channelName ?? "—"}</td>
           <td>${fmt(r.createdAt)}</td>
           <td>${fmt(r.updatedAt)}</td>
-          <td>${r.dueDate ? fmt(r.dueDate) : ""}</td>
+          <td>${r.dueDate ? fmt(r.dueDate) : "—"}</td>
         </tr>`
-      )
-      .join("");
+            )
+            .join("")
+        : `<tr><td colspan="7" class="empty-row">No tasks found for the selected filters.</td></tr>`;
 
-    const channelBlocks = Array.from(summary.byChannel.entries())
+    const channelCards = Array.from(summary.byChannel.entries())
       .map(([name, b]) => {
         const rate = b.total ? Math.round((b.completed / b.total) * 100) : 0;
         return `
-          <div class="cbox">
-            <div class="cname">${name}</div>
-            <div class="cline"><strong>Total:</strong> ${b.total}</div>
-            <div class="cline"><strong>Completed:</strong> ${b.completed}</div>
-            <div class="cline"><strong>In-Progress:</strong> ${b.inProgress}</div>
-            <div class="cline"><strong>Not-Started:</strong> ${b.notStarted}</div>
-            <div class="cline"><strong>Completion:</strong> ${rate}%</div>
+          <div class="channel-card">
+            <div class="channel-name">${name}</div>
+            <div class="channel-stats">
+              <span class="channel-stat">Total: ${b.total}</span>
+              <span class="channel-stat">Completed: ${b.completed}</span>
+              <span class="channel-stat">In-Progress: ${b.inProgress}</span>
+              <span class="channel-stat">Not-Started: ${b.notStarted}</span>
+              <span class="channel-stat">Completion: ${rate}%</span>
+            </div>
           </div>`;
       })
       .join("");
+    const channelSection =
+      channelCards ||
+      `<div class="channel-card empty">
+        <div class="channel-name">No per-channel data</div>
+        <div class="channel-stat">Adjust filters to see a breakdown.</div>
+      </div>`;
+
+    const statCards = [
+      { label: "Total Tasks", value: summary.total },
+      { label: "Completed", value: summary.counts.completed },
+      { label: "In Progress", value: summary.counts.inProgress },
+      { label: "Not Started", value: summary.counts.notStarted },
+    ]
+      .map(
+        (card) => `
+        <div class="stat-card">
+          <div class="label">${card.label}</div>
+          <div class="value">${card.value}</div>
+        </div>`
+      )
+      .join("");
+
+    const legendItems = [
+      { label: "Completed", color: statusBadgeColor("completed") },
+      { label: "In Progress", color: statusBadgeColor("in-progress") },
+      { label: "Not Started", color: statusBadgeColor("not-started") },
+    ]
+      .map(
+        (item) => `
+        <span class="legend-item">
+          <span class="legend-dot" style="background:${item.color};"></span>
+          ${item.label}
+        </span>`
+      )
+      .join("");
+
+    const logoMarkup = logoDataUrl
+      ? `<img src="${logoDataUrl}" alt="Hexavia logo" class="logo" />`
+      : `<div class="logo fallback">HEX</div>`;
+
+    const channelCountLabel =
+      channels.length === 0
+        ? "All projects"
+        : `${channels.length} project${channels.length === 1 ? "" : "s"} selected`;
 
     return `
 <!DOCTYPE html>
@@ -347,77 +426,367 @@ export default function CreateReportScreen() {
 <meta charset="utf-8" />
 <title>Tasks Report</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif; color:#111827; }
-  .wrap { padding: 24px; }
-  .h1 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
-  .muted { color:#6b7280; font-size: 12px; }
-  .meta { margin-top: 8px; font-size: 13px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:4px 16px; }
-  .cards { margin-top: 14px; display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; }
-  .card { border:1px solid #e5e7eb; border-radius: 12px; padding: 12px; background:#fff; }
-  .card .label { font-size: 12px; color:#6b7280; }
-  .card .value { font-size: 20px; font-weight:700; margin-top: 4px; }
-  .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; margin-top: 12px; }
-  .cbox { border:1px dashed #e5e7eb; border-radius:10px; padding:10px; }
-  .cname { font-weight:600; margin-bottom:6px; }
-  .cline { font-size:12px; color:#374151; }
-  table { width:100%; border-collapse: collapse; margin-top: 16px; }
-  th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; text-align:left; vertical-align: top; }
-  th { background:#f9fafb; font-weight:600; }
-  .footer { margin-top: 18px; font-size: 11px; color:#6b7280; }
-  @media print {
-    .cards { grid-template-columns: repeat(4, 1fr); }
-    .grid { grid-template-columns: repeat(2, 1fr); }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+    background: #eef2ff;
+    color: #111827;
+    margin: 0;
+  }
+  .page {
+    width: 100%;
+    padding: 32px 24px 48px;
+  }
+  .report-surface {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 32px;
+    padding: 32px;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.15);
+  }
+  .report-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .brand {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }
+  .logo {
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    object-fit: contain;
+    background: #111827;
+    padding: 6px;
+  }
+  .logo.fallback {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    background: #111827;
+  }
+  .brand-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .brand-copy .h1 {
+    font-size: 26px;
+    margin: 0;
+    font-weight: 700;
+  }
+  .brand-subtitle {
+    color: #6b7280;
+    font-size: 14px;
+  }
+  .header-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+  }
+  .chip {
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: #eef2ff;
+    color: #312e81;
+  }
+  .chip.subtle {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+  .muted {
+    color: #6b7280;
+    font-size: 13px;
+  }
+  .report-meta {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px 20px;
+    font-size: 13px;
+    color: #475467;
+  }
+  .stat-grid {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+  }
+  .stat-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 16px;
+    background: #f9fafb;
+  }
+  .stat-card .label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+  .stat-card .value {
+    margin-top: 8px;
+    font-size: 24px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .completion-card {
+    margin-top: 18px;
+    padding: 20px;
+    border-radius: 22px;
+    background: linear-gradient(135deg, #4338ca, #2563eb);
+    color: #fff;
+  }
+  .completion-title {
+    font-size: 14px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+  .completion-subtitle {
+    margin-top: 8px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  .progress-bar {
+    margin-top: 12px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: #84d0ff;
+  }
+  .completion-details {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+  .legend {
+    margin-top: 16px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: #475467;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .channel-section,
+  .table-section {
+    margin-top: 32px;
+  }
+  .section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .channel-grid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px;
+  }
+  .channel-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 14px;
+    background: #fafafc;
+  }
+  .channel-card.empty {
+    border-style: dashed;
+    text-align: center;
+  }
+  .channel-name {
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #111827;
+  }
+  .channel-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+  }
+  .channel-stat {
+    font-size: 12px;
+    color: #475467;
+  }
+  .table-wrapper {
+    margin-top: 12px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead {
+    background: #111827;
+    color: #fff;
+  }
+  th {
+    padding: 12px;
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+    vertical-align: middle;
+  }
+  tbody tr:nth-child(odd) {
+    background: #f8fafc;
+  }
+  .task-title {
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .status-pill {
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 11px;
+    text-transform: capitalize;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+  }
+  .empty-row {
+    text-align: center;
+    padding: 24px 0;
+    color: #6b7280;
+  }
+  .footer {
+    margin-top: 32px;
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 0.08em;
+    text-align: right;
   }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="h1">Project Tasks Report</div>
-    <div class="muted">Generated: ${fmt(new Date())}</div>
+  <div class="page">
+    <div class="report-surface">
+      <div class="report-header">
+        <div class="brand">
+          ${logoMarkup}
+          <div class="brand-copy">
+            <div class="h1">Project Tasks Report</div>
+            <div class="brand-subtitle">${projectName || "Untitled Project"}</div>
+            <div class="muted">Generated: ${fmt(new Date())}</div>
+          </div>
+        </div>
+        <div class="header-chips">
+          <div class="chip">HEXAVIA</div>
+          <div class="chip subtle">${channelCountLabel}</div>
+        </div>
+      </div>
 
-    <div class="meta">
-      <div><strong>Project:</strong> ${projectName}</div>
-      <div><strong>Report Period:</strong> ${period.start} — ${period.end}</div>
-      <div><strong>Projects:</strong> ${channels.join(", ")}</div>
-      <div><strong>Status Filter:</strong> not-started, in-progress, completed</div>
+      <div class="report-meta">
+        <div><strong>Project:</strong> ${projectName || "—"}</div>
+        <div><strong>Report Period:</strong> ${period.start} — ${period.end}</div>
+        <div><strong>Projects:</strong> ${
+          channels.length ? channels.join(", ") : "All projects"
+        }</div>
+        <div><strong>Status Filter:</strong> not-started, in-progress, completed</div>
+      </div>
+
+      <div class="stat-grid">
+        ${statCards}
+      </div>
+
+      <div class="completion-card">
+        <div class="completion-title">Completion Rate</div>
+        <div class="completion-subtitle">
+          ${summary.completionRate}% of tasks are marked complete within the period.
+        </div>
+        <div class="progress-bar">
+          <div
+            class="progress-fill"
+            style="width:${summary.completionRate}%;"
+          ></div>
+        </div>
+        <div class="completion-details">
+          <span>Overdue: <strong>${summary.overdue}</strong></span>
+          <span>${rows.length} filtered task${rows.length === 1 ? "" : "s"}</span>
+        </div>
+      </div>
+
+      <div class="legend">
+        ${legendItems}
+      </div>
+
+      <div class="channel-section">
+        <div class="section-heading">
+          <div>Per-channel summary</div>
+          <div class="muted">Breakdown by project</div>
+        </div>
+        <div class="channel-grid">
+          ${channelSection}
+        </div>
+      </div>
+
+      <div class="table-section">
+        <div class="section-heading">
+          <div>Task list</div>
+          <div class="muted">Detailed view of selected statuses</div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Task</th>
+                <th>Status</th>
+                <th>Project</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th>Due</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableBody}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer">Hexavia • Auto-generated report</div>
     </div>
-
-    <!-- summary cards -->
-    <div class="cards">
-      <div class="card"><div class="label">Total Tasks</div><div class="value">${summary.total}</div></div>
-      <div class="card"><div class="label">Completed</div><div class="value">${summary.counts.completed}</div></div>
-      <div class="card"><div class="label">In-Progress</div><div class="value">${summary.counts.inProgress}</div></div>
-      <div class="card"><div class="label">Not-Started</div><div class="value">${summary.counts.notStarted}</div></div>
-    </div>
-
-    <div class="cards" style="margin-top:10px;">
-      <div class="card"><div class="label">Completion Rate</div><div class="value">${summary.completionRate}%</div></div>
-      <div class="card"><div class="label">Overdue</div><div class="value">${summary.overdue}</div></div>
-    </div>
-
-    <!-- per-channel breakdown -->
-    <div class="grid">
-      ${channelBlocks || `<div class="cbox"><div class="cname">No per-channel data</div><div class="cline">—</div></div>`}
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Task</th>
-          <th>Status</th>
-          <th>Project</th>
-          <th>Created</th>
-          <th>Updated</th>
-          <th>Due</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tableRows || `<tr><td colspan="7">No tasks found for the selected filters.</td></tr>`}
-      </tbody>
-    </table>
-
-    <div class="footer">Hexavia • Auto-generated report</div>
   </div>
 </body>
 </html>

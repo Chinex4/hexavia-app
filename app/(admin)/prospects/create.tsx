@@ -1,7 +1,7 @@
 import { yupResolver } from "@hookform/resolvers/yup";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
-import { ArrowLeft, Bell, ChevronDown, Plus } from "lucide-react-native";
+import { ArrowLeft, ChevronDown, Home, Plus } from "lucide-react-native";
 import React, { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -20,6 +20,7 @@ import * as yup from "yup";
 
 import Field from "@/components/admin/Field";
 import Input from "@/components/admin/Input";
+import OptionSheet from "@/components/common/OptionSheet";
 
 import { selectClientMutationLoading } from "@/redux/client/client.selectors";
 import { createClient } from "@/redux/client/client.thunks";
@@ -27,8 +28,10 @@ import type { ClientCreateInput } from "@/redux/client/client.types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 type FormValues = {
-  name: string;
-  projectName: string;
+  name?: string;
+  projectName?: string;
+  phone?: string;
+  email?: string;
   industry?: string;
   staffSize?: string;
   description?: string;
@@ -44,8 +47,10 @@ type FormValues = {
 };
 
 const schema: yup.ObjectSchema<FormValues> = yup.object({
-  name: yup.string().trim().required("Client name is required"),
-  projectName: yup.string().trim().required("Project name is required"),
+  name: yup.string().trim().optional(),
+  projectName: yup.string().trim().optional(),
+  email: yup.string().trim().optional(),
+  phone: yup.string().trim().optional(),
   industry: yup.string().trim().optional(),
   staffSize: yup
     .string()
@@ -69,7 +74,44 @@ const schema: yup.ObjectSchema<FormValues> = yup.object({
     .required(),
 });
 
-const STATUS_OPTIONS: Array<FormValues["status"]> = ["pending"];
+const STATUS_OPTIONS: Array<FormValues["status"]> = [
+  "pending",
+  "current",
+  "completed",
+];
+
+const STAFF_SIZE_OPTIONS = [
+  { label: "1-50", value: 50 },
+  { label: "50-100", value: 100 },
+  { label: "100-150", value: 150 },
+  { label: "150-200", value: 200 },
+  { label: "200+", value: 201 },
+];
+
+const INDUSTRY_OPTIONS = [
+  { label: "Technology", value: "Technology" },
+  { label: "Healthcare", value: "Healthcare" },
+  { label: "Finance", value: "Finance" },
+  { label: "Education", value: "Education" },
+  { label: "Retail", value: "Retail" },
+  { label: "Manufacturing", value: "Manufacturing" },
+  { label: "Real Estate", value: "Real Estate" },
+  { label: "Transportation", value: "Transportation" },
+  { label: "Energy", value: "Energy" },
+  { label: "Agriculture", value: "Agriculture" },
+  { label: "Construction", value: "Construction" },
+  { label: "Hospitality", value: "Hospitality" },
+  { label: "Entertainment", value: "Entertainment" },
+  { label: "Telecommunications", value: "Telecommunications" },
+  { label: "Automotive", value: "Automotive" },
+  { label: "Food & Beverage", value: "Food & Beverage" },
+  { label: "Pharmaceuticals", value: "Pharmaceuticals" },
+  { label: "Consulting", value: "Consulting" },
+  { label: "Legal Services", value: "Legal Services" },
+  { label: "Non-Profit", value: "Non-Profit" },
+  { label: "Government", value: "Government" },
+  { label: "Other", value: "Other" },
+];
 
 export default function CreateClient() {
   const router = useRouter();
@@ -77,17 +119,22 @@ export default function CreateClient() {
   const loading = useAppSelector(selectClientMutationLoading);
 
   const [showStatusMenu, setShowStatusMenu] = useState(false);
+  const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
+  const [showIndustrySheet, setShowIndustrySheet] = useState(false);
 
   const {
     control,
     handleSubmit,
     formState: { errors, isValid },
+    setValue,
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
     defaultValues: {
       name: "",
       projectName: "",
+      email: "",
+      phone: "",
       industry: "",
       staffSize: "",
       description: "",
@@ -105,8 +152,10 @@ export default function CreateClient() {
 
   const onSubmit = async (values: FormValues) => {
     const payload: ClientCreateInput = {
-      name: values.name.trim(),
-      projectName: values.projectName.trim(),
+      name: values.name?.trim() || "",
+      projectName: values.projectName?.trim() || "",
+      phone: values.phone?.trim() || undefined,
+      email: values.email?.trim() || undefined,
       engagement: values.engagement?.trim() || undefined,
       industry: values.industry?.trim() || undefined,
       staffSize: values.staffSize ? Number(values.staffSize) : undefined,
@@ -127,7 +176,7 @@ export default function CreateClient() {
       const created = await dispatch(createClient(payload)).unwrap();
       if (created?._id) {
         router.push({
-          pathname: "/(admin)/clients/[id]",
+          pathname: "/(admin)/prospects",
           params: { id: created._id },
         });
       } else {
@@ -150,29 +199,39 @@ export default function CreateClient() {
           >
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
-          <Text className="text-3xl font-kumbh text-text">
+          <Text className="text-xl font-kumbhBold text-text">
             Add New Prospect
           </Text>
         </View>
 
-        {/* Add (top-right) */}
-        <Pressable
-          onPress={handleSubmit(onSubmit)}
-          disabled={!isValid || loading}
-          className={clsx(
-            "flex-row items-center gap-2 px-4 py-2 rounded-xl active:opacity-90",
-            !isValid || loading ? "bg-gray-300" : "bg-primary-500"
-          )}
-        >
-          {loading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <Plus size={16} color="#fff" />
-          )}
-          <Text className="text-white font-kumbhBold">
-            {loading ? "Adding..." : "Add"}
-          </Text>
-        </Pressable>
+        <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => router.push("/(admin)")}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            disabled={loading}
+          >
+            <Home size={24} color="#111827" />
+          </Pressable>
+
+          {/* Add (top-right) */}
+          <Pressable
+            onPress={handleSubmit(onSubmit)}
+            disabled={!isValid || loading}
+            className={clsx(
+              "flex-row items-center gap-2 px-4 py-2 rounded-xl active:opacity-90",
+              !isValid || loading ? "bg-gray-300" : "bg-primary-500"
+            )}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Plus size={16} color="#fff" />
+            )}
+            <Text className="text-white font-kumbhBold">
+              {loading ? "Adding..." : "Add"}
+            </Text>
+          </Pressable>
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -224,6 +283,43 @@ export default function CreateClient() {
               <ErrorText msg={errors.projectName.message} />
             ) : null}
 
+            {/* Email */}
+            <Field label="Email Address">
+              <Controller
+                control={control}
+                name="email"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    placeholder="Enter Email"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+            </Field>
+            {errors.email?.message ? (
+              <ErrorText msg={errors.email.message} />
+            ) : null}
+
+            {/* Phone */}
+            <Field label="Phone Number">
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field: { value, onChange } }) => (
+                  <Input
+                    placeholder="Enter Phone Number"
+                    keyboardType="numeric"
+                    value={value}
+                    onChangeText={onChange}
+                  />
+                )}
+              />
+            </Field>
+            {errors.phone?.message ? (
+              <ErrorText msg={errors.phone.message} />
+            ) : null}
+
             {/* Industry + Staff size */}
             <View className="flex-row gap-3">
               <View className="flex-1">
@@ -232,11 +328,16 @@ export default function CreateClient() {
                     control={control}
                     name="industry"
                     render={({ field: { value, onChange } }) => (
-                      <Input
-                        placeholder="Enter Industry"
-                        value={value}
-                        onChangeText={onChange}
-                      />
+                      <Pressable
+                        disabled={loading}
+                        onPress={() => setShowIndustrySheet(true)}
+                        className="flex-row items-center justify-between bg-gray-200 rounded-2xl px-4 py-4"
+                      >
+                        <Text className="text-gray-700 font-kumbh">
+                          {value || "Select Industry"}
+                        </Text>
+                        <ChevronDown size={18} color="#111827" />
+                      </Pressable>
                     )}
                   />
                 </Field>
@@ -251,12 +352,20 @@ export default function CreateClient() {
                     control={control}
                     name="staffSize"
                     render={({ field: { value, onChange } }) => (
-                      <Input
-                        placeholder="Enter Staff size"
-                        value={value}
-                        onChangeText={onChange}
-                        keyboardType="numeric"
-                      />
+                      <Pressable
+                        disabled={loading}
+                        onPress={() => setShowStaffSizeSheet(true)}
+                        className="flex-row items-center justify-between bg-gray-200 rounded-2xl px-4 py-4"
+                      >
+                        <Text className="text-gray-700 font-kumbh">
+                          {value
+                            ? STAFF_SIZE_OPTIONS.find(
+                                (opt) => opt.value === Number(value)
+                              )?.label
+                            : "Select Staff Size"}
+                        </Text>
+                        <ChevronDown size={18} color="#111827" />
+                      </Pressable>
                     )}
                   />
                 </Field>
@@ -420,20 +529,29 @@ export default function CreateClient() {
             {/* Amount + Status */}
             <View className="flex-row gap-3">
               <View className="flex-1">
-                <Field label="Payable Amount">
+                <Field label="Receivable Amount">
                   <Controller
                     control={control}
                     name="payableAmount"
-                    render={({ field: { value, onChange } }) => (
-                      <Input
-                        placeholder="Enter Amount"
-                        value={value}
-                        onChangeText={onChange}
-                        keyboardType="numeric"
-                      />
-                    )}
+                    render={({ field: { value, onChange } }) => {
+                      const raw = onlyDigits(value ?? "");
+                      const display = formatWithCommas(raw);
+
+                      return (
+                        <Input
+                          placeholder="Enter Amount"
+                          value={display}
+                          keyboardType="numeric"
+                          onChangeText={(text) => {
+                            // strip commas/spaces/etc then store digits only
+                            onChange(onlyDigits(text));
+                          }}
+                        />
+                      );
+                    }}
                   />
                 </Field>
+
                 {errors.payableAmount?.message ? (
                   <ErrorText msg={errors.payableAmount.message} />
                 ) : null}
@@ -445,47 +563,16 @@ export default function CreateClient() {
                     control={control}
                     name="status"
                     render={({ field: { value, onChange } }) => (
-                      <View>
-                        <Pressable
-                          disabled={loading}
-                          onPress={() => setShowStatusMenu((s) => !s)}
-                          className="flex-row items-center justify-between bg-gray-200 rounded-2xl px-4 py-4"
-                        >
-                          <Text className="text-gray-700 font-kumbh">
-                            {capitalize(value)}
-                          </Text>
-                          <ChevronDown size={18} color="#111827" />
-                        </Pressable>
-
-                        {showStatusMenu ? (
-                          <View className="mt-2 rounded-2xl bg-white border border-gray-200 overflow-hidden">
-                            {STATUS_OPTIONS.map((opt) => (
-                              <Pressable
-                                key={opt}
-                                onPress={() => {
-                                  onChange(opt);
-                                  setShowStatusMenu(false);
-                                }}
-                                className={clsx(
-                                  "px-4 py-3",
-                                  value === opt ? "bg-primary-50" : "bg-white"
-                                )}
-                              >
-                                <Text
-                                  className={clsx(
-                                    "font-kumbh",
-                                    value === opt
-                                      ? "text-primary-700"
-                                      : "text-text"
-                                  )}
-                                >
-                                  {capitalize(opt)}
-                                </Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                        ) : null}
-                      </View>
+                      <Pressable
+                        disabled={loading}
+                        onPress={() => setShowStatusMenu(true)}
+                        className="flex-row items-center justify-between bg-gray-200 rounded-2xl px-4 py-4"
+                      >
+                        <Text className="text-gray-700 font-kumbh">
+                          {capitalize(value)}
+                        </Text>
+                        <ChevronDown size={18} color="#111827" />
+                      </Pressable>
                     )}
                   />
                 </Field>
@@ -495,8 +582,8 @@ export default function CreateClient() {
               </View>
             </View>
 
-            {/* Bottom actions */}
-            <View className="mt-8">
+            {/* Bottom actions – left as requested (disabled while loading) */}
+            {/* <View className="mt-8">
               <Pressable
                 disabled={loading}
                 className={clsx(
@@ -527,10 +614,53 @@ export default function CreateClient() {
                   Generate Invoice
                 </Text>
               </Pressable>
-            </View>
+            </View> */}
           </ScrollView>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+
+      <OptionSheet
+        visible={showStaffSizeSheet}
+        onClose={() => setShowStaffSizeSheet(false)}
+        onSelect={(value) => {
+          setValue("staffSize", String(value));
+          setShowStaffSizeSheet(false);
+        }}
+        title="Select Staff Size"
+        options={STAFF_SIZE_OPTIONS}
+        selectedValue={
+          control._getWatch("staffSize")
+            ? Number(control._getWatch("staffSize"))
+            : undefined
+        }
+      />
+
+      <OptionSheet
+        visible={showIndustrySheet}
+        onClose={() => setShowIndustrySheet(false)}
+        onSelect={(value) => {
+          setValue("industry", value as string);
+          setShowIndustrySheet(false);
+        }}
+        title="Select Industry"
+        options={INDUSTRY_OPTIONS}
+        selectedValue={control._getWatch("industry")}
+      />
+
+      <OptionSheet
+        visible={showStatusMenu}
+        onClose={() => setShowStatusMenu(false)}
+        onSelect={(value) => {
+          setValue("status", value as "pending" | "current" | "completed");
+          setShowStatusMenu(false);
+        }}
+        title="Select Status"
+        options={STATUS_OPTIONS.map((opt) => ({
+          label: capitalize(opt),
+          value: opt,
+        }))}
+        selectedValue={control._getWatch("status")}
+      />
     </SafeAreaView>
   );
 }
@@ -541,3 +671,10 @@ function capitalize(s: string) {
 function ErrorText({ msg }: { msg: string }) {
   return <Text className="text-xs text-red-600 mt-1">{msg}</Text>;
 }
+const onlyDigits = (s: string) => s.replace(/[^\d]/g, "");
+
+const formatWithCommas = (digits: string) => {
+  if (!digits) return "";
+  // add commas every 3 digits
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+};

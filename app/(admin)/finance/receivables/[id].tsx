@@ -72,7 +72,7 @@ export default function ReceivableDetail() {
             {NGN(Number(client?.payableAmount || 0))}
           </Text>
           <Text className="mt-1 text-[12px] tracking-widest text-gray-600 font-kumbhBold">
-            TOTAL PAYABLE
+            TOTAL RECEIVABLE AMOUNT
           </Text>
         </View>
 

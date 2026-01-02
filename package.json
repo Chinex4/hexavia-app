@@ -45,6 +45,7 @@
     "expo-print": "~15.0.8",
     "expo-router": "~6.0.21",
     "expo-sharing": "~14.0.8",
+    "expo-speech-recognition": "^3.0.1",
     "expo-splash-screen": "~31.0.13",
     "expo-status-bar": "~3.0.9",
     "expo-symbols": "~1.0.8",
@@ -91,6 +92,9 @@
     "typescript": "~5.9.2"
   },
   "private": true,
+  "overrides": {
+    "react-server-dom-webpack": "19.1.4"
+  },
   "expo": {
     "doctor": {
       "reactNativeDirectoryCheck": {

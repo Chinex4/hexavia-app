@@ -1,56 +1,56 @@
 // app/(admin)/clients/installments.tsx
+import DateTimePicker from "@react-native-community/datetimepicker";
+import clsx from "clsx";
+import * as Print from "expo-print";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Sharing from "expo-sharing";
+import { ArrowLeft, Plus, Trash2 } from "lucide-react-native";
 import React from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  ScrollView,
+  Alert,
   KeyboardAvoidingView,
   Platform,
-  Alert,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react-native";
-import clsx from "clsx";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
 
 import SectionTitle from "@/components/admin/SectionTitle";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  addRow as addRowAction,
-  updateRow as updateRowAction,
-  removeRow as removeRowAction,
-  setRows,
-  setTotalAmount,
-  setAmountPaid,
-  setClientId,
-  clearError,
-} from "@/redux/installments/installments.slice";
-import {
-  selectRows,
-  selectTotalAmount,
-  selectAmountPaid,
-  selectDerivedRemaining,
-  selectAdding,
-  selectInstallmentsError,
-  selectInstallmentsErrorDetail,
-  selectClientId,
-  selectLastAdd,
-} from "@/redux/installments/installments.selectors";
-import {
-  addClientInstallments,
-  deleteClientInstallment,
-} from "@/redux/installments/installments.thunks";
-import { fetchClientById } from "@/redux/client/client.thunks";
+import { showError, showSuccess } from "@/components/ui/toast";
 import {
   makeSelectClientById,
   selectClientDetailLoading,
 } from "@/redux/client/client.selectors";
-import { showSuccess, showError } from "@/components/ui/toast";
+import { fetchClientById } from "@/redux/client/client.thunks";
+import {
+  selectAdding,
+  selectAmountPaid,
+  selectClientId,
+  selectDerivedRemaining,
+  selectInstallmentsError,
+  selectInstallmentsErrorDetail,
+  selectLastAdd,
+  selectRows,
+  selectTotalAmount,
+} from "@/redux/installments/installments.selectors";
+import {
+  addRow as addRowAction,
+  clearError,
+  removeRow as removeRowAction,
+  setAmountPaid,
+  setClientId,
+  setRows,
+  setTotalAmount,
+  updateRow as updateRowAction,
+} from "@/redux/installments/installments.slice";
+import {
+  addClientInstallments,
+  deleteClientInstallment,
+} from "@/redux/installments/installments.thunks";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const PRIMARY = "#4C5FAB";
 const BG_INPUT = "#F7F9FC";
@@ -537,7 +537,7 @@ export default function ClientInstallments() {
                 <View className="flex-row mt-3" style={{ gap: 12 }}>
                   <View style={{ flex: 1 }}>
                     <Text className="mb-2 text-[13px] text-gray-700 font-kumbh">
-                      Payable Amount
+                      Receivable Amount
                     </Text>
                     <AmountInput
                       value={row.amount}

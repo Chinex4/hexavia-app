@@ -2,43 +2,43 @@
 import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { ArrowDown, ArrowLeft, ArrowUp, Eye, Plus } from "lucide-react-native";
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  FlatList,
+  Modal,
   Pressable,
+  RefreshControl,
   SectionList,
   Text,
-  View,
-  RefreshControl,
-  FlatList,
   TextInput,
-  Modal,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 /* ───────── Expenses (existing) ───────── */
-import { fetchFinance } from "@/redux/finance/finance.thunks";
 import {
-  selectFinanceRecords,
-  selectFinancePagination,
-  selectFinanceSummary,
-  selectFinanceListLoading,
   selectFinanceFilters,
+  selectFinanceListLoading,
+  selectFinancePagination,
+  selectFinanceRecords,
+  selectFinanceSummary,
 } from "@/redux/finance/finance.selectors";
 import {
   setFinanceFilters,
   setFinancePage,
 } from "@/redux/finance/finance.slice";
+import { fetchFinance } from "@/redux/finance/finance.thunks";
 
 /* ───────── Clients (for Receivables) ───────── */
-import { fetchClients } from "@/redux/client/client.thunks";
 import {
   selectAllClients,
-  selectClientPagination,
   selectClientFilters,
+  selectClientPagination,
   selectClientsLoading,
 } from "@/redux/client/client.selectors";
+import { fetchClients } from "@/redux/client/client.thunks";
 
 type Flow = "Receivables" | "Expenses";
 
@@ -508,7 +508,7 @@ export default function FinanceIndex() {
                           {c?.name || "Unnamed client"}
                         </Text>
                         <Text className="font-kumbh text-[12px] text-gray-500 mt-1">
-                          Payable:{" "}
+                          Receivable:{" "}
                           {new Intl.NumberFormat("en-NG", {
                             style: "currency",
                             currency: "NGN",
