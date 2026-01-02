@@ -1,4 +1,13 @@
 // app/(admin)/prospects/index.tsx
+import { useRouter } from "expo-router";
+import {
+  ArrowLeft,
+  Filter as FilterIcon,
+  Mail,
+  Phone,
+  Plus,
+  Search,
+} from "lucide-react-native";
 import React, {
   useCallback,
   useEffect,
@@ -9,6 +18,7 @@ import React, {
 import {
   ActivityIndicator,
   FlatList,
+  GestureResponderEvent,
   Modal,
   Pressable,
   RefreshControl,
@@ -17,24 +27,18 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  Filter as FilterIcon,
-  Plus,
-  Search,
-} from "lucide-react-native";
 
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   selectAllClients,
-  selectClientsLoading,
-  selectClientPagination,
   selectClientFilters,
+  selectClientPagination,
+  selectClientsLoading,
 } from "@/redux/client/client.selectors";
-import { fetchClients } from "@/redux/client/client.thunks";
 import { setClientFilters } from "@/redux/client/client.slice";
+import { fetchClients } from "@/redux/client/client.thunks";
 import type { Client, ClientFilters } from "@/redux/client/client.types";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { openEmail, dialPhone } from "@/utils/contact";
 
 const ENGAGEMENT_OPTS = ["Full-time", "Part-time", "Contract"] as const;
 const SORTBY_OPTS = ["createdAt", "payableAmount"] as const;
@@ -345,9 +349,39 @@ function ClientRow({
     <Pressable onPress={() => onPress(item._id)} className="py-1">
       <Row label="Name" value={name} />
       <Row label="Project" value={item.projectName ?? "—"} />
+      <Row
+        label="Email"
+        value={item.email ?? "—"}
+        actions={
+          item.email
+            ? [
+                {
+                  icon: Mail,
+                  onPress: () => openEmail(item.email),
+                  label: "Email prospect",
+                },
+              ]
+            : undefined
+        }
+      />
+      <Row
+        label="Phone"
+        value={item.phone ?? "—"}
+        actions={
+          item.phone
+            ? [
+                {
+                  icon: Phone,
+                  onPress: () => dialPhone(item.phone),
+                  label: "Call prospect",
+                },
+              ]
+            : undefined
+        }
+      />
       <Row label="Industry" value={item.industry ?? "—"} />
       <Row label="Engagement" value={item.engagement ?? "—"} />
-      <Row label="Payable" value={formatMoney(item.payableAmount)} />
+      <Row label="Receivable" value={formatMoney(item.payableAmount)} />
       <View className="flex-row items-center justify-between py-2">
         <Text className="text-base text-gray-700 font-kumbh">Status</Text>
         <View className={`px-3 py-1 rounded-full ${badgeStyle}`}>
@@ -358,11 +392,54 @@ function ClientRow({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+type RowAction = {
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+  onPress: () => void;
+  label?: string;
+};
+
+function Row({
+  label,
+  value,
+  actions,
+}: {
+  label: string;
+  value: string;
+  actions?: RowAction[];
+}) {
   return (
     <View className="flex-row items-center justify-between py-2">
-      <Text className="text-base text-gray-700 font-kumbh">{label}</Text>
-      <Text className="text-base text-text font-kumbhBold">{value}</Text>
+      <Text className="text-base text-gray-700 font-kumbh flex-1 pr-3">
+        {label}
+      </Text>
+
+      <View className="flex-row items-center gap-3">
+        <Text
+          className="text-base text-text font-kumbhBold max-w-[55%]"
+          numberOfLines={1}
+          ellipsizeMode="tail"
+        >
+          {value}
+        </Text>
+
+        {actions ? (
+          <View className="flex-row items-center gap-2">
+            {actions.map((action, index) => (
+              <Pressable
+                key={`${label}-${index}`}
+                onPress={(event: GestureResponderEvent) => {
+                  event.stopPropagation();
+                  action.onPress();
+                }}
+                className="w-9 h-9 rounded-full border border-gray-200 bg-white items-center justify-center"
+                accessibilityLabel={action.label}
+              >
+                <action.icon size={16} color="#111827" />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
