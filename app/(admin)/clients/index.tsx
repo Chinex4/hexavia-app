@@ -258,15 +258,17 @@ export default function ClientsIndex() {
               <View className="h-[1px] bg-gray-200 my-4" />
             )}
             renderItem={({ item }) => (
-              <ClientRow
-                item={item}
-                onPress={(id) =>
-                  router.push({
-                    pathname: "/(admin)/clients/[id]",
-                    params: { id },
-                  })
-                }
-              />
+              <View className="bg-white border border-gray-200 rounded-2xl p-4">
+                <ClientRow
+                  item={item}
+                  onPress={(id) =>
+                    router.push({
+                      pathname: "/(admin)/clients/[id]",
+                      params: { id },
+                    })
+                  }
+                />
+              </View>
             )}
             ListEmptyComponent={
               <View className="px-5 py-16">
@@ -378,6 +380,7 @@ function ClientRow({
     <Pressable onPress={() => onPress(item._id)} className="py-1">
       <Row label="Name" value={name} />
       <Row label="Project" value={item.projectName ?? "—"} />
+
       <Row
         label="Email"
         value={item.email ?? "—"}
@@ -393,6 +396,7 @@ function ClientRow({
             : undefined
         }
       />
+
       <Row
         label="Phone"
         value={item.phone ?? "—"}
@@ -408,15 +412,19 @@ function ClientRow({
             : undefined
         }
       />
+
       <Row label="Industry" value={item.industry ?? "—"} />
       <Row label="Engagement" value={item.engagement ?? "—"} />
       <Row label="Receivable" value={formatMoney(item.payableAmount)} />
-      <View className="flex-row items-center justify-between py-2">
-        <Text className="text-base text-gray-700 font-kumbh">Status</Text>
-        <View className={`px-3 py-1 rounded-full ${badgeStyle}`}>
-          <Text className="text-xs font-kumbhBold">{badgeText}</Text>
-        </View>
-      </View>
+
+      <Row
+        label="Status"
+        right={
+          <View className={`px-3 py-1 rounded-full ${badgeStyle}`}>
+            <Text className="text-xs font-kumbhBold">{badgeText}</Text>
+          </View>
+        }
+      />
     </Pressable>
   );
 }
@@ -431,40 +439,47 @@ function Row({
   label,
   value,
   actions,
+  right,
 }: {
   label: string;
-  value: string;
+  value?: string;
   actions?: RowAction[];
+  right?: React.ReactNode;
 }) {
   return (
-    <View className="flex-row items-center justify-between py-2">
+    <View className="flex-row items-center py-2">
+      {/* Fixed label column */}
       <Text
-        className="text-base text-gray-700 font-kumbh flex-1 pr-3"
+        className="w-28 text-base text-gray-700 font-kumbh"
         numberOfLines={1}
-        ellipsizeMode="tail"
       >
         {label}
       </Text>
 
-      <View className="flex-row items-center gap-3">
-        <Text
-          className="text-base text-text font-kumbhBold max-w-[55%]"
-          numberOfLines={1}
-          ellipsizeMode="tail"
-        >
-          {value}
-        </Text>
+      {/* Right column (important: min-w-0 so ellipsis works in flex layouts) */}
+      <View className="flex-1 flex-row items-center justify-end min-w-0">
+        {right ? (
+          right
+        ) : (
+          <Text
+            className="flex-1 min-w-0 text-base text-text font-kumbhBold text-right"
+            numberOfLines={1}
+            ellipsizeMode="tail"
+          >
+            {value ?? "—"}
+          </Text>
+        )}
 
-        {actions ? (
-          <View className="flex-row items-center gap-2">
+        {actions?.length ? (
+          <View className="flex-row items-center ml-3">
             {actions.map((action, index) => (
               <Pressable
                 key={`${label}-${index}`}
-                onPress={(event: GestureResponderEvent) => {
+                onPress={(event) => {
                   event.stopPropagation();
                   action.onPress();
                 }}
-                className="w-9 h-9 rounded-full border border-gray-200 bg-white items-center justify-center"
+                className="w-9 h-9 rounded-full border border-gray-200 bg-white items-center justify-center ml-2"
                 accessibilityLabel={action.label}
               >
                 <action.icon size={16} color="#111827" />

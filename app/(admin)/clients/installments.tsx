@@ -52,6 +52,10 @@ import {
 } from "@/redux/installments/installments.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
+import { Asset } from "expo-asset";
+import * as FileSystem from "expo-file-system/legacy";
+import logoIcon from "@/assets/images/logo-icon.png";
+
 const PRIMARY = "#4C5FAB";
 const BG_INPUT = "#F7F9FC";
 
@@ -91,8 +95,24 @@ function fmtDMY(d: Date) {
   return `${dd}/${mm}/${yyyy}`;
 }
 
+function slugFileName(s: string) {
+  return (s || "invoice")
+    .trim()
+    .replace(/\s+/g, "_")
+    .replace(/[^\w\-]+/g, "")
+    .slice(0, 80);
+}
+
+function yyyymmdd(d = new Date()) {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /* ---------- invoice HTML (Total only + bank details + POP instruction) ---------- */
 function htmlForInvoice(payload: {
+  logoDataUrl?: string | null;
   companyName: string;
   clientName: string;
   projectName: string;
@@ -103,6 +123,7 @@ function htmlForInvoice(payload: {
   proofInstruction?: string;
 }) {
   const {
+    logoDataUrl,
     companyName,
     clientName,
     projectName,
@@ -121,11 +142,15 @@ function htmlForInvoice(payload: {
             <td>${i + 1}</td>
             <td>${r.due || ""}</td>
             <td style="text-align:right">${N(amountNum)}</td>
-            <td>${r.paymentId ? "Recorded" : "—"}</td>
+            <td>${r.paymentId ? `<span class="pill ok">Recorded</span>` : `<span class="pill">Pending</span>`}</td>
           </tr>`;
         })
         .join("")
     : `<tr><td colspan="4">No installments added.</td></tr>`;
+
+  const logoMarkup = logoDataUrl
+    ? `<img src="${logoDataUrl}" class="logo" alt="${companyName} logo" />`
+    : `<div class="logo fallback">${(companyName || "C").slice(0, 1)}</div>`;
 
   return `<!DOCTYPE html>
 <html>
@@ -133,66 +158,106 @@ function htmlForInvoice(payload: {
 <meta charset="utf-8" />
 <title>${companyName} Invoice</title>
 <style>
-  body { font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif; color:#111827; }
-  .wrap { padding: 24px; }
-  .brand { font-size: 26px; font-weight: 800; letter-spacing: 0.3px; }
-  .h1 { font-size: 18px; font-weight: 700; margin: 2px 0 6px; }
-  .muted { color:#6b7280; font-size: 12px; }
-  .meta { margin-top: 10px; font-size: 13px; display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:6px 16px; }
-  table { width:100%; border-collapse: collapse; margin-top: 16px; }
-  th, td { border: 1px solid #e5e7eb; padding: 8px; font-size: 12px; text-align:left; vertical-align: top; }
-  th { background:#f9fafb; font-weight:600; }
-  .totals { margin-top:16px; display:grid; grid-template-columns: 1fr; gap: 12px; }
-  .card { border:1px solid #e5e7eb; border-radius: 12px; padding: 12px; background:#fff; }
-  .label { font-size: 12px; color:#6b7280; }
-  .value { font-size: 18px; font-weight:700; margin-top: 4px; text-align:right; }
-  .divider { height: 1px; background:#e5e7eb; margin: 16px 0; }
-  .bank { font-size: 13px; line-height: 1.5; }
-  .footnote { font-size: 12px; color:#374151; margin-top: 6px; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif; color:#0f172a; background:#eef2ff; }
+  .page { padding: 28px 20px 40px; }
+  .sheet { max-width: 980px; margin: 0 auto; background:#fff; border-radius: 26px; padding: 26px; box-shadow: 0 25px 60px rgba(15, 23, 42, 0.14); }
+  .topbar { display:flex; align-items:flex-start; justify-content:space-between; gap: 18px; }
+  .brand { display:flex; align-items:center; gap: 12px; }
+  .logo { width: 54px; height: 54px; border-radius: 16px; background:#111827; padding: 8px; object-fit: contain; }
+  .logo.fallback { display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; letter-spacing:0.08em; }
+  .title { display:flex; flex-direction:column; gap: 2px; }
+  .company { font-size: 18px; font-weight: 800; letter-spacing: 0.2px; }
+  .inv { font-size: 26px; font-weight: 800; margin-top: 2px; }
+  .muted { color:#64748b; font-size: 12px; }
+  .chip { padding: 7px 12px; border-radius: 999px; background:#eef2ff; color:#312e81; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; display:inline-block; }
+  .meta { margin-top: 18px; display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 18px; font-size: 13px; color:#334155; }
+  .meta strong { color:#0f172a; }
+  .divider { height: 1px; background:#e5e7eb; margin: 18px 0; }
+  table { width:100%; border-collapse: collapse; margin-top: 14px; overflow:hidden; border-radius: 16px; border: 1px solid #e5e7eb; }
+  thead { background:#0f172a; color:#fff; }
+  th { padding: 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; text-align:left; }
+  td { padding: 12px; border-top: 1px solid #e5e7eb; font-size: 12px; color:#0f172a; vertical-align: top; }
+  tbody tr:nth-child(odd) { background:#f8fafc; }
+  .right { text-align:right; }
+  .pill { display:inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; background:#f1f5f9; color:#334155; }
+  .pill.ok { background:#e8fff3; color:#047857; }
+  .totals { margin-top: 16px; display:flex; justify-content:flex-end; }
+  .totalCard { width: 280px; border: 1px solid #e5e7eb; border-radius: 18px; padding: 14px; background:#f8fafc; }
+  .totalLabel { font-size: 12px; color:#64748b; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
+  .totalValue { margin-top: 6px; font-size: 22px; font-weight: 900; text-align:right; }
+  .payGrid { margin-top: 14px; display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .card { border:1px solid #e5e7eb; border-radius: 18px; padding: 14px; background:#fff; }
+  .card h3 { margin:0 0 8px; font-size: 14px; }
+  .kv { font-size: 13px; color:#334155; line-height: 1.6; }
+  .footnote { margin-top: 10px; font-size: 12px; color:#334155; }
+  .footer { margin-top: 18px; font-size: 11px; color:#64748b; letter-spacing:0.08em; text-align:right; }
 </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="brand">${companyName}</div>
-    <div class="h1">Invoice</div>
-    <div class="muted">Generated: ${fmtDMY(new Date())}</div>
+  <div class="page">
+    <div class="sheet">
 
-    <div class="meta">
-      <div><strong>Client:</strong> ${clientName || "—"}</div>
-      <div><strong>Engagement:</strong> ${engagement || "—"}</div>
-      <div><strong>Project:</strong> ${projectName || "—"}</div>
-      <div><strong>Reference:</strong> ${companyName}</div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>Due Date</th>
-          <th style="text-align:right">Amount</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>${bodyRows}</tbody>
-    </table>
-
-    <div class="totals">
-      <div class="card">
-        <div class="label">Total</div>
-        <div class="value">${N(total)}</div>
+      <div class="topbar">
+        <div class="brand">
+          ${logoMarkup}
+          <div class="title">
+            <div class="company">${companyName}</div>
+            <div class="inv">Invoice</div>
+            <div class="muted">Generated: ${fmtDMY(new Date())}</div>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="chip">INSTALLMENT PLAN</div>
+        </div>
       </div>
+
+      <div class="meta">
+        <div><strong>Client:</strong> ${clientName || "—"}</div>
+        <div><strong>Engagement:</strong> ${engagement || "—"}</div>
+        <div><strong>Project:</strong> ${projectName || "—"}</div>
+        <div><strong>Reference:</strong> ${companyName}</div>
+      </div>
+
+      <div class="divider"></div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width:44px">#</th>
+            <th>Due Date</th>
+            <th class="right">Amount</th>
+            <th style="width:120px">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${bodyRows}
+        </tbody>
+      </table>
+
+      <div class="totals">
+        <div class="totalCard">
+          <div class="totalLabel">Total</div>
+          <div class="totalValue">${N(total)}</div>
+        </div>
+      </div>
+
+      <div class="payGrid">
+        <div class="card">
+          <h3>Payment Details</h3>
+          <div class="kv"><strong>Account Name:</strong> ${account.accountName}</div>
+          <div class="kv"><strong>Account Number:</strong> ${account.accountNumber}</div>
+          <div class="kv"><strong>Bank:</strong> ${account.bankName}</div>
+        </div>
+
+        <div class="card">
+          <h3>Proof of Payment</h3>
+          <div class="kv">${proofInstruction || ""}</div>
+        </div>
+      </div>
+
+      <div class="footer">${companyName} Invoice</div>
     </div>
-
-    <div class="divider"></div>
-
-    <div class="h1">Payment Details</div>
-    <div class="bank">
-      <div><strong>Account Name:</strong> ${account.accountName}</div>
-      <div><strong>Account Number:</strong> ${account.accountNumber}</div>
-      <div><strong>Bank:</strong> ${account.bankName}</div>
-    </div>
-
-    <p class="footnote">${proofInstruction || ""}</p>
   </div>
 </body>
 </html>`;
@@ -203,6 +268,7 @@ export default function ClientInstallments() {
   const dispatch = useAppDispatch();
   const params = useLocalSearchParams<{ clientId?: string }>();
   const incomingClientId = params?.clientId ? String(params.clientId) : "";
+  const [logoDataUrl, setLogoDataUrl] = React.useState<string | null>(null);
 
   const rows = useAppSelector(selectRows);
   const totalAmount = useAppSelector(selectTotalAmount);
@@ -227,6 +293,33 @@ export default function ClientInstallments() {
 
   const [dateIdx, setDateIdx] = React.useState<number | null>(null);
   const [pickerDate, setPickerDate] = React.useState<Date>(new Date());
+
+  React.useEffect(() => {
+    let active = true;
+
+    (async () => {
+      try {
+        const asset = Asset.fromModule(logoIcon);
+        await asset.downloadAsync();
+        const uri = asset.localUri ?? asset.uri;
+        if (!uri || !active) return;
+
+        const base64 = await FileSystem.readAsStringAsync(uri, {
+          encoding: "base64",
+        });
+
+        if (active) {
+          setLogoDataUrl(base64 ? `data:image/png;base64,${base64}` : null);
+        }
+      } catch (e) {
+        console.warn("Unable to inline invoice logo", e);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   React.useEffect(() => {
     if (!incomingClientId) {
@@ -329,6 +422,7 @@ export default function ClientInstallments() {
   const onBuildInvoice = async (dialogTitle: string) => {
     try {
       const html = htmlForInvoice({
+        logoDataUrl,
         companyName: COMPANY_NAME,
         clientName: name,
         projectName: project,
@@ -343,11 +437,26 @@ export default function ClientInstallments() {
         proofInstruction: PROOF_INSTRUCTION,
       });
 
-      const filename = `invoice_${(name || "client").replace(/\s+/g, "_")}_${Date.now()}.pdf`;
+      const clientSlug = slugFileName(name || "client");
+      const projectSlug = slugFileName(project || "project");
+      const dateSlug = yyyymmdd(new Date());
+
+      const filename = `invoice_${clientSlug}_${projectSlug}_${dateSlug}.pdf`;
+
       const result = await Print.printToFileAsync({
         html,
         base64: Platform.OS === "web",
       });
+
+      let shareUri = result.uri;
+
+      if (Platform.OS !== "web") {
+        const dest =
+          (FileSystem.documentDirectory || FileSystem.cacheDirectory || "") +
+          filename;
+        await FileSystem.copyAsync({ from: result.uri, to: dest });
+        shareUri = dest;
+      }
 
       if (Platform.OS === "web") {
         const base64 = (result as any).base64;
@@ -360,7 +469,7 @@ export default function ClientInstallments() {
           await Print.printAsync({ html });
         }
       } else {
-        await Sharing.shareAsync(result.uri, {
+        await Sharing.shareAsync(shareUri, {
           UTI: "com.adobe.pdf",
           mimeType: "application/pdf",
           dialogTitle,
@@ -598,16 +707,18 @@ export default function ClientInstallments() {
               onPress={() => onBuildInvoice("Send Invoice")}
               className="flex-1 h-14 rounded-2xl bg-[#4C5FAB] items-center justify-center active:opacity-90"
             >
-              <Text className="text-white font-kumbhBold">Send Reminder</Text>
+              <Text className="text-white font-kumbhBold">
+                Generate Invoice/Send Reminder
+              </Text>
             </Pressable>
-            <Pressable
+            {/* <Pressable
               onPress={() => onBuildInvoice("Generate Invoice")}
               className="flex-1 h-14 rounded-2xl border border-[#4C5FAB] items-center justify-center active:opacity-90"
             >
               <Text className="text-[#4C5FAB] font-kumbhBold">
                 Generate Invoice
               </Text>
-            </Pressable>
+            </Pressable> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

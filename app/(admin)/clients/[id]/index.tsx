@@ -40,6 +40,7 @@ import type { Client } from "@/redux/client/client.types";
 type AdminUser = {
   _id: string;
   email: string;
+  phoneNumber?: string;
   fullname?: string;
   username?: string;
   role: "client" | "staff" | "admin" | "super-admin";
@@ -97,7 +98,7 @@ function Input({
   onChangeText: (t: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: "default" | "numeric";
+  keyboardType?: "default" | "numeric" | "phone-pad" | "email-address";
 }) {
   return (
     <TextInput
@@ -224,6 +225,7 @@ export default function ClientDetails() {
   const fallbackUser: BaseUser = {
     _id: String(id ?? "unknown"),
     email: "unknown@example.com",
+    phoneNumber: "",
     fullname: "Unknown User",
     username: "unknown",
     role: "client",
@@ -249,7 +251,8 @@ export default function ClientDetails() {
     if (clientFromStore) {
       return {
         _id: clientFromStore._id,
-        email: "",
+        email: (clientFromStore as any).email ?? "",
+        phoneNumber: (clientFromStore as any).phoneNumber ?? "",
         fullname: clientFromStore.name,
         username: clientFromStore.name,
         role: "client",
@@ -290,6 +293,9 @@ export default function ClientDetails() {
   const [name, setName] = useState(
     baseUser.fullname || baseUser.username || baseUser.email || ""
   );
+  const [email, setEmail] = useState(baseUser.email ?? "");
+  const [phoneNumber, setPhoneNumber] = useState(baseUser.phoneNumber ?? "");
+
   const [projectName, setProjectName] = useState(baseUser.projectName ?? "");
   const [industry, setIndustry] = useState(baseUser.industry ?? "");
   const [staffSize, setstaffSize] = useState(String(baseUser.staffSize ?? ""));
@@ -313,8 +319,13 @@ export default function ClientDetails() {
     const basePay = formatMoneyNaira(baseUser.payableAmount);
     const baseName =
       baseUser.fullname || baseUser.username || baseUser.email || "";
+    const baseEmail = baseUser.email ?? "";
+    const basePhone = baseUser.phoneNumber ?? "";
+
     return (
       name !== baseName ||
+      email !== baseEmail ||
+      phoneNumber !== basePhone ||
       projectName !== (baseUser.projectName ?? "") ||
       industry !== (baseUser.industry ?? "") ||
       staffSize !== String(baseUser.staffSize ?? "") ||
@@ -332,6 +343,8 @@ export default function ClientDetails() {
   }, [
     baseUser,
     name,
+    email,
+    phoneNumber,
     projectName,
     industry,
     staffSize,
@@ -350,6 +363,8 @@ export default function ClientDetails() {
   useEffect(() => {
     setName(baseUser.fullname || baseUser.username || baseUser.email || "");
     setProjectName(baseUser.projectName ?? "");
+    setEmail(baseUser.email ?? "");
+    setPhoneNumber(baseUser.phoneNumber ?? "");
     setIndustry(baseUser.industry ?? "");
     setstaffSize(String(baseUser.staffSize ?? ""));
     setDescription(baseUser.description ?? "");
@@ -373,6 +388,8 @@ export default function ClientDetails() {
     const body = {
       name: name.trim(),
       projectName: projectName.trim(),
+      email: email.trim() || undefined,
+      phoneNumber: phoneNumber.trim() || undefined,
       industry: industry.trim() || undefined,
       staffsize: Number(staffSize) || undefined,
       description: description.trim() || undefined,
@@ -473,6 +490,27 @@ export default function ClientDetails() {
                 <View className="mt-4">
                   <FieldLabel>Project Name</FieldLabel>
                   <Input value={projectName} onChangeText={setProjectName} />
+                </View>
+
+                {/* Email */}
+                <View className="mt-4">
+                  <FieldLabel>Email</FieldLabel>
+                  <Input
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder="example@domain.com"
+                  />
+                </View>
+
+                {/* Phone Number */}
+                <View className="mt-4">
+                  <FieldLabel>Phone Number</FieldLabel>
+                  <Input
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    placeholder="080..."
+                    keyboardType="numeric"
+                  />
                 </View>
 
                 {/* Industry | Staff Size */}

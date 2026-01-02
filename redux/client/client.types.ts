@@ -58,7 +58,7 @@ export interface ClientListResponse {
 export interface ClientCreateInput {
   name: string;
   projectName?: string;
-  phone?: string;
+  phoneNumber?: string;
   email?: string;
   engagement?: string;
   industry?: string;
