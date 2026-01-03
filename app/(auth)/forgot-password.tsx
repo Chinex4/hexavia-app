@@ -118,6 +118,7 @@ export default function ForgotPasswordScreen() {
                     autoCapitalize="none"
                     keyboardType="email-address"
                     className="flex-1 text-black font-kumbh"
+                    style={{ paddingVertical: 0, height: 56 }}
                   />
                 </View>
               )}

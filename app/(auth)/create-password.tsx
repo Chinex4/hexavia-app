@@ -135,7 +135,7 @@ export default function SignupFinalScreen() {
                     autoCapitalize="characters"
                     textAlignVertical="center"
                     className="flex-1 h-full ml-2 text-black font-kumbh py-0 text-[16px] leading-[20px]"
-                    style={{ paddingVertical: 0 }}
+                    style={{ paddingVertical: 0, height: 56 }}
                   />
                 </View>
               )}
@@ -174,7 +174,7 @@ export default function SignupFinalScreen() {
                     value={value}
                     textAlignVertical="center"
                     className="flex-1 h-full ml-2 text-black font-kumbh py-0 text-[16px] leading-[20px]"
-                    style={{ paddingVertical: 0 }}
+                    style={{ paddingVertical: 0, height: 56 }}
                   />
                   <Pressable onPress={() => setShowPass((s) => !s)}>
                     {showPass ? (
@@ -213,7 +213,7 @@ export default function SignupFinalScreen() {
                     value={value}
                     textAlignVertical="center"
                     className="flex-1 h-full ml-2 text-black font-kumbh py-0 text-[16px] leading-[20px]"
-                    style={{ paddingVertical: 0 }}
+                    style={{ paddingVertical: 0, height: 56 }}
                   />
                   <Pressable onPress={() => setShowConfirm((s) => !s)}>
                     {showConfirm ? (
