@@ -85,11 +85,11 @@ export default function SanctionsView() {
       .map((r: any) => getRowDate(r)?.getTime())
       .filter(Boolean) as number[];
 
-    if (dates.length) {
-      console.log("Newest:", new Date(Math.max(...dates)).toISOString());
-      console.log("Oldest:", new Date(Math.min(...dates)).toISOString());
-      console.log("Range:", range, "Since:", since.toISOString());
-    }
+    // if (dates.length) {
+    //   console.log("Newest:", new Date(Math.max(...dates)).toISOString());
+    //   console.log("Oldest:", new Date(Math.min(...dates)).toISOString());
+    //   console.log("Range:", range, "Since:", since.toISOString());
+    // }
 
     const filteredRows = rows.filter((r: any) => {
       if (r?.isActive) return true; // keep active regardless of time

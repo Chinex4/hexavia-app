@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useMemo } from "react";
-import { Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
+import { Platform, Pressable, SafeAreaView, ScrollView, Text, View } from "react-native";
 import { ArrowLeft } from "lucide-react-native";
 
 import type { Client } from "@/redux/client/client.types";
@@ -66,7 +66,9 @@ export default function DeletedClientDetail() {
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f5fb]">
-      <View className="px-5 pt-5 pb-3 bg-white border-b border-gray-200 flex-row items-center gap-3">
+      <View style={{
+        paddingTop: Platform.OS === "android" ? 50 : 20,
+      }} className="px-5 pb-3 bg-white border-b border-gray-200 flex-row items-center gap-3">
         <Pressable
           onPress={() => router.back()}
           className="h-10 w-10 rounded-full bg-gray-100 items-center justify-center"
