@@ -47,7 +47,7 @@ export default function JoinableChannelCard({
           <Text
             className={`font-kumbh ${disabled ? "text-gray-500" : "text-white"}`}
           >
-            {disabled ? "Joined" : "Request to join"}
+            {disabled ? "Joined" : "Join"}
           </Text>
         </Pressable>
       </View>

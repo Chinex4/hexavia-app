@@ -17,6 +17,7 @@ import {
   Animated,
   Easing,
   Modal,
+  Platform,
   Pressable,
   SectionList,
   Text,
@@ -56,8 +57,16 @@ function timeAgo(iso: string) {
 function dateBucketLabel(date: Date) {
   const now = new Date();
   const one = 24 * 60 * 60 * 1000;
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfGiven = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const startOfToday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  ).getTime();
+  const startOfGiven = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate()
+  ).getTime();
 
   if (startOfGiven === startOfToday) return "Today";
   if (startOfToday - startOfGiven === one) return "Yesterday";
@@ -249,17 +258,26 @@ export default function NotificationsScreen() {
       await registerForPushNotificationsAsync();
       notifListener.current = Notifications.addNotificationReceivedListener(
         (n) => {
-          const data = n.request.content.data as Partial<AppNotification> | undefined;
+          const data = n.request.content.data as
+            | Partial<AppNotification>
+            | undefined;
 
           const newNotif: AppNotification = {
-            id: String(Date.now()),
+            id: String(
+              data?.id ??
+                n.request.identifier ??
+                `${Date.now()}-${Math.random()}`
+            ),
             kind: (data?.kind as NotificationKind) || "channel",
             title: data?.title || n.request.content.title || "New Update",
             message: data?.message || n.request.content.body || "",
             createdAt: new Date().toISOString(),
           };
 
-          dispatch({ type: "notifications/addNotification", payload: newNotif });
+          dispatch({
+            type: "notifications/addNotification",
+            payload: newNotif,
+          });
         }
       );
     })();
@@ -278,13 +296,26 @@ export default function NotificationsScreen() {
     }
   };
 
-  const isInitialLoading = status === "loading" && (notifications?.length ?? 0) === 0;
+  const isInitialLoading =
+    status === "loading" && (notifications?.length ?? 0) === 0;
+
+  const normalized = useMemo(() => {
+    return (notifications ?? []).map((n: any, idx: number) => ({
+      ...n,
+      id: String(
+        n.id ??
+          n._id ??
+          n.uuid ??
+          `${n.createdAt ?? "no-date"}-${n.kind ?? "no-kind"}-${idx}`
+      ),
+    })) as AppNotification[];
+  }, [notifications]);
 
   // Filter by search only
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
 
-    const base = (notifications ?? []).filter((n) => {
+    const base = (normalized ?? []).filter((n) => {
       if (!q) return true;
       return (
         (n.title ?? "").toLowerCase().includes(q) ||
@@ -303,7 +334,8 @@ export default function NotificationsScreen() {
     const sections = Array.from(map.entries()).map(([title, data]) => ({
       title,
       data: data.sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
     }));
 
@@ -321,7 +353,10 @@ export default function NotificationsScreen() {
       <StatusBar style="dark" />
 
       {/* Header */}
-      <View className="mt-16 flex-row items-center justify-between px-4 py-3 border-b border-gray-200">
+      <View
+        style={{ paddingTop: Platform.OS === "android" ? 0 : 20 }}
+        className="mt-16 flex-row items-center justify-between px-4 py-3 border-b border-gray-200"
+      >
         <Pressable onPress={() => router.back()} className="p-2">
           <ChevronLeft size={24} color="#374151" />
         </Pressable>
@@ -348,7 +383,9 @@ export default function NotificationsScreen() {
       ) : (
         <SectionList
           sections={filtered}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item, index) =>
+            String(item.id ?? `${item.createdAt ?? "no-date"}-${index}`)
+          }
           refreshing={refreshing}
           onRefresh={onRefresh}
           renderSectionHeader={({ section: { title } }) => (
@@ -362,7 +399,9 @@ export default function NotificationsScreen() {
                 {iconFor(item.kind)}
               </View>
               <View className="flex-1">
-                <Text className="font-semibold text-base mb-1">{item.title}</Text>
+                <Text className="font-semibold text-base mb-1">
+                  {item.title}
+                </Text>
                 <Text className="text-gray-600 mb-1">{item.message}</Text>
                 <Text className="text-xs text-gray-500">
                   {timeAgo(item.createdAt)}

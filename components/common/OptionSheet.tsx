@@ -35,7 +35,7 @@ export default function OptionSheet({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent presentationStyle="overFullScreen">
       <View className="flex-1 justify-end bg-black/50">
         <View className="bg-white rounded-t-3xl max-h-96">
           <View className="px-6 py-4 border-b border-gray-200">

@@ -23,8 +23,8 @@ export default function CreateChannelCard({ width, gap, onPress }: Props) {
         className="bg-[#48A7FF] rounded-2xl p-5 justify-between"
         style={{ height: CARD_HEIGHT }}
       >
-        <Text className="text-white font-kumbhBold text-xl">
-          Create Channel
+        <Text className="text-white font-kumbhBold text-lg">
+          Create Project
         </Text>
 
         <View className="items-center justify-center">

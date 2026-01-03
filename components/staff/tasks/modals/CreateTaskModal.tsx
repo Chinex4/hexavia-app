@@ -213,6 +213,10 @@ export default function CreateTaskModal({
     }
   };
 
+  useEffect(() => {
+    if (!visible) setShowChannelPicker(false);
+  }, [visible]);
+
   const modes: Mode[] = forcePersonalForUserId
     ? ["personal"]
     : allowPersonal
@@ -224,13 +228,19 @@ export default function CreateTaskModal({
     return;
   }
 
+  const closeAll = () => {
+    setShowChannelPicker(false);
+    onClose();
+  };
+
   return (
     <>
       <Modal
         visible={visible}
         animationType="slide"
         transparent
-        onRequestClose={onClose}
+        presentationStyle="overFullScreen"
+        onRequestClose={closeAll}
       >
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -347,7 +357,7 @@ export default function CreateTaskModal({
                   className="flex-row justify-end items-center mt-6"
                   style={{ gap: 12 }}
                 >
-                  <Pressable onPress={onClose}>
+                  <Pressable onPress={closeAll}>
                     <Text className="font-kumbh text-[#6B7280]">Cancel</Text>
                   </Pressable>
                   <Pressable
@@ -362,7 +372,6 @@ export default function CreateTaskModal({
             </View>
           </TouchableWithoutFeedback>
         </KeyboardAvoidingView>
-      </Modal>
       <OptionSheet
         visible={showChannelPicker}
         onClose={() => setShowChannelPicker(false)}
@@ -371,6 +380,7 @@ export default function CreateTaskModal({
         options={channelOptions}
         selectedValue={channelCode || undefined}
       />
+      </Modal>
     </>
   );
 }
