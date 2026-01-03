@@ -2,7 +2,8 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { ArrowLeft, ChevronDown, Home, Plus } from "lucide-react-native";
-import React, { useState } from "react";
+import * as DocumentPicker from "expo-document-picker";
+import React, { useCallback, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
@@ -25,6 +26,7 @@ import OptionSheet from "@/components/common/OptionSheet";
 import { selectClientMutationLoading } from "@/redux/client/client.selectors";
 import { createClient } from "@/redux/client/client.thunks";
 import type { ClientCreateInput } from "@/redux/client/client.types";
+import { uploadSingle } from "@/redux/upload/upload.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 type FormValues = {
@@ -113,6 +115,12 @@ const INDUSTRY_OPTIONS = [
   { label: "Other", value: "Other" },
 ];
 
+const DOCUMENT_TYPES: string[] = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+];
+
 export default function CreateClient() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -121,6 +129,43 @@ export default function CreateClient() {
   const [showStatusMenu, setShowStatusMenu] = useState(false);
   const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
   const [showIndustrySheet, setShowIndustrySheet] = useState(false);
+  const [documentName, setDocumentName] = useState("");
+  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+
+  const handleAttachDocument = useCallback(async () => {
+    if (uploadingDocument) return;
+    setUploadingDocument(true);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        type: DOCUMENT_TYPES,
+      });
+      if (res.canceled) return;
+      const asset = res.assets?.[0];
+      if (!asset) return;
+
+      const name = asset.name ?? `document_${Date.now()}`;
+      const type = asset.mimeType ?? "application/octet-stream";
+
+      const uploadAction = await dispatch(
+        uploadSingle({ uri: asset.uri, name, type })
+      );
+      if (uploadSingle.fulfilled.match(uploadAction)) {
+        setDocumentUrl(uploadAction.payload.url);
+        setDocumentName(name);
+      }
+    } catch (err) {
+      console.warn("[client/create] document upload failed", err);
+    } finally {
+      setUploadingDocument(false);
+    }
+  }, [dispatch, uploadingDocument]);
+
+  const handleRemoveDocument = useCallback(() => {
+    setDocumentUrl(null);
+    setDocumentName("");
+  }, []);
 
   const {
     control,
@@ -166,6 +211,7 @@ export default function CreateClient() {
       opportunities: values.opportunities?.trim() || undefined,
       threats: values.threats?.trim() || undefined,
       deliverables: values.deliverables?.trim() || undefined,
+      documentUrl: documentUrl ?? undefined,
       payableAmount: values.payableAmount
         ? Number(values.payableAmount)
         : undefined,
@@ -241,7 +287,10 @@ export default function CreateClient() {
           Platform.select({ ios: 8, android: 0 }) as number
         }
       >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <TouchableWithoutFeedback
+          onPress={Keyboard.dismiss}
+          accessible={false}
+        >
           <ScrollView
             className="flex-1"
             contentContainerClassName="px-5 pb-10"
@@ -302,7 +351,7 @@ export default function CreateClient() {
             ) : null}
 
             {/* phoneNumber */}
-            <Field label="phoneNumber Number">
+            <Field label="Phone Number">
               <Controller
                 control={control}
                 name="phoneNumber"
@@ -525,6 +574,45 @@ export default function CreateClient() {
             {errors.deliverables?.message ? (
               <ErrorText msg={errors.deliverables.message} />
             ) : null}
+
+            {/* Document upload */}
+            <Field label="Supporting Document (optional)">
+              <View className="flex-row items-center gap-3">
+                <Pressable
+                  disabled={loading || uploadingDocument}
+                  onPress={handleAttachDocument}
+                  className={clsx(
+                    "flex-row items-center gap-2 rounded-2xl px-4 py-3",
+                    loading || uploadingDocument
+                      ? "bg-gray-300"
+                      : "bg-primary-500"
+                  )}
+                >
+                  {uploadingDocument ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text className="text-white font-kumbh">
+                      {documentUrl ? "Replace document" : "Upload document"}
+                    </Text>
+                  )}
+                </Pressable>
+                {documentUrl ? (
+                  <Pressable
+                    onPress={handleRemoveDocument}
+                    className="rounded-full border border-gray-200 px-3 py-2"
+                  >
+                    <Text className="text-xs text-gray-600 font-kumbh">
+                      Remove
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+              <Text className="text-xs text-gray-500 mt-1 font-kumbh">
+                {documentName
+                  ? `Uploaded: ${documentName}`
+                  : "Attach a PDF or Word document (optional)."}
+              </Text>
+            </Field>
 
             {/* Amount + Status */}
             <View className="flex-row gap-3">

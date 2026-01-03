@@ -98,7 +98,7 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
               {/* Header */}
               <View className="flex-row items-center justify-between mb-4">
                 <Text className="text-[18px] font-kumbhBold text-gray-900">
-                  Create Channel
+                  Create Project
                 </Text>
                 <Pressable
                   onPress={onClose}
@@ -112,12 +112,12 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
               {/* Fields */}
               <View className="mb-3">
                 <Text className="text-[12px] text-gray-500 mb-1">
-                  Name of Channel
+                  Name of Project
                 </Text>
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="Enter Name of Channel"
+                  placeholder="Enter Name of Project"
                   className="h-12 px-4 rounded-2xl bg-gray-100 text-gray-900"
                   placeholderTextColor="#9CA3AF"
                   autoCapitalize="words"

@@ -1,4 +1,3 @@
-// app/(admin)/prospects/index.tsx
 import { useRouter } from "expo-router";
 import {
   ArrowLeft,
@@ -39,11 +38,13 @@ import { fetchClients } from "@/redux/client/client.thunks";
 import type { Client, ClientFilters } from "@/redux/client/client.types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openEmail, dialPhone } from "@/utils/contact";
-
+import clsx from "clsx";
+const STATUS_OPTS = ["current", "pending", "completed"] as const;
 const ENGAGEMENT_OPTS = ["Full-time", "Part-time", "Contract"] as const;
 const SORTBY_OPTS = ["createdAt", "payableAmount"] as const;
 const ORDER_OPTS = ["desc", "asc"] as const;
 const LIMIT_OPTS = [10, 20, 50, 100] as const;
+type TabKey = "all" | "current" | "pending" | "completed";
 
 function useDebounced<T>(value: T, ms: number) {
   const [deb, setDeb] = useState(value);
@@ -54,21 +55,42 @@ function useDebounced<T>(value: T, ms: number) {
   return deb;
 }
 
-export default function ProspectsIndex() {
+type RangeKey = "24H" | "7D" | "30D" | "1Y";
+
+function getSinceDate(range: RangeKey) {
+  const d = new Date();
+  if (range === "24H") d.setHours(d.getHours() - 24);
+  if (range === "7D") d.setDate(d.getDate() - 7);
+  if (range === "30D") d.setDate(d.getDate() - 30);
+  if (range === "1Y") d.setFullYear(d.getFullYear() - 1);
+  return d;
+}
+
+function getClientDate(c: any): Date | null {
+  const raw =
+    c?.createdAt ?? c?.created_at ?? c?.updatedAt ?? c?.updated_at ?? null;
+  if (!raw) return null;
+  const dt = new Date(raw);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
+export default function ClientsIndex() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const [range, setRange] = useState<RangeKey>("30D");
 
   const clients = useAppSelector(selectAllClients);
   const loading = useAppSelector(selectClientsLoading);
   const pagination = useAppSelector(selectClientPagination);
   const filters = useAppSelector(selectClientFilters);
 
+  const [tab, setTab] = useState<TabKey>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [query, setQuery] = useState("");
 
   const [form, setForm] = useState<ClientFilters>({
-    status: "pending",
+    status: undefined,
     industry: undefined,
     engagement: undefined,
     sortBy: "createdAt",
@@ -78,24 +100,19 @@ export default function ProspectsIndex() {
   });
 
   useEffect(() => {
-    const enforced: ClientFilters = {
-      ...filters,
-      status: "pending",
+    setForm({
+      status: filters.status,
+      industry: filters.industry,
+      engagement: filters.engagement,
       sortBy: (filters.sortBy as any) ?? "createdAt",
       sortOrder: filters.sortOrder ?? "desc",
       limit: filters.limit ?? 10,
       page: filters.page ?? 1,
-    };
-
-    setForm(enforced);
-
-    if (filters.status !== "pending") {
-      dispatch(setClientFilters({ ...enforced, page: 1 }));
-    }
-  }, [dispatch]);
+    });
+  }, [filters, showFilters]);
 
   const fetchKey = JSON.stringify({
-    status: "pending",
+    status: filters.status,
     industry: filters.industry,
     engagement: filters.engagement,
     page: filters.page,
@@ -109,23 +126,57 @@ export default function ProspectsIndex() {
   useEffect(() => {
     if (debouncedKey && debouncedKey !== lastKeyRef.current) {
       lastKeyRef.current = debouncedKey;
-      dispatch(fetchClients({ ...filters, status: "pending" }));
+
+      const sinceISO = getSinceDate(range).toISOString();
+
+      dispatch(
+        fetchClients({
+          ...filters,
+          // pick ONE your backend expects. If it ignores unknown keys, you're safe.
+          from: sinceISO,
+          // createdFrom: sinceISO,
+          // startDate: sinceISO,
+        } as any)
+      );
     }
-  }, [debouncedKey, dispatch]);
+  }, [debouncedKey, dispatch, filters, range]);
+
+  const switchTab = useCallback(
+    (next: TabKey) => {
+      setTab(next);
+      const status = next === "all" ? undefined : next;
+      const nextFilters: ClientFilters = { ...filters, status, page: 1 };
+      const nextKey = JSON.stringify(nextFilters);
+      const currentKey = JSON.stringify(filters);
+      if (nextKey !== currentKey) dispatch(setClientFilters(nextFilters));
+    },
+    [dispatch, filters]
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchClients({ ...filters, status: "pending" })).unwrap();
+      const sinceISO = getSinceDate(range).toISOString();
+      await dispatch(
+        fetchClients({ ...filters, from: sinceISO } as any)
+      ).unwrap();
       lastKeyRef.current = fetchKey;
     } finally {
       setRefreshing(false);
     }
-  }, [dispatch, filters, fetchKey]);
+  }, [dispatch, filters, fetchKey, range]);
 
   const list = useMemo(() => {
-    const base = clients;
+    const since = getSinceDate(range);
+
+    let base = clients.filter((c: any) => {
+      const dt = getClientDate(c);
+      if (!dt) return true;
+      return dt >= since;
+    });
+
     if (!query.trim()) return base;
+
     const q = query.trim().toLowerCase();
     return base.filter((c: any) =>
       [
@@ -139,14 +190,14 @@ export default function ProspectsIndex() {
         .toLowerCase()
         .includes(q)
     );
-  }, [clients, query]);
+  }, [clients, query, range]);
 
   const canPrev = (pagination?.currentPage ?? 1) > 1;
   const canNext =
     (pagination?.currentPage ?? 1) < (pagination?.totalPages ?? 1);
 
   const gotoPage = (page: number) => {
-    const next = { ...filters, page, status: "pending" as const };
+    const next = { ...filters, page };
     if (page !== (filters.page ?? 1)) dispatch(setClientFilters(next));
   };
 
@@ -171,9 +222,7 @@ export default function ProspectsIndex() {
             <ArrowLeft size={24} color="#111827" />
           </Pressable>
 
-          <Text className="text-3xl font-kumbh text-text">
-            Hexavia Prospects
-          </Text>
+          <Text className="text-3xl font-kumbh text-text">Hexavia Prospects</Text>
 
           <Pressable
             onPress={() => setShowFilters(true)}
@@ -190,14 +239,14 @@ export default function ProspectsIndex() {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Search name, project, industry"
+              placeholder="Search name, project, industry, status"
               className="flex-1 text-[15px] font-kumbh text-gray-800"
               returnKeyType="search"
             />
           </View>
 
           <Pressable
-            onPress={() => router.push("/(admin)/prospects/create" as any)}
+            onPress={() => router.push("/(admin)/prospects/create")}
             className="flex-row items-center gap-2 bg-primary-50 border border-primary-100 rounded-2xl px-4 h-12"
           >
             <Plus size={18} color="#111827" />
@@ -205,14 +254,47 @@ export default function ProspectsIndex() {
           </Pressable>
         </View>
 
-        {/* Tabs removed — status is locked to "pending" */}
+        {/* Tabs */}
+        <View className="mt-6 flex-row items-center gap-8 px-1">
+          {(["all", "current", "pending", "completed"] as const).map((t) => (
+            <Pressable
+              key={t}
+              onPress={() => switchTab(t)}
+              className="items-center"
+            >
+              <Text
+                className={`text-base font-kumbh ${
+                  tab === t ? "text-blue-600 font-kumbhBold" : "text-gray-600"
+                }`}
+              >
+                {labelForTab(t)}
+              </Text>
+              {tab === t ? (
+                <View className="h-[3px] w-16 bg-blue-300 rounded-full mt-2" />
+              ) : (
+                <View className="h-[3px] w-16 mt-2" />
+              )}
+            </Pressable>
+          ))}
+        </View>
+
+        <View className="mt-4">
+          <RangeTabs
+            value={range}
+            onChange={(v) => {
+              setRange(v);
+              // reset to page 1 because range changes result set
+              dispatch(setClientFilters({ ...filters, page: 1 }));
+            }}
+          />
+        </View>
       </View>
 
       {loading && clients.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator />
           <Text className="mt-2 text-gray-500 font-kumbh">
-            Loading prospects…
+            Loading clients…
           </Text>
         </View>
       ) : (
@@ -246,7 +328,7 @@ export default function ProspectsIndex() {
             ListEmptyComponent={
               <View className="px-5 py-16">
                 <Text className="text-center text-gray-500 font-kumbh">
-                  No prospects found.
+                  No clients found.
                 </Text>
               </View>
             }
@@ -258,10 +340,14 @@ export default function ProspectsIndex() {
                 <Pressable
                   disabled={!canPrev}
                   onPress={() => gotoPage((pagination.currentPage ?? 1) - 1)}
-                  className={`px-4 py-2 rounded-xl border ${canPrev ? "bg-white" : "bg-gray-100"}`}
+                  className={`px-4 py-2 rounded-xl border ${
+                    canPrev ? "bg-white" : "bg-gray-100"
+                  }`}
                 >
                   <Text
-                    className={`font-kumbh ${canPrev ? "text-gray-800" : "text-gray-400"}`}
+                    className={`font-kumbh ${
+                      canPrev ? "text-gray-800" : "text-gray-400"
+                    }`}
                   >
                     Prev
                   </Text>
@@ -269,16 +355,20 @@ export default function ProspectsIndex() {
 
                 <Text className="font-kumbh text-gray-700">
                   Page {pagination.currentPage} / {pagination.totalPages} •{" "}
-                  {pagination.totalClients} prospects
+                  {pagination.totalClients} clients
                 </Text>
 
                 <Pressable
                   disabled={!canNext}
                   onPress={() => gotoPage((pagination.currentPage ?? 1) + 1)}
-                  className={`px-4 py-2 rounded-xl border ${canNext ? "bg-white" : "bg-gray-100"}`}
+                  className={`px-4 py-2 rounded-xl border ${
+                    canNext ? "bg-white" : "bg-gray-100"
+                  }`}
                 >
                   <Text
-                    className={`font-kumbh ${canNext ? "text-gray-800" : "text-gray-400"}`}
+                    className={`font-kumbh ${
+                      canNext ? "text-gray-800" : "text-gray-400"
+                    }`}
                   >
                     Next
                   </Text>
@@ -289,21 +379,15 @@ export default function ProspectsIndex() {
         </>
       )}
 
-      <FilterModalProspects
+      <FilterModal
         open={showFilters}
         form={form}
         industryOptions={dynamicIndustryOpts}
         onClose={() => setShowFilters(false)}
-        onChange={(patch) =>
-          setForm((f) => ({ ...f, ...patch, status: "pending" }))
-        }
+        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
         onApply={() => {
-          const next: ClientFilters = {
-            ...filters,
-            ...form,
-            status: "pending",
-            page: 1,
-          };
+          const next: ClientFilters = { ...filters, ...form, page: 1 };
+          if (!next.status) delete next.status;
           if (JSON.stringify(next) !== JSON.stringify(filters)) {
             dispatch(setClientFilters(next));
           }
@@ -315,7 +399,7 @@ export default function ProspectsIndex() {
             limit: 10,
             sortOrder: "desc",
             sortBy: "createdAt",
-            status: "pending",
+            status: undefined,
             industry: undefined,
             engagement: undefined,
           };
@@ -463,7 +547,7 @@ function Row({
   );
 }
 
-function FilterModalProspects({
+function FilterModal({
   open,
   form,
   industryOptions,
@@ -493,10 +577,18 @@ function FilterModalProspects({
             <View className="w-12 h-1.5 bg-gray-300 rounded-full" />
           </View>
           <Text className="text-xl font-kumbhBold text-gray-900 mb-3">
-            Filter Prospects
+            Filter Clients
           </Text>
 
-          {/* Status intentionally omitted (always pending) */}
+          <Field label="Status">
+            <PillGroup
+              options={["All", ...STATUS_OPTS]}
+              value={form.status ?? "All"}
+              onChange={(v) =>
+                onChange({ status: v === "All" ? undefined : (v as any) })
+              }
+            />
+          </Field>
 
           <Field label="Industry">
             <PillGroup
@@ -657,6 +749,12 @@ function PillGroup({
   );
 }
 
+function labelForTab(t: TabKey) {
+  if (t === "all") return "All";
+  if (t === "current") return "Current";
+  if (t === "pending") return "Pending";
+  return "Completed";
+}
 function capitalize(s?: string) {
   if (!s) return "";
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -672,4 +770,41 @@ function formatMoney(n?: number) {
   } catch {
     return String(n);
   }
+}
+
+function RangeTabs({
+  value,
+  onChange,
+}: {
+  value: RangeKey;
+  onChange: (v: RangeKey) => void;
+}) {
+  const options: RangeKey[] = ["24H", "7D", "30D", "1Y"];
+
+  return (
+    <View className="flex-row bg-white border border-gray-200 rounded-2xl p-1">
+      {options.map((opt) => {
+        const active = opt === value;
+        return (
+          <Pressable
+            key={opt}
+            onPress={() => onChange(opt)}
+            className={clsx(
+              "flex-1 py-2 rounded-xl items-center justify-center",
+              active ? "bg-gray-900" : "bg-transparent"
+            )}
+          >
+            <Text
+              className={clsx(
+                "font-kumbh text-sm",
+                active ? "text-white" : "text-gray-700"
+              )}
+            >
+              {opt}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }

@@ -53,6 +53,7 @@ export interface AddMemberBody {
   code: string;
   userId: string;
   type: "pm" | "staff" | "client";
+  channelId?: string;
 }
 export interface AddMemberResponse {
   message: string;

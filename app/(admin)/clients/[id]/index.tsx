@@ -1,17 +1,24 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
-  Bell,
   ChevronDown,
   ClipboardCheck,
-  Save,
+  FileText,
+  Save
 } from "lucide-react-native";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -26,15 +33,15 @@ import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 import {
-  deleteClient,
-  fetchClientById,
-  updateClient,
-} from "@/redux/client/client.thunks";
-import {
   makeSelectClientById,
   selectClientDetailLoading,
   selectClientMutationLoading,
 } from "@/redux/client/client.selectors";
+import {
+  deleteClient,
+  fetchClientById,
+  updateClient,
+} from "@/redux/client/client.thunks";
 import type { Client } from "@/redux/client/client.types";
 
 type AdminUser = {
@@ -130,24 +137,28 @@ function PillButton({
   label,
   onPress,
   variant = "primary",
+  disabled = false,
 }: {
   icon: React.ReactNode;
   label: string;
   onPress?: () => void;
   variant?: "primary" | "outline";
+  disabled?: boolean;
 }) {
   const isPrimary = variant === "primary";
   return (
     <Pressable
       onPress={onPress}
+      disabled={disabled}
       className="flex-row items-center justify-center rounded-2xl px-4 py-4"
       style={{
         backgroundColor: isPrimary ? PRIMARY : "transparent",
         borderWidth: isPrimary ? 0 : 1,
         borderColor: isPrimary ? "transparent" : PRIMARY,
         gap: 10,
+        opacity: disabled ? 0.5 : 1,
       }}
-      android_ripple={{ color: "#ffffff20" }}
+      android_ripple={disabled ? undefined : { color: "#ffffff20" }}
     >
       <View
         className="w-7 h-7 rounded-full items-center justify-center"
@@ -158,7 +169,7 @@ function PillButton({
         {icon}
       </View>
       <Text
-        className="font-kumbh text-[16px]"
+        className="font-kumbh text-[13px]"
         style={{ color: isPrimary ? "#fff" : PRIMARY }}
       >
         {label}
@@ -207,6 +218,7 @@ export default function ClientDetails() {
     [id]
   );
   const clientFromStore = useAppSelector(selectClient) as Client | null;
+  const documentLink = clientFromStore?.documentUrl;
 
   const detailLoading = useAppSelector(selectClientDetailLoading);
   const mutationLoading = useAppSelector(selectClientMutationLoading);
@@ -314,6 +326,25 @@ export default function ClientDetails() {
   );
   const [statusApi, setStatusApi] = useState<ApiStatus>(baseUser.statusApi);
   const [statusOpen, setStatusOpen] = useState(false);
+  const handleOpenDocument = useCallback(async () => {
+    if (!documentLink) return;
+    try {
+      const canOpen = await Linking.canOpenURL(documentLink);
+      if (!canOpen) {
+        Alert.alert(
+          "Cannot open document",
+          "This document link cannot be opened on your device."
+        );
+        return;
+      }
+      await Linking.openURL(documentLink);
+    } catch (err) {
+      Alert.alert(
+        "Unable to open document",
+        "Something went wrong while opening the document."
+      );
+    }
+  }, [documentLink]);
 
   const dirty = useMemo(() => {
     const basePay = formatMoneyNaira(baseUser.payableAmount);
@@ -402,7 +433,7 @@ export default function ClientDetails() {
       deliverables: deliverables.trim() || undefined,
       payableAmount: parseMoney(payable) || undefined,
       status: statusApi,
-    } as Partial<Client>;
+    };
 
     try {
       await dispatch(updateClient({ id: String(id), body })).unwrap();
@@ -653,14 +684,6 @@ export default function ClientDetails() {
 
                 {/* Buttons row */}
                 <View className="mt-6 flex-row" style={{ gap: 12 }}>
-                  {/* <View style={{ flex: 1 }}>
-                    <PillButton
-                      variant="outline"
-                      icon={<Bell size={16} color={PRIMARY} />}
-                      label="Send Invoice"
-                      onPress={() => {}}
-                    />
-                  </View> */}
                   <View style={{ flex: 1 }}>
                     <PillButton
                       variant="primary"
@@ -672,6 +695,15 @@ export default function ClientDetails() {
                           params: { clientId: id },
                         });
                       }}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <PillButton
+                      variant="outline"
+                      icon={<FileText size={16} color={PRIMARY} />}
+                      label="View Document"
+                      disabled={!documentLink}
+                      onPress={handleOpenDocument}
                     />
                   </View>
                 </View>

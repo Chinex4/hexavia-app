@@ -130,26 +130,6 @@ export default function StaffDetails() {
         <Row label="Status" value={user.suspended ? "Suspended" : "Active"} />
       </View>
 
-      {/* Channels */}
-      <View className="px-6 mt-6">
-        <Text className="text-lg font-kumbhBold text-text mb-2">Projects</Text>
-        {memberChannels.length > 0 ? (
-          memberChannels.map((ch) => (
-            <View
-              key={ch._id}
-              className="flex-row items-center justify-between py-3 border-b border-gray-200"
-            >
-              <Text className="text-base font-kumbh text-text">{ch.name}</Text>
-              <Text className="text-sm font-kumbh text-gray-500">
-                {ch.code}
-              </Text>
-            </View>
-          ))
-        ) : (
-          <Text className="text-gray-500 font-kumbh">No channels yet.</Text>
-        )}
-      </View>
-
       {/* Actions */}
       <View className="px-6 mt-8 gap-3">
         <Pressable
