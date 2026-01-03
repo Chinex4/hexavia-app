@@ -22,6 +22,7 @@ export interface Client {
   threats?: string;
   deliverables?: string;
   payableAmount?: number;
+  documentUrl?: string | null;
   status?: ClientStatus;
   createdAt?: string;
   updatedAt?: string;
@@ -40,6 +41,7 @@ export interface ClientFilters {
   limit?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  from?: string;
 }
 
 export interface Pagination {
@@ -71,6 +73,7 @@ export interface ClientCreateInput {
   threats?: string;
   deliverables?: string;
   payableAmount?: number;
+  documentUrl?: string;
   status?: ClientStatus;
 }
 

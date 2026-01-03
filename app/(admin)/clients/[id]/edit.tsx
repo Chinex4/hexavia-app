@@ -2,14 +2,12 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import {
-    KeyboardAvoidingView,
-    Platform,
     Pressable,
-    ScrollView,
     Text,
     TextInput,
     View,
 } from "react-native";
+import KeyboardAwareScrollView from 'react-native-keyboard-aware-scroll-view';
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import Field from "@/components/admin/Field";
@@ -59,18 +57,13 @@ export default function EditClient() {
         <Text className="text-3xl font-kumbh text-text">Edit User</Text>
       </View>
 
-      <KeyboardAvoidingView
+      <KeyboardAwareScrollView
         className="flex-1"
-        behavior={Platform.select({ ios: "padding", android: "height" })}
-        keyboardVerticalOffset={
-          Platform.select({ ios: 8, android: 0 }) as number
-        }
+        contentContainerClassName="px-5 pb-10 pt-4"
+        keyboardShouldPersistTaps="handled"
+        enableOnAndroid
+        extraHeight={8}
       >
-        <ScrollView
-          className="flex-1"
-          contentContainerClassName="px-5 pb-10 pt-4"
-          keyboardShouldPersistTaps="handled"
-        >
           <Field label="Full name">
             <TextInput
               placeholder="Enter full name"
@@ -106,8 +99,7 @@ export default function EditClient() {
           </Field>
 
           <HexButton title="Save" onPress={onSave} />
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

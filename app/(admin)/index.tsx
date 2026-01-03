@@ -126,6 +126,26 @@ export default function AdminDashboard() {
             </View>
           </View>
         </SectionCard>
+
+        {/* Deleted clients access */}
+        <SectionCard
+          title="Deleted Clients"
+          className="mx-5 mt-6"
+          onPress={() => router.push("/(admin)/clients/deleted")}
+        >
+          <View className="flex-row items-center gap-3">
+            <View className="flex-1">
+              <Text className="text-sm text-gray-600 font-kumbh">
+                Review clients that were removed from the system in a light,
+                informative layout.
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1 font-kumbh">
+                Tap to open the deleted client log without taking any actions.
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#111827" />
+          </View>
+        </SectionCard>
       </ScrollView>
     </SafeAreaView>
   );

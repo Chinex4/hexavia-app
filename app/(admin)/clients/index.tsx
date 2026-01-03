@@ -38,6 +38,7 @@ import { fetchClients } from "@/redux/client/client.thunks";
 import type { Client, ClientFilters } from "@/redux/client/client.types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openEmail, dialPhone } from "@/utils/contact";
+import clsx from "clsx";
 const STATUS_OPTS = ["current", "pending", "completed"] as const;
 const ENGAGEMENT_OPTS = ["Full-time", "Part-time", "Contract"] as const;
 const SORTBY_OPTS = ["createdAt", "payableAmount"] as const;
@@ -54,9 +55,29 @@ function useDebounced<T>(value: T, ms: number) {
   return deb;
 }
 
+type RangeKey = "24H" | "7D" | "30D" | "1Y";
+
+function getSinceDate(range: RangeKey) {
+  const d = new Date();
+  if (range === "24H") d.setHours(d.getHours() - 24);
+  if (range === "7D") d.setDate(d.getDate() - 7);
+  if (range === "30D") d.setDate(d.getDate() - 30);
+  if (range === "1Y") d.setFullYear(d.getFullYear() - 1);
+  return d;
+}
+
+function getClientDate(c: any): Date | null {
+  const raw =
+    c?.createdAt ?? c?.created_at ?? c?.updatedAt ?? c?.updated_at ?? null;
+  if (!raw) return null;
+  const dt = new Date(raw);
+  return isNaN(dt.getTime()) ? null : dt;
+}
+
 export default function ClientsIndex() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const [range, setRange] = useState<RangeKey>("30D");
 
   const clients = useAppSelector(selectAllClients);
   const loading = useAppSelector(selectClientsLoading);
@@ -105,9 +126,20 @@ export default function ClientsIndex() {
   useEffect(() => {
     if (debouncedKey && debouncedKey !== lastKeyRef.current) {
       lastKeyRef.current = debouncedKey;
-      dispatch(fetchClients(filters));
+
+      const sinceISO = getSinceDate(range).toISOString();
+
+      dispatch(
+        fetchClients({
+          ...filters,
+          // pick ONE your backend expects. If it ignores unknown keys, you're safe.
+          from: sinceISO,
+          // createdFrom: sinceISO,
+          // startDate: sinceISO,
+        } as any)
+      );
     }
-  }, [debouncedKey, dispatch]);
+  }, [debouncedKey, dispatch, filters, range]);
 
   const switchTab = useCallback(
     (next: TabKey) => {
@@ -124,17 +156,29 @@ export default function ClientsIndex() {
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchClients(filters)).unwrap();
+      const sinceISO = getSinceDate(range).toISOString();
+      await dispatch(
+        fetchClients({ ...filters, from: sinceISO } as any)
+      ).unwrap();
       lastKeyRef.current = fetchKey;
     } finally {
       setRefreshing(false);
     }
-  }, [dispatch, filters, fetchKey]);
+  }, [dispatch, filters, fetchKey, range]);
 
   const list = useMemo(() => {
-    if (!query.trim()) return clients;
+    const since = getSinceDate(range);
+
+    let base = clients.filter((c: any) => {
+      const dt = getClientDate(c);
+      if (!dt) return true;
+      return dt >= since;
+    });
+
+    if (!query.trim()) return base;
+
     const q = query.trim().toLowerCase();
-    return clients.filter((c: any) =>
+    return base.filter((c: any) =>
       [
         c.name,
         c.projectName,
@@ -146,7 +190,7 @@ export default function ClientsIndex() {
         .toLowerCase()
         .includes(q)
     );
-  }, [clients, query]);
+  }, [clients, query, range]);
 
   const canPrev = (pagination?.currentPage ?? 1) > 1;
   const canNext =
@@ -232,6 +276,17 @@ export default function ClientsIndex() {
               )}
             </Pressable>
           ))}
+        </View>
+
+        <View className="mt-4">
+          <RangeTabs
+            value={range}
+            onChange={(v) => {
+              setRange(v);
+              // reset to page 1 because range changes result set
+              dispatch(setClientFilters({ ...filters, page: 1 }));
+            }}
+          />
         </View>
       </View>
 
@@ -715,4 +770,41 @@ function formatMoney(n?: number) {
   } catch {
     return String(n);
   }
+}
+
+function RangeTabs({
+  value,
+  onChange,
+}: {
+  value: RangeKey;
+  onChange: (v: RangeKey) => void;
+}) {
+  const options: RangeKey[] = ["24H", "7D", "30D", "1Y"];
+
+  return (
+    <View className="flex-row bg-white border border-gray-200 rounded-2xl p-1">
+      {options.map((opt) => {
+        const active = opt === value;
+        return (
+          <Pressable
+            key={opt}
+            onPress={() => onChange(opt)}
+            className={clsx(
+              "flex-1 py-2 rounded-xl items-center justify-center",
+              active ? "bg-gray-900" : "bg-transparent"
+            )}
+          >
+            <Text
+              className={clsx(
+                "font-kumbh text-sm",
+                active ? "text-white" : "text-gray-700"
+              )}
+            >
+              {opt}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }

@@ -23,10 +23,40 @@ import { fetchSanctions } from "@/redux/sanctions/sanctions.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 type RowStatus = "Active" | "Resolved";
+type RangeKey = "24H" | "7D" | "30D" | "1Y";
+
+function getSinceDate(range: RangeKey) {
+  const now = new Date();
+  const d = new Date(now);
+
+  if (range === "24H") d.setHours(d.getHours() - 24);
+  if (range === "7D") d.setDate(d.getDate() - 7);
+  if (range === "30D") d.setDate(d.getDate() - 30);
+  if (range === "1Y") d.setFullYear(d.getFullYear() - 1);
+
+  return d;
+}
+
+// tries common keys your API might use
+function getRowDate(row: any): Date | null {
+  const raw =
+    row?.createdAt ??
+    row?.created_at ??
+    row?.date ??
+    row?.sanctionedAt ??
+    row?.timestamp ??
+    null;
+
+  if (!raw) return null;
+
+  const dt = new Date(raw);
+  return isNaN(dt.getTime()) ? null : dt;
+}
 
 export default function SanctionsView() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+  const [range, setRange] = useState<RangeKey>("7D");
 
   const rawRows = useAppSelector(selectSanctions);
   const rows = Array.isArray(rawRows) ? rawRows : [];
@@ -50,11 +80,33 @@ export default function SanctionsView() {
   }, [dispatch]);
 
   const staffs = useMemo(() => {
-    const map = new Map();
-    rows.forEach((r: any) => {
+    const since = getSinceDate(range);
+    const dates = rows
+      .map((r: any) => getRowDate(r)?.getTime())
+      .filter(Boolean) as number[];
+
+    if (dates.length) {
+      console.log("Newest:", new Date(Math.max(...dates)).toISOString());
+      console.log("Oldest:", new Date(Math.min(...dates)).toISOString());
+      console.log("Range:", range, "Since:", since.toISOString());
+    }
+
+    const filteredRows = rows.filter((r: any) => {
+      if (r?.isActive) return true; // keep active regardless of time
+
+      const dt = getRowDate(r);
+      if (!dt) return true;
+      return dt >= since;
+    });
+
+    const map = new Map<string, any>();
+
+    filteredRows.forEach((r: any) => {
       const user = r?.sanctionUser || r?.user;
       if (!user || !user._id) return;
+
       const id = user._id;
+
       if (!map.has(id)) {
         map.set(id, {
           id,
@@ -62,14 +114,16 @@ export default function SanctionsView() {
           sanctions: [],
         });
       }
+
       map.get(id).sanctions.push(r);
     });
+
     return Array.from(map.values()).map((staff) => ({
       ...staff,
       activeCount: staff.sanctions.filter((s: any) => s.isActive).length,
       totalCount: staff.sanctions.length,
     }));
-  }, [rows]);
+  }, [rows, range]);
 
   return (
     <SafeAreaView className="flex-1 bg-[#F8FAFC]">
@@ -83,6 +137,10 @@ export default function SanctionsView() {
         </Pressable>
         <Text className="text-2xl font-kumbhBold text-gray-900">Sanctions</Text>
         <View className="w-10" />
+      </View>
+
+      <View className="px-5 pt-2 pb-1">
+        <RangeTabs value={range} onChange={setRange} />
       </View>
 
       {/* List */}
@@ -223,4 +281,41 @@ function formatDate(d?: string) {
   } catch {
     return d;
   }
+}
+
+function RangeTabs({
+  value,
+  onChange,
+}: {
+  value: RangeKey;
+  onChange: (v: RangeKey) => void;
+}) {
+  const options: RangeKey[] = ["24H", "7D", "30D", "1Y"];
+
+  return (
+    <View className="flex-row bg-white border border-gray-200 rounded-2xl p-1">
+      {options.map((opt) => {
+        const active = opt === value;
+        return (
+          <Pressable
+            key={opt}
+            onPress={() => onChange(opt)}
+            className={clsx(
+              "flex-1 py-2 rounded-xl items-center justify-center",
+              active ? "bg-gray-900" : "bg-transparent"
+            )}
+          >
+            <Text
+              className={clsx(
+                "font-kumbh text-sm",
+                active ? "text-white" : "text-gray-700"
+              )}
+            >
+              {opt}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }

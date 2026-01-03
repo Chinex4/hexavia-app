@@ -1,5 +1,5 @@
-// app/(staff)/channels/[channelId]/info.tsx
-import React, { useMemo, useCallback, useState } from "react";
+// app/(staff)/channels/[channelId]/members.tsx
+import React, { useMemo, useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft } from "lucide-react-native";
+import { ChevronLeft, Plus } from "lucide-react-native";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -20,8 +20,14 @@ import {
   removeMemberFromChannel,
 } from "@/redux/channels/channels.thunks";
 import { selectChannelById } from "@/redux/channels/channels.selectors";
+import {
+  adminAddChannelMember,
+  fetchAdminUsers,
+} from "@/redux/admin/admin.thunks";
+import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { selectUser } from "@/redux/user/user.slice";
 import { StatusBar } from "expo-status-bar";
+import OptionSheet from "@/components/common/OptionSheet";
 
 type MemberItem = {
   id: string;
@@ -132,6 +138,7 @@ export default function ChannelInfoScreen() {
   const channel = useAppSelector(channelSel);
   const [refreshing, setRefreshing] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [isAddSheetVisible, setAddSheetVisible] = useState(false);
 
   const onRefresh = useCallback(async () => {
     if (!channelId) return;
@@ -146,6 +153,8 @@ export default function ChannelInfoScreen() {
   const meRole = (me?.role ?? "").toLowerCase();
   const canManageMembers = meRole === "admin" || meRole === "super-admin";
   const meId = me?._id ? String(me._id) : null;
+  const adminUsers = useAppSelector(selectAdminUsers);
+  const isAddingMember = useAppSelector((state) => state.admin.addingMember);
 
   const tryRemoveMember = useCallback(
     async (member: MemberItem) => {
@@ -184,6 +193,11 @@ export default function ChannelInfoScreen() {
     },
     [channelId, tryRemoveMember]
   );
+
+  useEffect(() => {
+    if (!canManageMembers) return;
+    dispatch(fetchAdminUsers());
+  }, [canManageMembers, dispatch]);
 
   const members: MemberItem[] = useMemo(() => {
     if (!channel) return [];
@@ -278,6 +292,65 @@ export default function ChannelInfoScreen() {
 
     return Array.from(byId.values());
   }, [channel, me?._id]);
+
+  const availableAddUsers = useMemo(() => {
+    const memberIds = new Set(members.map((m) => m.id));
+    return adminUsers.filter(
+      (user) => user?._id && !memberIds.has(String(user._id))
+    );
+  }, [adminUsers, members]);
+
+  const addUserOptions = useMemo(() => {
+    return availableAddUsers.map((user) => {
+      const displayRole = user.role ?? "member";
+      const displayName =
+        user.fullname || user.username || user.email || "User";
+      return {
+        value: user._id,
+        label: `${displayName} (${displayRole})`,
+      };
+    });
+  }, [availableAddUsers]);
+
+  const handleOpenAddMember = useCallback(() => {
+    if (addUserOptions.length === 0) {
+      Alert.alert(
+        "No users available",
+        "All fetched users already belong to this channel."
+      );
+      return;
+    }
+    setAddSheetVisible(true);
+  }, [addUserOptions.length]);
+
+  const handleAddMember = useCallback(
+    async (value: string | number) => {
+      if (!channelId) return;
+      const channelCode = (channel as any)?.code ?? channelId;
+      if (!channelCode) {
+        Alert.alert(
+          "Missing channel code",
+          "Cannot add members because the channel has no code."
+        );
+        return;
+      }
+
+      try {
+        await dispatch(
+          adminAddChannelMember({
+            code: String(channelCode),
+            userId: String(value),
+            type: "pm",
+            channelId: String(channelId),
+          })
+        ).unwrap();
+        await dispatch(fetchChannelById(channelId)).unwrap();
+      } catch (err) {
+        console.warn("[admin/add-channel-member] failed", err);
+      }
+    },
+    [channel, channelId, dispatch, fetchChannelById]
+  );
 
   const isLoading = !channel && !!channelId;
 
@@ -394,7 +467,7 @@ export default function ChannelInfoScreen() {
   }
 
   return (
-    <View className="flex-1 bg-white">
+    <View className="flex-1 bg-white relative">
       <StatusBar style="dark" />
       {HeaderBar}
 
@@ -430,7 +503,29 @@ export default function ChannelInfoScreen() {
             <Text className="text-gray-500 font-kumbh">No members found.</Text>
           </View>
         }
+        />
+      <OptionSheet
+        visible={isAddSheetVisible}
+        onClose={() => setAddSheetVisible(false)}
+        onSelect={handleAddMember}
+        title="Add member to channel"
+        options={addUserOptions}
       />
+      {canManageMembers && (
+        <View className="absolute bottom-6 right-6">
+          <Pressable
+            onPress={handleOpenAddMember}
+            disabled={isAddingMember}
+            className="h-14 w-14 rounded-full bg-primary items-center justify-center shadow-lg"
+          >
+            {isAddingMember ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Plus size={26} color="#fff" />
+            )}
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }

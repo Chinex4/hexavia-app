@@ -24,6 +24,7 @@ export const fetchClients = createAsyncThunk<
         limit: filters?.limit ?? 10,
         sortBy: filters?.sortBy,
         sortOrder: filters?.sortOrder ?? "desc",
+        from: filters?.from,
       },
       signal,
     });
@@ -41,6 +42,32 @@ export const fetchClients = createAsyncThunk<
         "Failed to fetch clients",
       retryAfter,
       // custom marker set by interceptor when it gave up retrying
+      gaveUpAfterRetries: err?.__gaveUp429 === true,
+    });
+  }
+});
+
+export const fetchDeletedClients = createAsyncThunk<
+  ClientListResponse,
+  void
+>("client/fetchDeletedClients", async (_, { rejectWithValue, signal }) => {
+  try {
+    const { data } = await api.get<ClientListResponse>(
+      "/admin/clients/deleted",
+      { signal }
+    );
+    return data;
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+    return rejectWithValue({
+      code: status ?? 0,
+      message:
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to fetch deleted clients",
+      retryAfter,
       gaveUpAfterRetries: err?.__gaveUp429 === true,
     });
   }

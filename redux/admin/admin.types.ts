@@ -39,9 +39,10 @@ export interface DowngradeBody {
 export type ChannelMemberType = "pm" | "member" | "admin";
 
 export interface AddMemberBody {
-  code: string;      // Project Code
+  code: string; // Project Code
   userId: string;
   type: ChannelMemberType; // e.g. "pm"
+  channelId?: string;
 }
 
 export interface RemoveMemberBody {

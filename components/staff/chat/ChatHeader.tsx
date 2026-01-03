@@ -29,27 +29,24 @@ export default function ChatHeader({
       : me?.role === "client"
         ? "/(client)/(tabs)"
         : "/(staff)/(tabs)";
+  const cut = (s: string, n = 24) =>
+    s?.length > n ? s.slice(0, n - 1) + "…" : s;
+
   return (
     <View
       style={{ marginTop: Platform.select({ android: 10, ios: 0 }) }}
       className="px-5 pt-2 pb-3 bg-white"
     >
       <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center">
+        {/* LEFT */}
+        <View className="flex-row items-center flex-1">
           <Pressable
-            onPress={() =>
-              router.push({
-                pathname: backPath,
-              })
-            }
+            onPress={() => router.push({ pathname: backPath })}
             className="h-10 w-10 mr-2 rounded-2xl items-center justify-center"
           >
             <ChevronLeft size={24} color="#111827" />
           </Pressable>
-          {/* <Image
-            source={{ uri: avatar }}
-            className="h-9 w-9 rounded-full mr-3"
-          /> */}
+
           <Pressable
             onPress={() =>
               router.push({
@@ -57,18 +54,31 @@ export default function ChatHeader({
                 params: { channelId: channelId as any },
               })
             }
+            style={{ flex: 1 }} // key: constrain width
           >
-            <View>
-              <Text className="font-kumbh text-[20px] text-gray-900">
-                {title}
+            <View style={{ flexShrink: 1 }}>
+              <Text
+                style={{ flexShrink: 1 }}
+                className="font-kumbh text-[20px] text-gray-900"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {cut(title, 20)}
               </Text>
-              <Text className="text-[12px] text-gray-500 font-kumbh">
-                {subtitle}
+
+              <Text
+                style={{ flexShrink: 1 }}
+                className="text-[12px] text-gray-500 font-kumbh"
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                {cut(subtitle, 30)}
               </Text>
             </View>
           </Pressable>
         </View>
 
+        {/* RIGHT */}
         <View className="flex-row items-center gap-4">
           <Pressable
             onPress={onTaskOpen}
@@ -77,6 +87,7 @@ export default function ChatHeader({
             <Clipboard size={22} color="#111827" />
             <Text className="text-sm font-kumbh">Tasks</Text>
           </Pressable>
+
           <Pressable
             onPress={onPress}
             className="rounded-2xl flex-col items-center justify-center"
