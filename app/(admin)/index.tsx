@@ -136,11 +136,10 @@ export default function AdminDashboard() {
           <View className="flex-row items-center gap-3">
             <View className="flex-1">
               <Text className="text-sm text-gray-600 font-kumbh">
-                Review clients that were removed from the system in a light,
-                informative layout.
+                Review clients that were removed from the system.
               </Text>
               <Text className="text-sm text-gray-500 mt-1 font-kumbh">
-                Tap to open the deleted client log without taking any actions.
+                Tap to open the deleted client log.
               </Text>
             </View>
             <ChevronRight size={20} color="#111827" />
