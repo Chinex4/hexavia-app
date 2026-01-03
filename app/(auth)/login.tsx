@@ -140,6 +140,7 @@ export default function LoginScreen() {
                     autoCapitalize="none"
                     keyboardType="email-address"
                     className="flex-1 text-black font-kumbh"
+                    style={{ paddingVertical: 0, height: 56 }}
                   />
                 </View>
               )}
@@ -172,6 +173,7 @@ export default function LoginScreen() {
                     onChangeText={onChange}
                     value={value}
                     className="flex-1 text-black font-kumbh"
+                    style={{ paddingVertical: 0, height: 56 }}
                   />
                   <Pressable onPress={() => setShowPassword((s) => !s)}>
                     {showPassword ? (
