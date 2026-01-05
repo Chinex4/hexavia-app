@@ -95,7 +95,7 @@ export default function AdminDashboard() {
         </SectionCard>
 
         {/* Finance summary — no filters */}
-        <SectionCard title="Finance Summary" className="mx-5 mt-6">
+        {/* <SectionCard title="Finance Summary" className="mx-5 mt-6">
           <View className="rounded-2xl bg-primary-50 p-4">
             {loadingSummary ? (
               <Text className="text-[#4c5fab] font-kumbh mb-3">Loading summary…</Text>
@@ -106,12 +106,11 @@ export default function AdminDashboard() {
               <StatPill label="Expenses" value={N(expenses)} />
             </View>
 
-            {/* Optional Net pill */}
             <View className="mt-3">
               <StatPill label="Net" value={N(net)} />
             </View>
           </View>
-        </SectionCard>
+        </SectionCard> */}
 
         {/* Team performance (unchanged) */}
         <SectionCard title="Team Performance" className="mx-5 mt-6">

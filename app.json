@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Hexavia Business Management",
+    "name": "Hexavian Business Management",
     "slug": "hexavia",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/logo-icon.png",
     "scheme": "hexavia",

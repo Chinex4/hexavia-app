@@ -34,6 +34,13 @@ export interface CreateChannelResponse {
   channel: Channel;
 }
 
+export interface CreateChannelBody {
+  name: string;
+  description?: string | null;
+  code: string;
+  isStaff?: boolean;
+}
+
 export interface GetChannelsResponse {
   channels: Channel[];
 }

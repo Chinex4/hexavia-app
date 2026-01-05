@@ -1,23 +1,22 @@
-// components/staff/tasks/TasksOverviewCard.tsx
 import { router } from "expo-router";
 import React, { useEffect, useMemo } from "react";
 import { FlatList, Image, Pressable, Text, View } from "react-native";
 
-import {
-  makeSelectDefaultChannelId,
-  selectStatus as selectChannelsStatus,
-  selectFirstChannelId,
-} from "@/redux/channels/channels.selectors";
-import { selectChannelById } from "@/redux/channels/channels.slice";
-import {
-  fetchChannelById,
-  fetchChannels,
-} from "@/redux/channels/channels.thunks";
+import { selectAllPersonalTasks, selectPersonalTasksStatus } from "@/redux/personalTasks/personalTasks.selectors";
+import { fetchPersonalTasks } from "@/redux/personalTasks/personalTasks.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
-// backend -> UI status mapping (same as used elsewhere)
+type UiTask = {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: "in-progress" | "not-started" | "completed" | "canceled";
+  channelCode?: string | null;
+  createdAt: number;
+};
+
 const fromApiStatus = (s?: string | null) => {
   const v = (s ?? "").toLowerCase().replace(/_/g, "-");
   if (v === "in-progress") return "in-progress";
@@ -28,90 +27,65 @@ const fromApiStatus = (s?: string | null) => {
   return "in-progress";
 };
 
-type UiTask = {
-  id: string;
-  title: string;
-  description?: string | null;
-  status: "in-progress" | "completed" | "not-started" | "canceled";
-  channelCode?: string | null;
-  createdAt: number;
-};
-
 export default function TasksOverviewCard() {
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
+  const personalTasks = useAppSelector(selectAllPersonalTasks);
+  const personalStatus = useAppSelector(selectPersonalTasksStatus);
+
   useEffect(() => {
     dispatch(fetchProfile());
   }, [dispatch]);
 
-  // ✅ make sure channels list exists so "first channel" is not null
-  const channelsStatus = useAppSelector(selectChannelsStatus);
   useEffect(() => {
-    if (channelsStatus === "idle") dispatch(fetchChannels());
-  }, [dispatch, channelsStatus]);
-
-  // ✅ first channel in all channels
-  const firstChannelId = useAppSelector(selectFirstChannelId);
-
-  // ✅ fetch that channel (to hydrate tasks[])
-  useEffect(() => {
-    if (firstChannelId) dispatch(fetchChannelById(String(firstChannelId)));
-  }, [dispatch, firstChannelId]);
-
-  // ✅ read channel from store
-  const channel = useAppSelector(selectChannelById(firstChannelId || "")) as
-    | any
-    | null;
-
-  const rawTasks: any[] = Array.isArray(channel?.tasks) ? channel.tasks : [];
+    dispatch(fetchPersonalTasks());
+  }, [dispatch]);
 
   const tasks: UiTask[] = useMemo(
     () =>
-      rawTasks.map((t) => ({
-        id: String(t?._id ?? t?.id),
-        title: String(t?.name ?? t?.title ?? "Untitled task"),
-        description: t?.description ?? null,
-        status: fromApiStatus(t?.status) as UiTask["status"],
-        channelCode: channel?.code ?? null,
-        createdAt: (() => {
-          const v = t?.createdAt;
-          const n = typeof v === "string" ? Date.parse(v) : Number(v);
-          return Number.isFinite(n) ? n : 0;
-        })(),
-      })),
-    [rawTasks, channel?.code]
+      personalTasks
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description ?? null,
+          status: fromApiStatus(t.status) as UiTask["status"],
+          channelCode: "personal",
+          createdAt:
+            typeof t.createdAt === "number"
+              ? t.createdAt
+              : t.createdAt
+                ? new Date(t.createdAt).getTime()
+                : 0,
+        }))
+        .sort((a, b) => b.createdAt - a.createdAt),
+    [personalTasks]
   );
 
-  const latest = useMemo(
-    () => [...tasks].sort((a, b) => b.createdAt - a.createdAt).slice(0, 3),
-    [tasks]
-  );
-
-  const loading = (channelsStatus === "loading" && !channel) || !firstChannelId;
-  const hydrated = !!channel && channelsStatus !== "loading";
+  const latest = tasks.slice(0, 3);
+  const loading = personalStatus === "loading" && latest.length === 0;
 
   const viewAllTasksPath =
     user?.role === "staff" ? "/(staff)/(tabs)/tasks" : "/(client)/(tabs)/tasks";
 
   return (
     <View className="mt-6 rounded-2xl border border-gray-200 bg-white px-4 py-6">
-      <Text className="text-3xl font-semibold text-black font-kumbh">
-        Tasks
-      </Text>
+      <Text className="text-3xl font-semibold text-black font-kumbh">Tasks</Text>
 
-      {loading || latest.length === 0 ? (
+      {loading ? (
         <View className="items-center justify-center py-6">
           <Image
             source={require("@/assets/images/task.png")}
             resizeMode="contain"
           />
-          <Text className="mt-3 text-gray-500 font-kumbh">
-            {loading
-              ? "No tasks yet."
-              : hydrated
-                ? "No tasks yet."
-                : "Loading tasks..."}
-          </Text>
+          <Text className="mt-3 text-gray-500 font-kumbh">Loading personal tasks…</Text>
+        </View>
+      ) : latest.length === 0 ? (
+        <View className="items-center justify-center py-6">
+          <Image
+            source={require("@/assets/images/task.png")}
+            resizeMode="contain"
+          />
+          <Text className="mt-3 text-gray-500 font-kumbh">No personal tasks yet.</Text>
         </View>
       ) : (
         <FlatList
@@ -135,10 +109,10 @@ export default function TasksOverviewCard() {
               )}
               <View className="flex-row mt-2" style={{ gap: 12 }}>
                 <Text className="font-kumbh text-[12px] text-[#6B7280]">
-                  Channel: {item.channelCode || "—"}
+                  Type: Personal
                 </Text>
-                <Text className="font-kumbh text-[12px] text-[#6B7280] capitalize">
-                  {item.status.replace("_", " ")}
+                <Text className="font-kumbh text-[12px] text-[#6B7280]">
+                  Status: {item.status.replace("_", " ")}
                 </Text>
               </View>
             </View>
@@ -152,9 +126,7 @@ export default function TasksOverviewCard() {
         style={{ backgroundColor: "#4C5FAB" }}
         onPress={() => router.push({ pathname: viewAllTasksPath })}
       >
-        <Text className="text-white font-semibold font-kumbh">
-          View All Tasks
-        </Text>
+        <Text className="text-white font-semibold font-kumbh">View All Tasks</Text>
       </Pressable>
     </View>
   );

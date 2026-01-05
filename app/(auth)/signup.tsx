@@ -57,7 +57,7 @@ const schema = yup.object({
   username: yup
     .string()
     .trim()
-    .matches(/^[a-zA-Z0-9_.-]{3,}$/, "Min 3 chars; letters, numbers, _ . -")
+    .matches(/^[a-zA-Z0-9_.-]{5,}$/, "Min 5 chars; letters, numbers, _ . -")
     .required("Username is required"),
   email: yup
     .string()
