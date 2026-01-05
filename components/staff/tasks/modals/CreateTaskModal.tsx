@@ -51,7 +51,12 @@ export default function CreateTaskModal({
   const loggedInUserId = user?._id ?? null;
 
   const role = (user?.role || "").toLowerCase();
-  const allowPersonalByRole = ["staff", "admin", "super-admin"].includes(role);
+  const allowPersonalByRole = [
+    "staff",
+    "admin",
+    "super-admin",
+    "client",
+  ].includes(role);
 
   const allowPersonal = forcePersonalForUserId ? true : allowPersonalByRole;
 
@@ -282,7 +287,7 @@ export default function CreateTaskModal({
 
                 {!allowPersonal && (
                   <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-2">
-                    Personal tasks are only available to staff.
+                    Personal tasks are reserved for staff and client roles.
                   </Text>
                 )}
 

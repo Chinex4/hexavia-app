@@ -13,6 +13,8 @@ import {
 
 import adminReducer from "@/redux/admin/admin.slice";
 import authReducer from "@/redux/auth/auth.slice";
+import channelLinksReducer from "@/redux/channelLinks/channelLinks.slice";
+import channelNotesReducer from "@/redux/channelNotes/channelNotes.slice";
 import channelsReducer from "@/redux/channels/channels.slice";
 import { chatMiddleware } from "@/redux/chat/chat.middleware";
 import chatReducer from "@/redux/chat/chat.slice";
@@ -30,6 +32,8 @@ export const rootReducer = combineReducers({
   auth: authReducer,
   user: userReducer,
   channels: channelsReducer,
+  channelLinks: channelLinksReducer,
+  channelNotes: channelNotesReducer,
   upload: uploadReducer,
   sanctions: sanctionsReducer,
   admin: adminReducer,

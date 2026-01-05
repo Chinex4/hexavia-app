@@ -7,6 +7,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from "react-native";
 import { X, RefreshCcw } from "lucide-react-native";
 import { useDispatch } from "react-redux";
@@ -27,6 +28,7 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [code, setCode] = useState("#0101");
+  const [isStaff, setIsStaff] = useState(true);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -48,6 +50,7 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
       setName("");
       setDesc("");
       setCode("#0101");
+      setIsStaff(true);
       doGenerateCode();
     }
   }, [visible]);
@@ -63,6 +66,7 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
           name: name.trim(),
           description: desc.trim() ? desc.trim() : null,
           code: code.trim(),
+          isStaff,
         })
       ).unwrap();
 
@@ -137,6 +141,25 @@ export default function CreateChannelModal({ visible, onClose }: Props) {
                   multiline
                   numberOfLines={3}
                 />
+              </View>
+
+              <View className="mb-5">
+                <View className="flex-row items-center justify-between">
+                  <View>
+                    <Text className="text-[12px] text-gray-500 mb-1">
+                      Staff only channel
+                    </Text>
+                    <Text className="text-[10px] text-gray-400">
+                      Toggle on if this project should be restricted to staff.
+                    </Text>
+                  </View>
+                  <Switch
+                    value={isStaff}
+                    onValueChange={setIsStaff}
+                    trackColor={{ false: "#d1d5db", true: "#4C5FAB" }}
+                    ios_backgroundColor="#d1d5db"
+                  />
+                </View>
               </View>
 
               <View className="mb-5">

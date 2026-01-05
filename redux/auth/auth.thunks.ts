@@ -21,80 +21,59 @@ export const register = createAsyncThunk<
   RegisterArgs,
   { state: RootState; rejectValue: string }
 >("auth/register", async (body, { dispatch, rejectWithValue, getState }) => {
-  try {
-    let expoPushToken: string | null = getState().auth.pushToken;
+  const getOrFetchToken = async (): Promise<
+    { token: string } | { error: string }
+  > => {
+    const existing = getState().auth.pushToken;
+    if (existing) return { token: existing };
 
-    if (!expoPushToken) {
-      try {
-        const tok = await getExpoPushToken();
-        if (tok) {
-          expoPushToken = tok;
-          dispatch(setPushToken(tok));
-        }
-      } catch (e) {
-        // Don’t block signup because of push token
-        expoPushToken = null;
-      }
+    const res = await getExpoPushToken();
+
+    if (res.ok) {
+      dispatch(setPushToken(res.token));
+      return { token: res.token };
     }
 
-    const buildPayload = () => {
-      const payload: any = {
-        username: body.username,
-        email: body.email.trim().toLowerCase(),
-        fullname: body.fullname,
+    if (res.reason === "denied") {
+      return {
+        error:
+          "Notifications permission is required to create an account. Please enable it in Settings and try again.",
       };
+    }
 
-      if (expoPushToken) {
-        payload.expoPushToken = expoPushToken;
-      }
+    if (res.reason === "not_device") {
+      return {
+        error:
+          "Push token can’t be generated on a simulator. Please use a real device to sign up.",
+      };
+    }
 
-      return payload;
+    return {
+      error:
+        "Could not generate push token. Please try again (and ensure notifications are enabled).",
+    };
+  };
+
+  try {
+    const tokenRes = await getOrFetchToken();
+
+    if ("error" in tokenRes) {
+      showError(tokenRes.error);
+      return rejectWithValue(tokenRes.error);
+    }
+
+    const payload = {
+      username: body.username,
+      email: body.email.trim().toLowerCase(),
+      fullname: body.fullname,
+      expoPushToken: tokenRes.token,
     };
 
-    const attemptRegister = () =>
-      showPromise(
-        api.post<ApiEnvelope>("/auth/register", buildPayload()),
-        "Creating account…",
-        "OTP sent to your email"
-      );
-
-    let registered = false;
-    let registerError: any;
-
-    try {
-      await attemptRegister();
-      registered = true;
-    } catch (err: any) {
-      registerError = err;
-    }
-
-    if (!registered && registerError) {
-      const status = registerError?.response?.status;
-      if (status === 406 && !expoPushToken) {
-        // Backend still expects a push token, so prompt once more.
-        try {
-          const tok = await getExpoPushToken();
-          if (tok) {
-            expoPushToken = tok;
-            dispatch(setPushToken(tok));
-          }
-        } catch (tokenErr) {
-          expoPushToken = null;
-        }
-
-        if (expoPushToken) {
-          try {
-            await attemptRegister();
-            registered = true;
-            registerError = null;
-          } catch (err: any) {
-            registerError = err;
-          }
-        }
-      }
-    }
-
-    if (!registered) throw registerError ?? new Error("Registration failed");
+    await showPromise(
+      api.post<ApiEnvelope>("/auth/register", payload),
+      "Creating account…",
+      "OTP sent to your email"
+    );
 
     dispatch(setLastEmail(body.email));
     dispatch(setPhase("awaiting_otp"));
@@ -118,30 +97,52 @@ export const login = createAsyncThunk<
   LoginArgs,
   { state: RootState; rejectValue: string }
 >("auth/login", async (body, { dispatch, rejectWithValue, getState }) => {
-  try {
-    let expoPushToken = getState().auth.pushToken;
+  const getOrFetchToken = async (): Promise<
+    { token: string } | { error: string }
+  > => {
+    const existing = getState().auth.pushToken;
+    if (existing) return { token: existing };
 
-    if (!expoPushToken) {
-      try {
-        const tok = await getExpoPushToken();
-        if (tok) {
-          expoPushToken = tok;
-          dispatch(setPushToken(tok));
-        }
-      } catch (e) {
-        expoPushToken = null;
-      }
+    const res = await getExpoPushToken();
+
+    if (res.ok) {
+      dispatch(setPushToken(res.token));
+      return { token: res.token };
     }
 
-    const payload: any = {
+    if (res.reason === "denied") {
+      return {
+        error:
+          "Notifications permission is required to log in. Please enable it in Settings and try again.",
+      };
+    }
+
+    if (res.reason === "not_device") {
+      return {
+        error:
+          "Push token can’t be generated on a simulator. Please use a real device to log in.",
+      };
+    }
+
+    return {
+      error:
+        "Could not generate push token. Please try again (and ensure notifications are enabled).",
+    };
+  };
+
+  try {
+    const tokenRes = await getOrFetchToken();
+
+    if ("error" in tokenRes) {
+      showError(tokenRes.error);
+      return rejectWithValue(tokenRes.error);
+    }
+
+    const payload = {
       email: body.email.trim().toLowerCase(),
       password: body.password,
+      expoPushToken: tokenRes.token, // backend-required
     };
-
-    if (expoPushToken) {
-      // Again, match your backend naming
-      payload.expoPushToken = expoPushToken;
-    }
 
     const res = await showPromise(
       api.post<ApiEnvelope>("/auth/login", payload),
@@ -165,7 +166,7 @@ export const login = createAsyncThunk<
       err?.response?.data?.errors?.[0]?.msg ||
       err?.response?.data?.message ||
       (err?.response?.status === 400
-        ? "Invalid Credentialss."
+        ? "Invalid credentials."
         : err?.message || "Something went wrong.");
     showError(msg);
     return rejectWithValue(msg);
@@ -193,9 +194,7 @@ export const verifyEmail = createAsyncThunk(
         (res.data as any)?.data?.accessToken ??
         null;
       const user =
-        (res.data as any)?.user ??
-        (res.data as any)?.data?.user ??
-        null;
+        (res.data as any)?.user ?? (res.data as any)?.data?.user ?? null;
 
       if (token) await saveToken(token);
       if (user) await saveUser(user);

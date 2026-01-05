@@ -38,7 +38,6 @@ import {
   fetchChannelById,
   fetchChannels,
 } from "@/redux/channels/channels.thunks";
-import { selectUser } from "@/redux/user/user.slice";
 import { Trash2 } from "lucide-react-native";
 
 // ===== stable time normalizer & comparator =====
@@ -71,14 +70,14 @@ function byCreatedAtDescThenId(a: Task, b: Task) {
 // ===== per-call throttling helpers =====
 const THROTTLE_MS = 10_000; // avoid per-channel refetching within 10s
 
+const MODE_TABS: { value: FilterState["mode"]; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "channel", label: "Channel" },
+  { value: "personal", label: "Personal" },
+];
+
 export default function TaskScreen() {
   const dispatch = useAppDispatch();
-
-  const user = useAppSelector(selectUser);
-  const role = (user?.role || "").toLowerCase();
-  const hidePersonal = role === "client"; // clients cannot see personal
-
-  const userId = user?._id ?? null;
 
   // ---- call guards / refs ----
   const didInitRef = useRef(false);
@@ -138,9 +137,8 @@ export default function TaskScreen() {
     });
   }, [dispatch, myChannels]);
 
-  // Personal (skip entirely for clients), guarded so it doesn't spam
+  // Personal tasks fetch guard (runs once per session)
   useEffect(() => {
-    if (hidePersonal) return;
     if (fetching.current.personal) return;
     if (fetchedPersonalOnceRef.current) return;
 
@@ -151,7 +149,7 @@ export default function TaskScreen() {
         fetchedPersonalOnceRef.current = true;
       })
       .catch(() => {});
-  }, [dispatch, hidePersonal]);
+  }, [dispatch]);
 
   // ---- UI state ----
   const [query, setQuery] = useState("");
@@ -161,17 +159,14 @@ export default function TaskScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const [filters, setFilters] = useState<FilterState>({
-    mode: hidePersonal ? "channel" : "all", // clients forced to "channel"
+    mode: "all",
     channelCode: "",
     statuses: [],
   });
 
-  // If role flips to client while open, force channel-only filters
-  useEffect(() => {
-    if (hidePersonal) {
-      setFilters((f) => ({ ...f, mode: "channel" }));
-    }
-  }, [hidePersonal]);
+  const handleModeChange = (mode: FilterState["mode"]) => {
+    setFilters((prev) => ({ ...prev, mode }));
+  };
 
   const onRefresh = useCallback(async () => {
     if (isRefreshingRef.current) return;
@@ -210,7 +205,7 @@ export default function TaskScreen() {
         })
       );
 
-      if (!hidePersonal && !fetching.current.personal) {
+      if (!fetching.current.personal) {
         fetching.current.personal = true;
         await dispatch(fetchPersonalTasks()).finally(() => {
           fetching.current.personal = false;
@@ -221,7 +216,7 @@ export default function TaskScreen() {
       setRefreshing(false);
       isRefreshingRef.current = false;
     }
-  }, [dispatch, myChannels, hidePersonal]);
+  }, [dispatch, myChannels]);
 
   // ---- map to Task[] with stable timestamps ----
   const channelTasks: Task[] = useMemo(() => {
@@ -252,7 +247,6 @@ export default function TaskScreen() {
   // Personal list (empty for clients)
   const personal = useAppSelector(selectAllPersonalTasks);
   const personalTasks: Task[] = useMemo(() => {
-    if (hidePersonal) return [];
     return personal.map((t: any) => ({
       id: t.id,
       title: t.title,
@@ -267,14 +261,11 @@ export default function TaskScreen() {
             ? new Date(t.createdAt).getTime()
             : 0,
     }));
-  }, [personal, hidePersonal]);
+  }, [personal]);
 
   const merged: Task[] = useMemo(() => {
-    const all = hidePersonal
-      ? [...channelTasks]
-      : [...channelTasks, ...personalTasks];
-    return all.sort(byCreatedAtDescThenId); // single deterministic sort
-  }, [channelTasks, personalTasks, hidePersonal]);
+    return [...channelTasks, ...personalTasks].sort(byCreatedAtDescThenId);
+  }, [channelTasks, personalTasks]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -350,27 +341,41 @@ export default function TaskScreen() {
         </View>
       </View>
       <StatusTabs active={active} onChange={setActive} />
-      <View className="px-5 mt-6">
+      <View className="px-5 mt-4 flex-row" style={{ gap: 8 }}>
+        {MODE_TABS.map((tab) => {
+          const selected = filters.mode === tab.value;
+          return (
+            <Pressable
+              key={tab.value}
+              onPress={() => handleModeChange(tab.value)}
+              className="rounded-full px-4 py-2"
+              style={{
+                backgroundColor: selected ? "#111827" : "#E5E7EB",
+              }}
+            >
+              <Text
+                className="font-kumbh text-[12px]"
+                style={{ color: selected ? "#FFFFFF" : "#111827" }}
+              >
+                {tab.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View className="px-5 mt-4">
         <View className="rounded-2xl border border-[#E5E7EB] p-5">
           <Text className="font-kumbh text-[#6B7280]">
             Showing tasks:{" "}
             <Text className="text-[#111827]">{STATUS_META[active].title}</Text>
           </Text>
 
-          {hidePersonal ? (
-            <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-1">
-              Tip: Use Filter to narrow by{" "}
-              <Text className="text-[#4C5FAB]">Channel</Text> or a specific{" "}
-              <Text className="text-[#4C5FAB]">Project Code</Text>.
-            </Text>
-          ) : (
-            <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-1">
-              Tip: Use Filter ➜ Mode (
-              <Text className="text-[#4C5FAB]">Personal</Text> or{" "}
-              <Text className="text-[#4C5FAB]">Channel</Text>) or filter by a
-              specific <Text className="text-[#4C5FAB]">Project Code</Text>.
-            </Text>
-          )}
+          <Text className="font-kumbh text-[12px] text-[#9CA3AF] mt-1">
+            Tip: Use the Mode tabs to group{" "}
+            <Text className="text-[#4C5FAB]">Channel</Text> vs{" "}
+            <Text className="text-[#4C5FAB]">Personal</Text> tasks and filter by
+            project code when you need to narrow the list.
+          </Text>
         </View>
       </View>
     </>
@@ -386,25 +391,23 @@ export default function TaskScreen() {
         ListHeaderComponent={Header}
         renderItem={({ item }) => (
           <View className="px-5 mt-3">
-            {!hidePersonal && (
-              <View className="flex-row items-center mb-2">
-                <Text
-                  className="font-kumbh text-[11px] px-2 py-[2px] rounded-full"
-                  style={{
-                    backgroundColor:
-                      item.channelCode === "personal" ? "#E1F5FE" : "#EEF2FF",
-                    color:
-                      item.channelCode === "personal" ? "#01579B" : "#3730A3",
-                  }}
-                >
-                  {item.channelCode === "personal"
-                    ? "Personal"
-                    : item.channelCode}
-                </Text>
-              </View>
-            )}
+            <View className="flex-row items-center mb-2">
+              <Text
+                className="font-kumbh text-[11px] px-2 py-[2px] rounded-full"
+                style={{
+                  backgroundColor:
+                    item.channelCode === "personal" ? "#E1F5FE" : "#EEF2FF",
+                  color:
+                    item.channelCode === "personal" ? "#01579B" : "#3730A3",
+                }}
+              >
+                {item.channelCode === "personal"
+                  ? "Personal"
+                  : item.channelCode}
+              </Text>
+            </View>
             <View style={{ position: "relative" }}>
-              {!hidePersonal && item.channelCode === "personal" && (
+              {item.channelCode === "personal" && (
                 <Pressable
                   onPress={() => confirmDelete(item)}
                   hitSlop={10}
@@ -453,7 +456,6 @@ export default function TaskScreen() {
       <FilterModal
         visible={showFilter}
         initial={filters}
-        hidePersonal={hidePersonal}
         onClose={() => setShowFilter(false)}
         onApply={(f) => {
           setFilters(f);

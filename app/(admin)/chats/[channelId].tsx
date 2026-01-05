@@ -6,7 +6,10 @@ import Composer from "@/components/staff/chat/Composer";
 import MessageBubble from "@/components/staff/chat/MessageBubble";
 import { useKeyboardSpacer } from "@/hooks/useKeyboardSpacer";
 import { selectChannelById } from "@/redux/channels/channels.slice";
-import { fetchChannelById, uploadChannelResources } from "@/redux/channels/channels.thunks";
+import {
+  fetchChannelById,
+  uploadChannelResources,
+} from "@/redux/channels/channels.thunks";
 import { selectMessagesForCurrent } from "@/redux/chat/chat.selectors";
 import { ensureThread, setCurrentThread } from "@/redux/chat/chat.slice";
 import { fetchMessages } from "@/redux/chat/chat.thunks";
@@ -61,6 +64,33 @@ export default function ChatScreen() {
 
   const channelSel = useMemo(() => selectChannelById(channelId), [channelId]);
   const channel = useAppSelector(channelSel);
+
+  const initialLoadedRef = useRef<Record<string, boolean>>({});
+  const didEnterScrollRef = useRef<Record<string, boolean>>({});
+  const enterChannelRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!channelId) return;
+
+    enterChannelRef.current = channelId;
+    // allow the enter-scroll to run again for this channel
+    didEnterScrollRef.current[channelId] = false;
+
+    // treat as bottom on entry
+    atBottomRef.current = true;
+    isInteractingRef.current = false;
+  }, [channelId]);
+
+  useEffect(() => {
+    if (!channelId) return;
+
+    // only once per channel entry
+    if (initialLoadedRef.current[channelId]) return;
+    initialLoadedRef.current[channelId] = true;
+
+    // load first page immediately
+    dispatch(fetchMessages({ id: channelId, type: TYPE, limit: 50, skip: 0 }));
+  }, [channelId, dispatch]);
 
   useEffect(() => {
     if (!meId) return;
@@ -127,6 +157,23 @@ export default function ChatScreen() {
       replyTo: (m as any).replyTo,
     }));
   }, [messagesFromRedux]);
+
+  useEffect(() => {
+    if (!channelId) return;
+    if (!data.length) return;
+
+    // only do this once per entry
+    if (didEnterScrollRef.current[channelId]) return;
+    if (enterChannelRef.current !== channelId) return;
+
+    didEnterScrollRef.current[channelId] = true;
+
+    InteractionManager.runAfterInteractions(() => {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+      });
+    });
+  }, [channelId, data.length]);
 
   useEffect(() => {
     setRecordDurationMs(recorderState.durationMillis ?? 0);
@@ -272,14 +319,25 @@ export default function ChatScreen() {
     );
   };
 
+  const lastTopLoadRef = useRef(0);
+
   const handleScroll = ({
     nativeEvent: { contentOffset, contentSize, layoutMeasurement },
   }: any) => {
     const y = contentOffset.y;
-    // if (y < 40) loadOlder();
+
     const distanceFromBottom =
       contentSize.height - (contentOffset.y + layoutMeasurement.height);
     atBottomRef.current = distanceFromBottom < BOTTOM_THRESHOLD;
+
+    // auto-load older when near top
+    if (y < 40) {
+      const now = Date.now();
+      if (now - lastTopLoadRef.current > 800) {
+        lastTopLoadRef.current = now;
+        loadOlder();
+      }
+    }
   };
 
   const handlePick = async (kind: AttachmentKind) => {
@@ -586,14 +644,17 @@ export default function ChatScreen() {
         `member-${idx}`;
       const resolvedId =
         typeof rawId === "object" && rawId !== null
-          ? rawId._id ?? rawId.id ?? JSON.stringify(rawId)
+          ? (rawId._id ?? rawId.id ?? JSON.stringify(rawId))
           : rawId;
       return {
         _id: String(resolvedId),
         name: username,
         displayName: username,
         avatar:
-          profile?.profilePicture ?? profile?.avatar ?? profile?.photo ?? undefined,
+          profile?.profilePicture ??
+          profile?.avatar ??
+          profile?.photo ??
+          undefined,
       };
     });
     return buildMentionables(enriched, meId as any);

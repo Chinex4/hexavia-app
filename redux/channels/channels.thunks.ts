@@ -1,11 +1,12 @@
 import { api } from "@/api/axios";
 import { showError, showPromise, showSuccess } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/redux/api/extractErrorMessage";
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import type { AxiosError } from "axios";
 import type {
   AddMemberBody,
   AddMemberResponse,
   Channel,
+  CreateChannelBody,
   CreateChannelResponse,
   CreateTaskBody,
   CreateTaskResponse,
@@ -22,31 +23,8 @@ import type {
   UpdateMemberRoleResponse,
   UpdateTaskBody,
   UpdateTaskResponse,
-  UploadResourcesBody
+  UploadResourcesBody,
 } from "./channels.types";
-
-function extractErrorMessage(err: unknown): string {
-  const ax = err as AxiosError<any>;
-  const data = ax?.response?.data as any;
-  const retryAfter = data?.retryAfter;
-  const firstArrayError =
-    Array.isArray(data?.errors) && data.errors.length
-      ? data.errors[0]?.msg || data.errors[0] // support express-validator or arrays
-      : null;
-
-  const base =
-    data?.message ||
-    data?.error ||
-    firstArrayError ||
-    ax?.message ||
-    "Something went wrong. Please try again.";
-
-  if (ax?.response?.status === 429 && retryAfter) {
-    return `${base} (Retry after: ${retryAfter})`;
-  }
-
-  return base;
-}
 
 export const fetchChannels = createAsyncThunk<
   Channel[],
@@ -97,7 +75,7 @@ export const generateChannelCode = createAsyncThunk<
 
 export const createChannel = createAsyncThunk<
   Channel,
-  { name: string; description?: string | null; code: string },
+  CreateChannelBody,
   { rejectValue: string }
 >("channels/create", async (body, { rejectWithValue }) => {
   try {
@@ -194,7 +172,6 @@ export const deleteChannelById = createAsyncThunk<
   }
 });
 
-
 // CHANNEL TASKS & RESOURCES
 export const createChannelTask = createAsyncThunk<
   Channel,
@@ -222,7 +199,11 @@ export const updateChannelTask = createAsyncThunk<
   { rejectValue: string }
 >("channels/updateTask", async (body, { rejectWithValue }) => {
   try {
-    const res = await showPromise(api.put<UpdateTaskResponse>("/channel/update-task", body), "updating task…", "Task updated");
+    const res = await showPromise(
+      api.put<UpdateTaskResponse>("/channel/update-task", body),
+      "updating task…",
+      "Task updated"
+    );
     return res.data.channel as Channel;
   } catch (err) {
     const msg = extractErrorMessage(err);
@@ -262,10 +243,21 @@ export const fetchChannelByCode = createAsyncThunk<
   { rejectValue: string }
 >("channels/fetchByCode", async (code, { rejectWithValue }) => {
   try {
-    const res = await api.get<GetChannelByCodeResponse>(`/channel/${code}/code`);
+    const res = await api.get<GetChannelByCodeResponse>(
+      `/channel/${code}/code`
+    );
     return res.data.channel;
-  } catch (err) {
+  } catch (err: any) {
+    const status = err?.response?.status;
+
+    if (status === 404) {
+      const msg = "Channel not found";
+      showError(msg);
+      return rejectWithValue(msg);
+    }
+
     const msg = extractErrorMessage(err);
+    showError(msg);
     return rejectWithValue(msg);
   }
 });
@@ -277,7 +269,9 @@ export const joinChannel = createAsyncThunk<
 >("channels/join", async (code, { rejectWithValue }) => {
   try {
     console.log("Joining channel with code:", code);
-    const res = await api.put<JoinChannelResponse>("/channel/join", { code: `#${code}` });
+    const res = await api.put<JoinChannelResponse>("/channel/join", {
+      code: `#${code}`,
+    });
     console.log("Join response:", res.data);
     if (res.status === 200) {
       showSuccess("Joined channel successfully");

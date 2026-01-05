@@ -16,31 +16,27 @@ export type FilterState = {
 export default function FilterModal({
   visible,
   initial,
-  hidePersonal = false, // 🔒 new prop
   onClose,
   onApply,
 }: {
   visible: boolean;
   initial: FilterState;
-  hidePersonal?: boolean;
   onClose: () => void;
   onApply: (f: FilterState) => void;
 }) {
-  // If personal is hidden, sanitize initial mode
-  const sanitizedInitialMode: FilterState["mode"] =
-    hidePersonal && initial.mode === "personal" ? "channel" : (initial.mode ?? "all");
-
-  const [mode, setMode] = useState<FilterState["mode"]>(sanitizedInitialMode);
+  const [mode, setMode] = useState<FilterState["mode"]>(
+    initial.mode ?? "all"
+  );
   const [channelCode, setChannelCode] = useState(initial.channelCode);
   const [statuses, setStatuses] = useState<StatusKey[]>(initial.statuses);
 
   useEffect(() => {
     if (visible) {
-      setMode(hidePersonal && initial.mode === "personal" ? "channel" : (initial.mode ?? "all"));
+      setMode(initial.mode ?? "all");
       setChannelCode(initial.channelCode ?? "");
       setStatuses(initial.statuses ?? []);
     }
-  }, [visible, initial, hidePersonal]);
+  }, [visible, initial]);
 
   const toggle = (s: StatusKey) => {
     setStatuses((prev) =>
@@ -49,15 +45,15 @@ export default function FilterModal({
   };
 
   const reset = () => {
-    setMode(hidePersonal ? "channel" : "all");
+    setMode("all");
     setChannelCode("");
     setStatuses([]);
   };
 
   const canEditChannelCode = mode !== "personal";
 
-  // Build the modes based on hidePersonal
-  const modes: FilterState["mode"][] = hidePersonal ? ["all", "channel"] : ["all", "channel", "personal"];
+  // Build the mode options
+  const modes: FilterState["mode"][] = ["all", "channel", "personal"];
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>

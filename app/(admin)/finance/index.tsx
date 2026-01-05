@@ -91,9 +91,26 @@ function dateBucket(iso?: string) {
   });
 }
 
+const ADMIN_FINANCE_PIN = "1473695";
+
 export default function FinanceIndex() {
   const router = useRouter();
   const dispatch = useAppDispatch();
+
+  const [pinLocked, setPinLocked] = useState(true);
+  const [pinInput, setPinInput] = useState("");
+  const [pinError, setPinError] = useState("");
+
+  const handlePinSubmit = () => {
+    if (pinInput.trim() === ADMIN_FINANCE_PIN) {
+      setPinLocked(false);
+      setPinError("");
+      setPinInput("");
+      return;
+    }
+
+    setPinError("Incorrect pin. Please try again.");
+  };
 
   /* Expenses state (existing) */
   const records = useAppSelector(selectFinanceRecords);
@@ -193,6 +210,8 @@ export default function FinanceIndex() {
 
   /* First load + tab switching */
   useEffect(() => {
+    if (pinLocked) return;
+
     if (tab === "Receivables") {
       // fetch clients list (first page)
       dispatch(
@@ -220,7 +239,7 @@ export default function FinanceIndex() {
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, dispatch]);
+  }, [tab, dispatch, pinLocked]);
 
   useEffect(() => {
     if (!showClientPicker) return;
@@ -235,6 +254,8 @@ export default function FinanceIndex() {
 
   /* Refresh */
   const onRefresh = useCallback(() => {
+    if (pinLocked) return;
+
     if (tab === "Receivables") {
       if (clientsLoading) return;
       dispatch(
@@ -262,10 +283,13 @@ export default function FinanceIndex() {
     financeLoading,
     financeFilters,
     dispatch,
+    pinLocked,
   ]);
 
   /* Infinite load */
   const loadMore = useCallback(() => {
+    if (pinLocked) return;
+
     if (tab === "Receivables") {
       if (clientsLoading || !clientsPagination) return;
       const { currentPage, totalPages } = clientsPagination;
@@ -303,6 +327,7 @@ export default function FinanceIndex() {
     financePagination,
     financeFilters,
     dispatch,
+    pinLocked,
   ]);
 
   const refreshing =
@@ -319,6 +344,59 @@ export default function FinanceIndex() {
 
   return (
     <SafeAreaView className="flex-1 bg-background">
+      <Modal
+        visible={pinLocked}
+        transparent
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={() => {}}
+      >
+        <View className="flex-1 bg-black/70 px-5 justify-center">
+          <View className="bg-white rounded-3xl p-6 shadow-lg shadow-black/30">
+            <Text className="text-xl font-kumbhBold text-[#111827] mb-1">
+              Finance Access
+            </Text>
+            <Text className="text-sm text-gray-500 font-kumbh mb-4">
+              Enter the secret admin pin to continue.
+            </Text>
+
+            <View className="rounded-2xl border border-gray-200 px-4 py-3 mb-2">
+              <TextInput
+                value={pinInput}
+                onChangeText={(text) => setPinInput(text.replace(/\s+/g, ""))}
+                placeholder="Enter pin"
+                placeholderTextColor="#9CA3AF"
+                keyboardType="number-pad"
+                maxLength={7}
+                secureTextEntry
+                className="font-kumbh text-base text-[#111827]"
+                autoFocus
+              />
+            </View>
+            {pinError ? (
+              <Text className="text-sm text-red-500 font-kumbh mb-3">
+                {pinError}
+              </Text>
+            ) : (
+              <Text className="text-xs text-gray-400 font-kumbh mb-3">
+                Pin is 7 digits long.
+              </Text>
+            )}
+
+            <Pressable
+              onPress={handlePinSubmit}
+              disabled={!pinInput}
+              className={clsx(
+                "h-12 rounded-2xl items-center justify-center",
+                pinInput ? "bg-[#4C5FAB] active:opacity-90" : "bg-gray-300"
+              )}
+            >
+              <Text className="text-white font-kumbhBold">Unlock Finance</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
       {/* Header */}
       <View className="px-5 pt-6 pb-3">
         <View className="flex-row items-center justify-between gap-4">
