@@ -393,6 +393,13 @@ export default function FinanceIndex() {
             >
               <Text className="text-white font-kumbhBold">Unlock Finance</Text>
             </Pressable>
+
+            <Pressable
+              onPress={() => router.back()}
+              className="h-12 rounded-2xl items-center justify-center mt-3 border border-gray-200 active:opacity-90"
+            >
+              <Text className="text-[#111827] font-kumbh">Go Back</Text>
+            </Pressable>
           </View>
         </View>
       </Modal>
