@@ -1,13 +1,12 @@
 import { api } from "@/api/axios";
 import type { ApiEnvelope, User } from "@/api/types";
-import { showError, showPromise, showSuccess } from "@/components/ui/toast";
-import { getToken, saveToken, saveUser } from "@/storage/auth";
+import { showError, showPromise } from "@/components/ui/toast";
+import { saveToken, saveUser } from "@/storage/auth";
 import { RootState } from "@/store";
+import { getExpoPushToken } from "@/utils/pushToken";
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { setUser } from "../user/user.slice";
-import { setLastEmail, setPhase, setSession } from "./auth.slice";
-import { getExpoPushToken } from "@/utils/pushToken";
-import { setPushToken } from "./auth.slice";
+import { setLastEmail, setPhase, setPushToken, setSession } from "./auth.slice";
 
 type RegisterArgs = {
   fullname: string;
@@ -21,53 +20,32 @@ export const register = createAsyncThunk<
   RegisterArgs,
   { state: RootState; rejectValue: string }
 >("auth/register", async (body, { dispatch, rejectWithValue, getState }) => {
-  const getOrFetchToken = async (): Promise<
-    { token: string } | { error: string }
-  > => {
+  const getOrFetchToken = async (): Promise<string | null> => {
     const existing = getState().auth.pushToken;
-    if (existing) return { token: existing };
+    if (existing) return existing;
 
-    const res = await getExpoPushToken();
+    const token = await getExpoPushToken();
 
-    if (res.ok) {
-      dispatch(setPushToken(res.token));
-      return { token: res.token };
+    if (typeof token === "string" && token.length > 0) {
+      dispatch(setPushToken(token));
+      return token;
     }
 
-    if (res.reason === "denied") {
-      return {
-        error:
-          "Notifications permission is required to create an account. Please enable it in Settings and try again.",
-      };
-    }
-
-    if (res.reason === "not_device") {
-      return {
-        error:
-          "Push token can’t be generated on a simulator. Please use a real device to sign up.",
-      };
-    }
-
-    return {
-      error:
-        "Could not generate push token. Please try again (and ensure notifications are enabled).",
-    };
+    return null;
   };
 
   try {
-    const tokenRes = await getOrFetchToken();
-
-    if ("error" in tokenRes) {
-      showError(tokenRes.error);
-      return rejectWithValue(tokenRes.error);
-    }
+    const expoToken = await getOrFetchToken();
+    console.log("Expo Push Token:", expoToken);
 
     const payload = {
       username: body.username,
       email: body.email.trim().toLowerCase(),
       fullname: body.fullname,
-      expoPushToken: tokenRes.token,
+      expoPushToken: expoToken, // ✅ always string | null
     };
+
+    console.log("REGISTER payload:", payload);
 
     await showPromise(
       api.post<ApiEnvelope>("/auth/register", payload),
@@ -97,51 +75,11 @@ export const login = createAsyncThunk<
   LoginArgs,
   { state: RootState; rejectValue: string }
 >("auth/login", async (body, { dispatch, rejectWithValue, getState }) => {
-  const getOrFetchToken = async (): Promise<
-    { token: string } | { error: string }
-  > => {
-    const existing = getState().auth.pushToken;
-    if (existing) return { token: existing };
-
-    const res = await getExpoPushToken();
-
-    if (res.ok) {
-      dispatch(setPushToken(res.token));
-      return { token: res.token };
-    }
-
-    if (res.reason === "denied") {
-      return {
-        error:
-          "Notifications permission is required to log in. Please enable it in Settings and try again.",
-      };
-    }
-
-    if (res.reason === "not_device") {
-      return {
-        error:
-          "Push token can’t be generated on a simulator. Please use a real device to log in.",
-      };
-    }
-
-    return {
-      error:
-        "Could not generate push token. Please try again (and ensure notifications are enabled).",
-    };
-  };
 
   try {
-    const tokenRes = await getOrFetchToken();
-
-    if ("error" in tokenRes) {
-      showError(tokenRes.error);
-      return rejectWithValue(tokenRes.error);
-    }
-
     const payload = {
       email: body.email.trim().toLowerCase(),
       password: body.password,
-      expoPushToken: tokenRes.token, // backend-required
     };
 
     const res = await showPromise(

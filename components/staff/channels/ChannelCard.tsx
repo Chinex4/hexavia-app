@@ -47,18 +47,21 @@ function ChannelCard({
             {item.name}
           </Text>
 
-          <View className="mt-24 flex-row justify-between items-center">
+          <View className="mt-24 flex-row items-center">
             {!!item.description && (
-              <Text
-                className="text-white/90 leading-5 text-[13px] font-kumbh"
-                numberOfLines={3}
-              >
-                {item.description}
-              </Text>
+              <View className="flex-1 pr-3">
+                <Text
+                  className="text-white/90 leading-4 text-[11px] font-kumbh"
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
+                  {item.description}
+                </Text>
+              </View>
             )}
             <View className="flex-row items-center">
               {!!item.code && (
-                <Text className="text-white/90 font-kumbh text-[13px]">
+                <Text className="text-white/90 font-kumbh text-[12px]">
                   Project Code: {item.code.toUpperCase()}
                 </Text>
               )}
