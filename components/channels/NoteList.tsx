@@ -4,6 +4,7 @@ import {
   FlatList,
   ListRenderItem,
   Pressable,
+  RefreshControl,
   Text,
   View,
 } from "react-native";
@@ -13,6 +14,8 @@ import { Edit3, X } from "lucide-react-native";
 type Props = {
   notes: ChannelNote[];
   isLoading?: boolean;
+  isRefreshing?: boolean;
+  onRefresh?: () => void;
   onEditNote: (note: ChannelNote) => void;
   onDeleteNote: (note: ChannelNote) => void;
 };
@@ -20,10 +23,12 @@ type Props = {
 export default function NoteList({
   notes,
   isLoading,
+  isRefreshing,
+  onRefresh,
   onEditNote,
   onDeleteNote,
 }: Props) {
-  if (isLoading) {
+  if (isLoading && notes.length === 0) {
     return (
       <View className="flex-1 justify-center items-center">
         <ActivityIndicator />
@@ -32,7 +37,7 @@ export default function NoteList({
   }
 
   const renderItem: ListRenderItem<ChannelNote> = ({ item }) => (
-    <View className="mb-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
+    <View className="my-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
       <View className="flex-row justify-between">
         <Text className="font-kumbhBold text-base text-gray-900">
           {item.title || "Untitled"}
@@ -56,13 +61,20 @@ export default function NoteList({
     <FlatList
       style={{ flex: 1 }}
       data={notes}
-      keyExtractor={(note) => note._id}
+      keyExtractor={(note, index) =>
+        String(note._id || note.createdAt || note.title || index)
+      }
       contentContainerStyle={{
         paddingBottom: 140,
         paddingHorizontal: 16,
         flexGrow: 1,
       }}
       renderItem={renderItem}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl refreshing={Boolean(isRefreshing)} onRefresh={onRefresh} />
+        ) : undefined
+      }
       ListEmptyComponent={() => (
         <View className="flex-1 items-center justify-center pt-10">
           <Text className="font-kumbh text-gray-500">No notes yet.</Text>

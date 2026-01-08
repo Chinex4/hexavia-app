@@ -62,7 +62,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
-import { ChevronLeft, CloudUpload, Plus } from "lucide-react-native";
+import { ArrowUpDown, ChevronLeft, CloudUpload, Plus } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -111,6 +111,7 @@ export default function ChannelResourcesScreen() {
   const insets = useSafeAreaInsets();
 
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
+  console.log("channelId", channelId);
   const dispatch = useAppDispatch();
   const channel = useAppSelector(selectChannelById(channelId || ""));
   const upload = useAppSelector(selectUpload);
@@ -150,6 +151,15 @@ export default function ChannelResourcesScreen() {
   const [editingNote, setEditingNote] = useState<ChannelNote | null>(null);
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<ChannelNote | null>(null);
+  const [sortOrder, setSortOrder] = useState<{
+    resources: "asc" | "desc";
+    links: "asc" | "desc";
+    notes: "asc" | "desc";
+  }>({
+    resources: "desc",
+    links: "desc",
+    notes: "desc",
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -202,7 +212,7 @@ export default function ChannelResourcesScreen() {
     const sorted = [...list].sort((a: any, b: any) => {
       const aMs = toMs((a as any).createdAt);
       const bMs = toMs((b as any).createdAt);
-      return bMs - aMs;
+      return sortOrder.resources === "asc" ? aMs - bMs : bMs - aMs;
     });
 
     const bucket = new Map<string, ChannelResource[]>();
@@ -216,7 +226,7 @@ export default function ChannelResourcesScreen() {
       title: prettyCategory(cat),
       data: bucket.get(cat) || [],
     })).filter((s) => s.data.length > 0);
-  }, [channel?.resources]);
+  }, [channel?.resources, sortOrder.resources]);
 
   const doSaveToDb = async (payload: UploadResourcesBody) => {
     try {
@@ -353,6 +363,14 @@ export default function ChannelResourcesScreen() {
     } catch {}
   };
 
+  const copySharedLink = async (link: ChannelLink) => {
+    try {
+      const { setStringAsync } = await import("expo-clipboard");
+      await setStringAsync(ensureHttpUrl(link.url));
+      showSuccess("Link copied");
+    } catch {}
+  };
+
   const openSharedLink = async (rawUrl: string) => {
     const url = ensureHttpUrl(rawUrl);
     if (!url) return;
@@ -439,6 +457,7 @@ export default function ChannelResourcesScreen() {
       } else {
         await dispatch(createChannelLink(payload)).unwrap();
       }
+      await dispatch(fetchChannelLinks(channelId));
       closeLinkModal();
     } finally {
       setLinkSubmitting(false);
@@ -494,6 +513,7 @@ export default function ChannelResourcesScreen() {
           })
         ).unwrap();
       }
+      await dispatch(fetchChannelNotes(channelId));
       closeNoteModal();
     } finally {
       setNoteSubmitting(false);
@@ -522,8 +542,57 @@ export default function ChannelResourcesScreen() {
 
   const headerPaddingTop = insets.top + 12;
 
-  const isLinksLoading = linksStatus === "loading";
-  const isNotesLoading = notesStatus === "loading";
+  const sortedLinks = useMemo(() => {
+    const toMs = (v: any) => {
+      if (!v) return 0;
+      const t =
+        typeof v === "string" || typeof v === "number"
+          ? new Date(v).getTime()
+          : 0;
+      return Number.isFinite(t) ? t : 0;
+    };
+    return [...links].sort((a, b) => {
+      const diff = toMs(a.createdAt) - toMs(b.createdAt);
+      return sortOrder.links === "asc" ? diff : -diff;
+    });
+  }, [links, sortOrder.links]);
+
+  const sortedNotes = useMemo(() => {
+    const toMs = (v: any) => {
+      if (!v) return 0;
+      const t =
+        typeof v === "string" || typeof v === "number"
+          ? new Date(v).getTime()
+          : 0;
+      return Number.isFinite(t) ? t : 0;
+    };
+    return [...notes].sort((a, b) => {
+      const diff = toMs(a.createdAt) - toMs(b.createdAt);
+      return sortOrder.notes === "asc" ? diff : -diff;
+    });
+  }, [notes, sortOrder.notes]);
+
+  const isLinksLoading = linksStatus === "loading" && links.length === 0;
+  const isNotesLoading = notesStatus === "loading" && notes.length === 0;
+  const isLinksRefreshing = linksStatus === "loading" && links.length > 0;
+  const isNotesRefreshing = notesStatus === "loading" && notes.length > 0;
+
+  const refreshLinks = useCallback(async () => {
+    if (!channelId) return;
+    await dispatch(fetchChannelLinks(channelId));
+  }, [channelId, dispatch]);
+
+  const refreshNotes = useCallback(async () => {
+    if (!channelId) return;
+    await dispatch(fetchChannelNotes(channelId));
+  }, [channelId, dispatch]);
+
+  const toggleSortOrder = useCallback((tab: ChannelTab) => {
+    setSortOrder((prev) => ({
+      ...prev,
+      [tab]: prev[tab] === "asc" ? "desc" : "asc",
+    }));
+  }, []);
 
   return (
     <View className="flex-1 bg-white">
@@ -539,27 +608,38 @@ export default function ChannelResourcesScreen() {
           <Text className="flex-1 text-left text-[20px] font-kumbhBold text-gray-900">
             {channel?.name ? `${channel.name} Resources` : "Project Resources"}
           </Text>
-          {activeTab === "resources" ? (
+          <View className="flex-row items-center gap-2">
             <Pressable
-              onPress={() => setChooser(true)}
+              onPress={() => toggleSortOrder(activeTab)}
               className="h-9 w-9 rounded-xl items-center justify-center"
-              accessibilityLabel="Upload files"
+              accessibilityLabel={`Sort ${activeTab} ${
+                sortOrder[activeTab] === "asc" ? "descending" : "ascending"
+              }`}
             >
-              <CloudUpload size={20} color="#111827" />
+              <ArrowUpDown size={18} color="#111827" />
             </Pressable>
-          ) : (
-            <Pressable
-              onPress={() =>
-                activeTab === "links" ? openLinkModal() : openNoteModal()
-              }
-              className="ml-2 flex-row items-center gap-1 rounded-xl bg-[#4C5FAB] px-3 py-2"
-            >
-              <Plus size={16} color="#fff" />
-              <Text className="text-xs font-kumbhBold text-white">
-                {activeTab === "links" ? "Add link" : "Add note"}
-              </Text>
-            </Pressable>
-          )}
+            {activeTab === "resources" ? (
+              <Pressable
+                onPress={() => setChooser(true)}
+                className="h-9 w-9 rounded-xl items-center justify-center"
+                accessibilityLabel="Upload files"
+              >
+                <CloudUpload size={20} color="#111827" />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={() =>
+                  activeTab === "links" ? openLinkModal() : openNoteModal()
+                }
+                className="flex-row items-center gap-1 rounded-xl bg-[#4C5FAB] px-3 py-2"
+              >
+                <Plus size={16} color="#fff" />
+                <Text className="text-xs font-kumbhBold text-white">
+                  {activeTab === "links" ? "Add link" : "Add note"}
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
         <TabBar
           tabs={TABS.map((tab) => ({ id: tab.id, label: tab.label }))}
@@ -703,9 +783,12 @@ export default function ChannelResourcesScreen() {
           if (route.key === "links") {
             return (
               <LinkList
-                links={links}
+                links={sortedLinks}
                 isLoading={isLinksLoading}
+                isRefreshing={isLinksRefreshing}
+                onRefresh={refreshLinks}
                 onOpenLink={(link) => openSharedLink(link.url)}
+                onCopyLink={copySharedLink}
                 onEditLink={(link) => openLinkModal(link)}
                 onDeleteLink={(link) => setLinkToDelete(link)}
               />
@@ -714,8 +797,10 @@ export default function ChannelResourcesScreen() {
 
           return (
             <NoteList
-              notes={notes}
+              notes={sortedNotes}
               isLoading={isNotesLoading}
+              isRefreshing={isNotesRefreshing}
+              onRefresh={refreshNotes}
               onEditNote={(note) => openNoteModal(note)}
               onDeleteNote={(note) => setNoteToDelete(note)}
             />
