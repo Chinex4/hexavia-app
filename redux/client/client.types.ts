@@ -6,10 +6,10 @@ export type ClientStatus =
   | string;
 
 export interface Client {
+  phoneNumber?: string;
   _id: string;
   name: string;
   projectName?: string;
-  phone?: string;
   email?: string;
   engagement?: string;
   industry?: string;

@@ -357,7 +357,7 @@ export default function CreateClient() {
                 name="phoneNumber"
                 render={({ field: { value, onChange } }) => (
                   <Input
-                    placeholder="Enter phoneNumber Number"
+                    placeholder="Enter Phone Number"
                     keyboardType="numeric"
                     value={value}
                     onChangeText={onChange}
