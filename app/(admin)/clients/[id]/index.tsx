@@ -434,6 +434,7 @@ export default function ClientDetails() {
       payableAmount: parseMoney(payable) || undefined,
       status: statusApi,
     };
+    console.log("Updating client with data:", body);
 
     try {
       await dispatch(updateClient({ id: String(id), body })).unwrap();

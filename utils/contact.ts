@@ -31,3 +31,31 @@ export async function dialPhone(phone?: string) {
   }
   console.warn("Unable to call phone number", phone);
 }
+
+export async function openWhatsApp(phone?: string, message?: string) {
+  if (!phone) return;
+  const digitsOnly = phone.replace(/\D/g, "");
+  if (!digitsOnly) return;
+  const text = message ? `&text=${encodeURIComponent(message)}` : "";
+  const appUrl = `whatsapp://send?phone=+234${digitsOnly}${text}`;
+  const webUrl = `https://wa.me/+234${digitsOnly}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+  try {
+    const supported = await Linking.canOpenURL(appUrl);
+    if (supported) {
+      await Linking.openURL(appUrl);
+      return;
+    }
+  } catch (error) {
+    console.warn("Unable to open WhatsApp app", error);
+  }
+  try {
+    const supportedWeb = await Linking.canOpenURL(webUrl);
+    if (supportedWeb) {
+      await Linking.openURL(webUrl);
+      return;
+    }
+  } catch (error) {
+    console.warn("Unable to open WhatsApp web", error);
+  }
+  console.warn("Unable to open WhatsApp for number", phone);
+}

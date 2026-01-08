@@ -72,6 +72,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   SectionList,
   Text,
   TextInput,
@@ -849,7 +850,11 @@ export default function ChannelResourcesScreen() {
             className="absolute inset-0 bg-black/30"
             onPress={() => !linkSubmitting && closeLinkModal()}
           />
-          <View className="bg-white rounded-t-2xl p-5">
+          <ScrollView
+            className="bg-white rounded-t-2xl"
+            contentContainerStyle={{ padding: 20 }}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text className="font-kumbhBold text-lg mb-3">
               {editingLink ? "Edit link" : "Add a link"}
             </Text>
@@ -925,7 +930,7 @@ export default function ChannelResourcesScreen() {
                 )}
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 
@@ -943,7 +948,11 @@ export default function ChannelResourcesScreen() {
             className="absolute inset-0 bg-black/30"
             onPress={() => !noteSubmitting && closeNoteModal()}
           />
-          <View className="bg-white rounded-t-2xl p-5">
+          <ScrollView
+            className="bg-white rounded-t-2xl"
+            contentContainerStyle={{ padding: 20 }}
+            keyboardShouldPersistTaps="handled"
+          >
             <Text className="font-kumbhBold text-lg mb-3">
               {editingNote ? "Edit note" : "Add a note"}
             </Text>
@@ -1002,7 +1011,7 @@ export default function ChannelResourcesScreen() {
                 )}
               </Pressable>
             </View>
-          </View>
+          </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
 

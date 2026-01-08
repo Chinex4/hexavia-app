@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Filter as FilterIcon,
   Mail,
+  MessageCircle,
   Phone,
   Plus,
   Search,
@@ -37,7 +38,7 @@ import { setClientFilters } from "@/redux/client/client.slice";
 import { fetchClients } from "@/redux/client/client.thunks";
 import type { Client, ClientFilters } from "@/redux/client/client.types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { openEmail, dialPhone } from "@/utils/contact";
+import { openEmail, dialPhone, openWhatsApp } from "@/utils/contact";
 import clsx from "clsx";
 const STATUS_OPTS = ["current", "pending", "completed"] as const;
 const ENGAGEMENT_OPTS = ["Full-time", "Part-time", "Contract"] as const;
@@ -454,14 +455,19 @@ function ClientRow({
 
       <Row
         label="Phone"
-        value={item.phone ?? "—"}
+        value={item.phoneNumber ?? "—"}
         actions={
-          item.phone
+          item.phoneNumber
             ? [
                 {
                   icon: Phone,
-                  onPress: () => dialPhone(item.phone),
+                  onPress: () => dialPhone(item.phoneNumber),
                   label: "Call client",
+                },
+                {
+                  icon: MessageCircle,
+                  onPress: () => openWhatsApp(item.phoneNumber),
+                  label: "Message on WhatsApp",
                 },
               ]
             : undefined
