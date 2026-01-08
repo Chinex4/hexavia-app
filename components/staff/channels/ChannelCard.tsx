@@ -25,9 +25,11 @@ function ChannelCard({
   const router = useRouter();
 
   const handlePress = () => {
+    const channelId = item.id ?? (item as any)?._id;
+    if (!channelId) return;
     router.push({
       pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
-      params: { channelId: item.id },
+      params: { channelId: String(channelId) },
     });
   };
 

@@ -155,11 +155,19 @@ export default function Profile() {
     <View className="flex-1 bg-gray-50">
       <StatusBar style="light" />
       {/* Header */}
-      <View className="relative z-0 h-40 w-full bg-primary rounded-b-[28px] px-5 pt-20">
-        <Text className="text-white font-kumbhBold text-2xl">Profile</Text>
-        <Text className="text-white/80 font-kumbh mt-1">
-          Manage your account
-        </Text>
+      <View className="relative z-0 h-40 w-full bg-primary rounded-b-[28px] px-5 pt-20 flex-row items-center gap-2">
+        <Pressable
+          className=""
+          onPress={() => router.back()}
+        >
+          <Ionicons name="chevron-back" size={24} color="white" />
+        </Pressable>
+        <View>
+          <Text className="text-white font-kumbhBold text-2xl">Profile</Text>
+          <Text className="text-white/80 font-kumbh mt-1">
+            Manage your account
+          </Text>
+        </View>
       </View>
 
       {/* Body */}
