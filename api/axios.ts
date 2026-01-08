@@ -5,6 +5,7 @@ import { getToken, clearToken, clearUser } from "@/storage/auth";
 import type { RootState } from "@/store";
 import { logout } from "@/redux/auth/auth.slice";
 import { showError } from "@/components/ui/toast";
+import { extractErrorMessage } from "@/redux/api/extractErrorMessage";
 
 declare module "axios" {
   interface AxiosRequestConfig {
@@ -60,12 +61,15 @@ api.interceptors.response.use(
     }
 
     // only toast here for non-rate-limit errors
-    const serverMessage =
-      (response?.data as any)?.message ||
-      (response?.data as any)?.error ||
-      err.message;
+    const serverMessage = extractErrorMessage(err);
+    if (serverMessage && err?.message) {
+      const isGeneric = err.message
+        .toLowerCase()
+        .startsWith("request failed with status code");
+      if (isGeneric) err.message = serverMessage;
+    }
 
-    if (serverMessage && status && status !== 429 && status !== 503) {
+    if (serverMessage && status !== 429 && status !== 503) {
       showError(serverMessage);
     }
 

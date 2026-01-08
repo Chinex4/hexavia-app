@@ -13,9 +13,9 @@ type FetchArgs = {
 export const fetchMessages = createAsyncThunk(
   "chat/fetchMessages",
   async ({ id, type, limit = 50, skip = 0 }: FetchArgs) => {
-    const { data } = await showPromise(api.get(`/messages/${id}/${type}`, {
+    const { data } = await api.get(`/messages/${id}/${type}`, {
       params: { limit, skip },
-    }), "Loading old messages", "Done");
+    });
     // console.log(data)
     return {
       threadId: id,
