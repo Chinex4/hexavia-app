@@ -35,6 +35,7 @@ type FormValues = {
   phoneNumber?: string;
   email?: string;
   industry?: string;
+  industryOther?: string;
   staffSize?: string;
   description?: string;
   problems?: string;
@@ -54,6 +55,14 @@ const schema: yup.ObjectSchema<FormValues> = yup.object({
   email: yup.string().trim().optional(),
   phoneNumber: yup.string().trim().optional(),
   industry: yup.string().trim().optional(),
+  industryOther: yup
+    .string()
+    .trim()
+    .when("industry", {
+      is: "Other",
+      then: (schema) => schema.required("Please specify the industry"),
+      otherwise: (schema) => schema.optional(),
+    }),
   staffSize: yup
     .string()
     .matches(/^\d*$/, "Staff size must be a number")
@@ -172,6 +181,7 @@ export default function CreateClient() {
     handleSubmit,
     formState: { errors, isValid },
     setValue,
+    watch,
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
@@ -181,6 +191,7 @@ export default function CreateClient() {
       email: "",
       phoneNumber: "",
       industry: "",
+      industryOther: "",
       staffSize: "",
       description: "",
       problems: "",
@@ -196,13 +207,18 @@ export default function CreateClient() {
   });
 
   const onSubmit = async (values: FormValues) => {
+    const industryValue = values.industry?.trim();
+    const industryOtherValue = values.industryOther?.trim();
     const payload: ClientCreateInput = {
       name: values.name?.trim() || "",
       projectName: values.projectName?.trim() || "",
       phoneNumber: values.phoneNumber?.trim() || undefined,
       email: values.email?.trim() || undefined,
       engagement: values.engagement?.trim() || undefined,
-      industry: values.industry?.trim() || undefined,
+      industry:
+        industryValue === "Other"
+          ? industryOtherValue || undefined
+          : industryValue || undefined,
       staffSize: values.staffSize ? Number(values.staffSize) : undefined,
       description: values.description?.trim() || undefined,
       problems: values.problems?.trim() || undefined,
@@ -423,6 +439,26 @@ export default function CreateClient() {
                 ) : null}
               </View>
             </View>
+            {watch("industry") === "Other" ? (
+              <View className="mt-3">
+                <Field label="Other Industry">
+                  <Controller
+                    control={control}
+                    name="industryOther"
+                    render={({ field: { value, onChange } }) => (
+                      <Input
+                        placeholder="Enter Industry"
+                        value={value}
+                        onChangeText={onChange}
+                      />
+                    )}
+                  />
+                </Field>
+                {errors.industryOther?.message ? (
+                  <ErrorText msg={errors.industryOther.message} />
+                ) : null}
+              </View>
+            ) : null}
 
             {/* Description */}
             <Field label="Description">
@@ -728,6 +764,9 @@ export default function CreateClient() {
         onClose={() => setShowIndustrySheet(false)}
         onSelect={(value) => {
           setValue("industry", value as string);
+          if (value !== "Other") {
+            setValue("industryOther", "");
+          }
           setShowIndustrySheet(false);
         }}
         title="Select Industry"

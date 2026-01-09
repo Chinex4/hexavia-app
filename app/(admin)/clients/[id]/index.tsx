@@ -4,7 +4,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   FileText,
-  Save
+  Save,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -28,6 +28,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import OptionSheet from "@/components/common/OptionSheet";
 
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -83,6 +85,40 @@ const STATUS_OPTIONS: {
   { value: "pending", label: "Pending" },
   { value: "completed", label: "Closed" },
 ];
+
+const STAFF_SIZE_OPTIONS = [
+  { label: "1-50", value: 50 },
+  { label: "50-100", value: 100 },
+  { label: "100-150", value: 150 },
+  { label: "150-200", value: 200 },
+  { label: "200+", value: 201 },
+];
+
+const INDUSTRY_OPTIONS = [
+  { label: "Technology", value: "Technology" },
+  { label: "Healthcare", value: "Healthcare" },
+  { label: "Finance", value: "Finance" },
+  { label: "Education", value: "Education" },
+  { label: "Retail", value: "Retail" },
+  { label: "Manufacturing", value: "Manufacturing" },
+  { label: "Real Estate", value: "Real Estate" },
+  { label: "Transportation", value: "Transportation" },
+  { label: "Energy", value: "Energy" },
+  { label: "Agriculture", value: "Agriculture" },
+  { label: "Construction", value: "Construction" },
+  { label: "Hospitality", value: "Hospitality" },
+  { label: "Entertainment", value: "Entertainment" },
+  { label: "Telecommunications", value: "Telecommunications" },
+  { label: "Automotive", value: "Automotive" },
+  { label: "Food & Beverage", value: "Food & Beverage" },
+  { label: "Pharmaceuticals", value: "Pharmaceuticals" },
+  { label: "Consulting", value: "Consulting" },
+  { label: "Legal Services", value: "Legal Services" },
+  { label: "Non-Profit", value: "Non-Profit" },
+  { label: "Government", value: "Government" },
+  { label: "Other", value: "Other" },
+];
+
 const toUiLabel = (s?: ApiStatus) =>
   STATUS_OPTIONS.find((x) => x.value === s)?.label ?? "Pending";
 
@@ -206,6 +242,16 @@ function formatDate(d?: string) {
   }
 }
 
+const INDUSTRY_VALUES = new Set(INDUSTRY_OPTIONS.map((opt) => opt.value));
+function resolveIndustrySelection(value?: string) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return { selection: "", other: "" };
+  if (INDUSTRY_VALUES.has(trimmed) && trimmed !== "Other") {
+    return { selection: trimmed, other: "" };
+  }
+  return { selection: "Other", other: trimmed === "Other" ? "" : trimmed };
+}
+
 export default function ClientDetails() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -301,6 +347,10 @@ export default function ClientDetails() {
     }
     return fallbackUser;
   }, [clientFromStore, users, id]);
+  const resolvedIndustry = useMemo(
+    () => resolveIndustrySelection(baseUser.industry),
+    [baseUser.industry]
+  );
 
   const [name, setName] = useState(
     baseUser.fullname || baseUser.username || baseUser.email || ""
@@ -309,7 +359,8 @@ export default function ClientDetails() {
   const [phoneNumber, setPhoneNumber] = useState(baseUser.phoneNumber ?? "");
 
   const [projectName, setProjectName] = useState(baseUser.projectName ?? "");
-  const [industry, setIndustry] = useState(baseUser.industry ?? "");
+  const [industry, setIndustry] = useState(resolvedIndustry.selection);
+  const [industryOther, setIndustryOther] = useState(resolvedIndustry.other);
   const [staffSize, setstaffSize] = useState(String(baseUser.staffSize ?? ""));
   const [description, setDescription] = useState(baseUser.description ?? "");
   const [problems, setProblems] = useState(baseUser.problems ?? "");
@@ -326,6 +377,10 @@ export default function ClientDetails() {
   );
   const [statusApi, setStatusApi] = useState<ApiStatus>(baseUser.statusApi);
   const [statusOpen, setStatusOpen] = useState(false);
+  const [showIndustrySheet, setShowIndustrySheet] = useState(false);
+  const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
+  const effectiveIndustry =
+    industry === "Other" ? industryOther.trim() : industry.trim();
   const handleOpenDocument = useCallback(async () => {
     if (!documentLink) return;
     try {
@@ -352,13 +407,14 @@ export default function ClientDetails() {
       baseUser.fullname || baseUser.username || baseUser.email || "";
     const baseEmail = baseUser.email ?? "";
     const basePhone = baseUser.phoneNumber ?? "";
+    const baseIndustry = (baseUser.industry ?? "").trim();
 
     return (
       name !== baseName ||
       email !== baseEmail ||
       phoneNumber !== basePhone ||
       projectName !== (baseUser.projectName ?? "") ||
-      industry !== (baseUser.industry ?? "") ||
+      effectiveIndustry !== baseIndustry ||
       staffSize !== String(baseUser.staffSize ?? "") ||
       description !== (baseUser.description ?? "") ||
       problems !== (baseUser.problems ?? "") ||
@@ -377,7 +433,7 @@ export default function ClientDetails() {
     email,
     phoneNumber,
     projectName,
-    industry,
+    effectiveIndustry,
     staffSize,
     description,
     problems,
@@ -396,7 +452,8 @@ export default function ClientDetails() {
     setProjectName(baseUser.projectName ?? "");
     setEmail(baseUser.email ?? "");
     setPhoneNumber(baseUser.phoneNumber ?? "");
-    setIndustry(baseUser.industry ?? "");
+    setIndustry(resolvedIndustry.selection);
+    setIndustryOther(resolvedIndustry.other);
     setstaffSize(String(baseUser.staffSize ?? ""));
     setDescription(baseUser.description ?? "");
     setProblems(baseUser.problems ?? "");
@@ -421,7 +478,7 @@ export default function ClientDetails() {
       projectName: projectName.trim(),
       email: email.trim() || undefined,
       phoneNumber: phoneNumber.trim() || undefined,
-      industry: industry.trim() || undefined,
+      industry: effectiveIndustry || undefined,
       staffsize: Number(staffSize) || undefined,
       description: description.trim() || undefined,
       problems: problems.trim() || undefined,
@@ -438,7 +495,8 @@ export default function ClientDetails() {
 
     try {
       await dispatch(updateClient({ id: String(id), body })).unwrap();
-      Alert.alert("Saved", "Client info updated successfully.");
+      // Alert.alert("Saved", "Client info updated successfully.");
+      router.back();
     } catch (e: any) {
       Alert.alert("Update failed", e?.message || "Please try again.");
     }
@@ -550,18 +608,52 @@ export default function ClientDetails() {
                   <TwoCol>
                     <View style={{ flex: 1 }}>
                       <FieldLabel>Industry</FieldLabel>
-                      <Input value={industry} onChangeText={setIndustry} />
+                      <Pressable
+                        onPress={() => setShowIndustrySheet(true)}
+                        className="rounded-2xl px-4 py-3 flex-row items-center justify-between"
+                        style={{
+                          backgroundColor: BG_INPUT,
+                          borderColor: BORDER,
+                        }}
+                      >
+                        <Text className="font-kumbh text-[#111827]">
+                          {industry ? industry : "Select Industry"}
+                        </Text>
+                        <ChevronDown size={18} color="#111827" />
+                      </Pressable>
                     </View>
                     <View style={{ flex: 1 }}>
                       <FieldLabel>Staff Size</FieldLabel>
-                      <Input
-                        value={staffSize}
-                        onChangeText={setstaffSize}
-                        keyboardType="numeric"
-                      />
+                      <Pressable
+                        onPress={() => setShowStaffSizeSheet(true)}
+                        className="rounded-2xl px-4 py-3 flex-row items-center justify-between"
+                        style={{
+                          backgroundColor: BG_INPUT,
+                          borderColor: BORDER,
+                        }}
+                      >
+                        <Text className="font-kumbh text-[#111827]">
+                          {staffSize
+                            ? STAFF_SIZE_OPTIONS.find(
+                                (opt) => opt.value === Number(staffSize)
+                              )?.label ?? staffSize
+                            : "Select Staff Size"}
+                        </Text>
+                        <ChevronDown size={18} color="#111827" />
+                      </Pressable>
                     </View>
                   </TwoCol>
                 </View>
+                {industry === "Other" ? (
+                  <View className="mt-4">
+                    <FieldLabel>Other Industry</FieldLabel>
+                    <Input
+                      value={industryOther}
+                      onChangeText={setIndustryOther}
+                      placeholder="Enter industry"
+                    />
+                  </View>
+                ) : null}
 
                 {/* Description */}
                 <View className="mt-4">
@@ -732,6 +824,33 @@ export default function ClientDetails() {
               </View>
             </ScrollView>
           </KeyboardAvoidingWidget>
+
+          <OptionSheet
+            visible={showStaffSizeSheet}
+            onClose={() => setShowStaffSizeSheet(false)}
+            onSelect={(value) => {
+              setstaffSize(String(value));
+              setShowStaffSizeSheet(false);
+            }}
+            title="Select Staff Size"
+            options={STAFF_SIZE_OPTIONS}
+            selectedValue={staffSize ? Number(staffSize) : undefined}
+          />
+
+          <OptionSheet
+            visible={showIndustrySheet}
+            onClose={() => setShowIndustrySheet(false)}
+            onSelect={(value) => {
+              setIndustry(value as string);
+              if (value !== "Other") {
+                setIndustryOther("");
+              }
+              setShowIndustrySheet(false);
+            }}
+            title="Select Industry"
+            options={INDUSTRY_OPTIONS}
+            selectedValue={industry}
+          />
 
           {/* Status picker modal */}
           <Modal

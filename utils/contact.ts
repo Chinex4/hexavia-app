@@ -1,4 +1,4 @@
-import { Linking } from "react-native";
+import { Linking, Platform } from "react-native";
 
 export async function openEmail(email?: string) {
   if (!email) return;
@@ -19,15 +19,21 @@ export async function dialPhone(phone?: string) {
   if (!phone) return;
   const sanitized = phone.replace(/[^\d+]/g, "");
   if (!sanitized) return;
-  const target = `tel:${sanitized}`;
-  try {
-    const supported = await Linking.canOpenURL(target);
-    if (supported) {
-      await Linking.openURL(target);
-      return;
+  const targets =
+    Platform.OS === "ios"
+      ? [`telprompt:${sanitized}`, `tel:${sanitized}`]
+      : [`tel:${sanitized}`];
+
+  for (const target of targets) {
+    try {
+      const supported = await Linking.canOpenURL(target);
+      if (supported) {
+        await Linking.openURL(target);
+        return;
+      }
+    } catch (error) {
+      console.warn("Unable to launch phone dialer", error);
     }
-  } catch (error) {
-    console.warn("Unable to launch phone dialer", error);
   }
   console.warn("Unable to call phone number", phone);
 }
