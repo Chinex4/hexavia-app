@@ -1,7 +1,13 @@
 // components/staff/channels/ChannelCard.tsx
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import { Image, Pressable, Text, View } from "react-native";
+import { Pencil } from "lucide-react-native";
+
+import EditChannelModal from "@/components/admin/EditChannelModal";
+import type { Channel } from "@/redux/channels/channels.types";
+import { selectUser } from "@/redux/user/user.slice";
+import { useAppSelector } from "@/store/hooks";
 
 type CardChannel = {
   id: string;
@@ -23,9 +29,25 @@ function ChannelCard({
   onJoin?: (code: string) => void;
 }) {
   const router = useRouter();
+  const user = useAppSelector(selectUser);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const channelId = String(item.id ?? (item as any)?._id ?? "");
+  const isStaff = user?.role === "staff";
+  const channelForEdit = useMemo<Channel | null>(() => {
+    if (!channelId) return null;
+    return {
+      _id: channelId,
+      name: item.name,
+      description: item.description ?? null,
+      code: item.code ?? "",
+      members: [],
+      tasks: [],
+      resources: [],
+    };
+  }, [channelId, item.code, item.description, item.name]);
 
   const handlePress = () => {
-    const channelId = item.id ?? (item as any)?._id;
     if (!channelId) return;
     router.push({
       pathname: "/(staff)/(tabs)/chats/[channelId]" as any,
@@ -40,10 +62,32 @@ function ChannelCard({
       style={{ backgroundColor: colorOverride }}
       className="mx-4 mt-4 rounded-2xl p-6 overflow-hidden"
     >
+      {isStaff && channelForEdit ? (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation?.();
+            setEditOpen(true);
+          }}
+          style={{
+            position: "absolute",
+            top: 12,
+            right: 12,
+            width: 32,
+            height: 32,
+            borderRadius: 16,
+            backgroundColor: "rgba(0,0,0,0.25)",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          hitSlop={8}
+        >
+          <Pencil size={16} color="#ffffff" />
+        </Pressable>
+      ) : null}
       <View className="flex-row">
         <View className="flex-1 pr-3">
           <Text
-            className="text-white text-3xl font-kumbhBold"
+            className="text-white text-lg font-kumbhBold"
             numberOfLines={1}
           >
             {item.name}
@@ -53,7 +97,7 @@ function ChannelCard({
             {!!item.description && (
               <View className="flex-1 pr-3">
                 <Text
-                  className="text-white/90 leading-4 text-[11px] font-kumbh"
+                  className="text-white/90 leading-4 text-[10px] font-kumbh"
                   numberOfLines={2}
                   ellipsizeMode="tail"
                 >
@@ -86,6 +130,11 @@ function ChannelCard({
           </View>
         )}
       </View>
+      <EditChannelModal
+        visible={editOpen}
+        channel={channelForEdit}
+        onClose={() => setEditOpen(false)}
+      />
     </Pressable>
   );
 }

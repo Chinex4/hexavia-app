@@ -21,6 +21,8 @@ import type {
   RemoveMemberResponse,
   UpdateMemberRoleBody,
   UpdateMemberRoleResponse,
+  UpdateChannelBody,
+  UpdateChannelResponse,
   UpdateTaskBody,
   UpdateTaskResponse,
   UploadResourcesBody,
@@ -93,6 +95,31 @@ export const createChannel = createAsyncThunk<
 });
 
 // ADMIN ACTIONS
+export const updateChannel = createAsyncThunk<
+  Channel,
+  UpdateChannelBody,
+  { rejectValue: string }
+>("channels/updateChannel", async (body, { rejectWithValue }) => {
+  try {
+    const res = await showPromise(
+      api.patch<UpdateChannelResponse>("/admin/channels", body),
+      "Updating project...",
+      "Project updated"
+    );
+    const channel =
+      (res.data as any)?.channel ||
+      (res.data as any)?.data?.channel ||
+      (res.data as any)?.data;
+    if (!channel) {
+      throw new Error("Missing channel in response");
+    }
+    return channel as Channel;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
 
 export const addMemberToChannel = createAsyncThunk<
   Channel,

@@ -22,12 +22,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import ChannelCard from "@/components/admin/ChannelCard";
+import EditChannelModal from "@/components/admin/EditChannelModal";
 import { showSuccess } from "@/components/ui/toast";
 import {
   selectAllChannels,
   selectChannelsState,
 } from "@/redux/channels/channels.slice";
 import { deleteChannelById, fetchChannels } from "@/redux/channels/channels.thunks";
+import type { Channel } from "@/redux/channels/channels.types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
 const TINTS = [
@@ -62,7 +64,9 @@ export default function ChannelsIndex() {
   const [refreshing, setRefreshing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [actionTarget, setActionTarget] = useState<{ id: string; name?: string } | null>(null);
+  const [actionTarget, setActionTarget] = useState<Channel | null>(null);
+  const [editChannel, setEditChannel] = useState<Channel | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     dispatch(fetchChannels());
@@ -104,8 +108,8 @@ export default function ChannelsIndex() {
     }
   };
 
-  const openActions = (id: string, name?: string) => {
-    setActionTarget({ id, name });
+  const openActions = (channel: Channel) => {
+    setActionTarget(channel);
     setSheetOpen(true);
   };
 
@@ -216,7 +220,7 @@ export default function ChannelsIndex() {
                     params: { channelId: item._id },
                   });
                 }}
-                onLongPress={() => openActions(item._id, item.name)}
+                onLongPress={() => openActions(item)}
               />
 
               {/* Copy icon (replaces ellipsis). No background behind it. */}
@@ -294,15 +298,30 @@ export default function ChannelsIndex() {
               Channel Actions
             </Text>
             <Pressable
+              onPress={() => {
+                if (!actionTarget) return;
+                setEditChannel(actionTarget);
+                setEditOpen(true);
+                closeActions();
+              }}
+              disabled={!actionTarget}
+              className="py-3"
+            >
+              <Text className="text-center font-kumbh text-gray-700">
+                Edit channel
+              </Text>
+            </Pressable>
+            <View className="h-[1px] bg-gray-200" />
+            <Pressable
               onPress={() =>
                 actionTarget &&
-                confirmDelete(actionTarget.id, actionTarget.name)
+                confirmDelete(actionTarget._id, actionTarget.name)
               }
-              disabled={!actionTarget || deletingId === actionTarget?.id}
+              disabled={!actionTarget || deletingId === actionTarget?._id}
               className="py-3"
             >
               <Text className="text-center font-kumbh text-red-600">
-                {deletingId === actionTarget?.id ? "Deleting..." : "Delete channel"}
+                {deletingId === actionTarget?._id ? "Deleting..." : "Delete channel"}
               </Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />
@@ -314,6 +333,14 @@ export default function ChannelsIndex() {
           </View>
         </Pressable>
       </Modal>
+      <EditChannelModal
+        visible={editOpen}
+        channel={editChannel}
+        onClose={() => {
+          setEditOpen(false);
+          setEditChannel(null);
+        }}
+      />
     </SafeAreaView>
   );
 }
