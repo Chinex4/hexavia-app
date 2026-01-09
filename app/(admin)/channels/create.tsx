@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -37,6 +38,7 @@ export default function CreateChannel() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState<string>("");
   const [code, setCode] = useState<string>("");
+  const [isStaff, setIsStaff] = useState(true);
 
   useEffect(() => {
     dispatch(generateChannelCode());
@@ -64,6 +66,7 @@ export default function CreateChannel() {
       name: name.trim(),
       description: desc?.trim() ? desc.trim() : undefined,
       code: code.trim().toUpperCase(),
+      isStaff,
     };
 
     const res = await dispatch(createChannel(body));
@@ -127,6 +130,25 @@ export default function CreateChannel() {
               className="bg-gray-200 rounded-2xl px-4 py-4 min-h-[88px] font-kumbh text-text"
             />
           </Field>
+
+          <View className="mb-5">
+            <View className="flex-row items-center justify-between">
+              <View>
+                <Text className="text-[12px] text-gray-500 mb-1">
+                  Staff only channel
+                </Text>
+                <Text className="text-[10px] text-gray-400">
+                  Toggle on if this project should be restricted to staff.
+                </Text>
+              </View>
+              <Switch
+                value={isStaff}
+                onValueChange={setIsStaff}
+                trackColor={{ false: "#d1d5db", true: "#4C5FAB" }}
+                ios_backgroundColor="#d1d5db"
+              />
+            </View>
+          </View>
 
           <View className="flex-row gap-3">
             <Field label="Project Code" className="flex-1">

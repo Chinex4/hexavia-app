@@ -54,7 +54,7 @@ export default function ChannelCard({
       ) : null}
 
       <View className="flex-1 p-4 justify-between">
-        <Text className="text-white text-base font-kumbhBold">
+        <Text className="text-white text-[12px] font-kumbhBold">
           {truncateWords(title, 5, "...")}
         </Text>
         <View className="flex-row items-center justify-between">

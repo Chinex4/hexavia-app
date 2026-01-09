@@ -48,7 +48,7 @@ function ChannelCard({ item, width, gap, isMember = true, onJoin }: Props) {
       >
         <View className="flex-row justify-between">
           <Text
-            className="text-white text-3xl font-kumbhBold"
+            className="text-white text-lg font-kumbhBold"
             numberOfLines={1}
           >
             {item.title}
@@ -63,16 +63,16 @@ function ChannelCard({ item, width, gap, isMember = true, onJoin }: Props) {
         </View>
 
         {/* Bottom (no member avatars to keep it clean & light) */}
-        <View className="mt-4 flex-row justify-between items-end">
+        <View className="mt-4 flex-row justify-between items-center">
           <Text
-            className="text-white/90 flex-1 leading-5 text-[13px] font-kumbh"
+            className="text-white/90 flex-1 leading-5 text-[10px] font-kumbh"
             numberOfLines={2}
           >
             {item.subtitle}
           </Text>
           <View className="ml-2">
             {isMember ? (
-              <Text className="text-white/90 font-kumbh text-[12px]">
+              <Text className="text-white/90 font-kumbh text-[10px]">
                 Code: {item.code}
               </Text>
             ) : (

@@ -10,6 +10,7 @@ import {
     fetchChannels,
     generateChannelCode,
     joinChannel,
+    updateChannel,
     removeMemberFromChannel,
     updateChannelMemberRole,
     updateChannelTask,
@@ -179,6 +180,21 @@ const channelsSlice = createSlice({
         upsertOne(state, action.payload);
       })
       .addCase(updateChannelMemberRole.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    builder
+      .addCase(updateChannel.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(updateChannel.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        upsertOne(state, action.payload);
+      })
+      .addCase(updateChannel.rejected, (state, action) => {
         state.status = "failed";
         state.error =
           (action.payload as string) ?? action.error.message ?? null;

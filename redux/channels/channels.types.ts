@@ -5,6 +5,7 @@ export interface Channel {
   name: string;
   description?: string | null;
   code: string;
+  isActive?: boolean;
   createdAt?: string;
   createdBy?: string;
   members: Array<{
@@ -39,6 +40,19 @@ export interface CreateChannelBody {
   description?: string | null;
   code: string;
   isStaff?: boolean;
+}
+
+export interface UpdateChannelBody {
+  channelId: string;
+  name: string;
+  description?: string | null;
+  isActive?: boolean;
+}
+
+export interface UpdateChannelResponse {
+  message?: string;
+  channel?: Channel;
+  data?: { channel?: Channel };
 }
 
 export interface GetChannelsResponse {
