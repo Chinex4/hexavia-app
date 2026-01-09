@@ -112,7 +112,7 @@ export default function ChannelResourcesScreen() {
   const insets = useSafeAreaInsets();
 
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
-  console.log("channelId", channelId);
+  // console.log("channelId", channelId);
   const dispatch = useAppDispatch();
   const channel = useAppSelector(selectChannelById(channelId || ""));
   const upload = useAppSelector(selectUpload);
