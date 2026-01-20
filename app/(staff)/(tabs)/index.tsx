@@ -6,6 +6,7 @@ import { FlatList, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { StaffHeader } from "@/components/common/UserHeader";
+import BotpressFab from "@/components/common/BotpressFab";
 import ChannelCard from "@/components/staff/ChannelCard";
 import SanctionCard from "@/components/staff/SanctionCard";
 import TaskOverview from "@/components/staff/TaskOverviewCard";
@@ -202,6 +203,7 @@ export default function StaffHome() {
         visible={showCreate}
         onClose={() => setShowCreate(false)}
       />
+      <BotpressFab title="Hexavia Assistant" />
     </SafeAreaView>
   );
 }

@@ -18,6 +18,7 @@ type Props = {
   onRefresh?: () => void;
   onEditNote: (note: ChannelNote) => void;
   onDeleteNote: (note: ChannelNote) => void;
+  onPreviewNote: (note: ChannelNote) => void;
 };
 
 export default function NoteList({
@@ -27,6 +28,7 @@ export default function NoteList({
   onRefresh,
   onEditNote,
   onDeleteNote,
+  onPreviewNote,
 }: Props) {
   if (isLoading && notes.length === 0) {
     return (
@@ -37,12 +39,18 @@ export default function NoteList({
   }
 
   const renderItem: ListRenderItem<ChannelNote> = ({ item }) => (
-    <View className="my-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm">
-      <View className="flex-row justify-between">
-        <Text className="font-kumbhBold text-base text-gray-900">
+    <Pressable
+      onPress={() => onPreviewNote(item)}
+      className="my-3 rounded-2xl border border-gray-200 bg-white px-4 py-4 shadow-sm"
+    >
+      <View className="flex-row items-start">
+        <Text
+          className="font-kumbhBold text-base text-gray-900 flex-1 pr-3"
+          numberOfLines={2}
+        >
           {item.title || "Untitled"}
         </Text>
-        <View className="flex-row gap-2">
+        <View className="flex-row gap-2 shrink-0">
           <Pressable onPress={() => onEditNote(item)} className="rounded-full">
             <Edit3 size={18} color="#4C5FAB" />
           </Pressable>
@@ -54,7 +62,7 @@ export default function NoteList({
       <Text className="text-sm text-gray-600 mt-2" numberOfLines={4}>
         {item.description || "No description added."}
       </Text>
-    </View>
+    </Pressable>
   );
 
   return (

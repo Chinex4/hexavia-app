@@ -92,11 +92,11 @@ const STATUS_OPTIONS: Array<FormValues["status"]> = [
 ];
 
 const STAFF_SIZE_OPTIONS = [
-  { label: "1-50", value: 50 },
-  { label: "50-100", value: 100 },
+  { label: "0-5", value: 5 },
+  { label: "5-20", value: 20 },
+  { label: "20-100", value: 100 },
   { label: "100-150", value: 150 },
-  { label: "150-200", value: 200 },
-  { label: "200+", value: 201 },
+  { label: "150+", value: 151 },
 ];
 
 const INDUSTRY_OPTIONS = [

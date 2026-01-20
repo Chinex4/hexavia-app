@@ -6,6 +6,7 @@ type Props = {
   title: string;
   description?: string | null;
   statusLabel: string;
+  assignees?: string[];
 
   /** Background color for the card (e.g., STATUS_BGS[status].bgColor) */
   cardBg?: string;
@@ -42,6 +43,7 @@ export default function BoardCard({
   title,
   description,
   statusLabel,
+  assignees,
   cardBg = "#7380BD",
   pillBg,
   pillText,
@@ -94,6 +96,12 @@ export default function BoardCard({
       {!!description && (
         <Text className="font-kumbh mt-1" style={{ color: subColor }}>
           {description}
+        </Text>
+      )}
+
+      {!!assignees?.length && (
+        <Text className="font-kumbh mt-2 text-[12px]" style={{ color: subColor }}>
+          Assigned to: {assignees.join(", ")}
         </Text>
       )}
 

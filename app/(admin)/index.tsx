@@ -6,6 +6,7 @@ import { Image, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import AdminHeader from "@/components/admin/AdminHeader";
+import BotpressFab from "@/components/common/BotpressFab";
 import ProgressRow from "@/components/admin/ProgressRow";
 import SectionCard from "@/components/admin/SectionCard";
 import StatPill from "@/components/admin/StatPiill";
@@ -145,6 +146,7 @@ export default function AdminDashboard() {
           </View>
         </SectionCard>
       </ScrollView>
+      <BotpressFab title="Hexavia Assistant" />
     </SafeAreaView>
   );
 }

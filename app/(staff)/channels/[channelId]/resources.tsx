@@ -62,7 +62,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
-import { ArrowUpDown, ChevronLeft, CloudUpload, Plus } from "lucide-react-native";
+import { ArrowUpDown, ChevronLeft, CloudUpload, Plus, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -152,6 +152,7 @@ export default function ChannelResourcesScreen() {
   const [editingNote, setEditingNote] = useState<ChannelNote | null>(null);
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<ChannelNote | null>(null);
+  const [previewNote, setPreviewNote] = useState<ChannelNote | null>(null);
   const [sortOrder, setSortOrder] = useState<{
     resources: "asc" | "desc";
     links: "asc" | "desc";
@@ -804,6 +805,7 @@ export default function ChannelResourcesScreen() {
               onRefresh={refreshNotes}
               onEditNote={(note) => openNoteModal(note)}
               onDeleteNote={(note) => setNoteToDelete(note)}
+              onPreviewNote={(note) => setPreviewNote(note)}
             />
           );
         }}
@@ -845,6 +847,7 @@ export default function ChannelResourcesScreen() {
         <KeyboardAvoidingView
           behavior={Platform.select({ ios: "padding", android: undefined })}
           className="flex-1 justify-end"
+          style={{paddingTop: Platform.OS === 'ios' ? insets.top + 10 : 10}}
         >
           <Pressable
             className="absolute inset-0 bg-black/30"
@@ -943,6 +946,7 @@ export default function ChannelResourcesScreen() {
         <KeyboardAvoidingView
           behavior={Platform.select({ ios: "padding", android: undefined })}
           className="flex-1 justify-end"
+          style={{paddingTop: Platform.OS === 'ios' ? insets.top + 10 : 10}}
         >
           <Pressable
             className="absolute inset-0 bg-black/30"
@@ -981,10 +985,10 @@ export default function ChannelResourcesScreen() {
                   setNoteForm((prev) => ({ ...prev, description: value }))
                 }
                 multiline
-                numberOfLines={4}
+                numberOfLines={16}
                 className="font-kumbh text-gray-900"
                 editable={!noteSubmitting}
-                style={{ minHeight: 140, textAlignVertical: "top" }}
+                style={{ minHeight: 500, textAlignVertical: "top" }}
               />
             </View>
 
@@ -1030,6 +1034,37 @@ export default function ChannelResourcesScreen() {
         onCancel={() => setNoteToDelete(null)}
         onConfirm={handleDeleteNote}
       />
+
+      <Modal
+        visible={Boolean(previewNote)}
+        animationType="slide"
+        onRequestClose={() => setPreviewNote(null)}
+      >
+        <View className="flex-1 bg-white" style={{ paddingTop: Platform.OS === 'ios' ? insets.top : 0 }}>
+          <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
+            <Text className="font-kumbhBold text-base text-gray-900">Note</Text>
+            <Pressable
+              onPress={() => setPreviewNote(null)}
+              className="h-10 w-10 items-center justify-center rounded-full bg-gray-100"
+              accessibilityLabel="Close note preview"
+            >
+              <X size={18} color="#111827" />
+            </Pressable>
+          </View>
+          <ScrollView
+            className="px-4"
+            contentContainerStyle={{ paddingBottom: 32 }}
+            showsVerticalScrollIndicator={false}
+          >
+            <Text className="font-kumbhBold text-2xl text-gray-900 mt-4">
+              {previewNote?.title || "Untitled"}
+            </Text>
+            <Text className="text-base text-gray-700 mt-4 leading-6">
+              {previewNote?.description || "No description added."}
+            </Text>
+          </ScrollView>
+        </View>
+      </Modal>
 
       {activeTab === "resources" && actionFor ? (
         <View className="absolute inset-0 bg-black/30">

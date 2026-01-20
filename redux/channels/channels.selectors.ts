@@ -166,6 +166,11 @@ export type ChannelTask = {
   channelCode: string;
   channelId?: string;
   createdAt: number;
+  assignees?: Array<{
+    id?: string;
+    name?: string;
+    email?: string;
+  }>;
 };
 
 // All Channel tasks for a channel (normalized)
@@ -185,6 +190,46 @@ export const makeSelectChannelTasksByChannelId = (channelId?: string | null) =>
           : t?.createdAt
           ? Date.parse(t.createdAt)
           : Date.now(),
+      assignees: (() => {
+        const raw =
+          t?.assignees ??
+          t?.assignedTo ??
+          t?.assignee ??
+          t?.assignedUsers ??
+          t?.members ??
+          null;
+        const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+        return arr
+          .map((a: any, idx: number) => {
+            const base = typeof a === "string" ? { _id: a } : a ?? {};
+            const entry =
+              base?.user ?? base?.member ?? base?.assignee ?? base ?? {};
+            const id =
+              entry?._id ??
+              entry?.id ??
+              base?._id ??
+              base?.id ??
+              base?.userId ??
+              base?.memberId ??
+              (typeof a === "string" ? a : null) ??
+              `assignee-${idx}`;
+            const name =
+              entry?.name ??
+              entry?.fullname ??
+              entry?.username ??
+              entry?.email ??
+              base?.name ??
+              base?.email ??
+              null;
+            const email = entry?.email ?? base?.email ?? null;
+            return {
+              id: id ? String(id) : undefined,
+              name: name ? String(name) : undefined,
+              email: email ? String(email) : undefined,
+            };
+          })
+          .filter((a: any) => a.id || a.name || a.email);
+      })(),
     }));
   });
 

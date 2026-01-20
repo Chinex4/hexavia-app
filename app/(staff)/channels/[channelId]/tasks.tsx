@@ -18,7 +18,11 @@ import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import TaskDetailModal from "@/components/staff/tasks/modals/TaskDetailModal";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
-import { makeSelectDefaultChannelId, selectStatus as selectChannelsStatus } from "@/redux/channels/channels.selectors";
+import {
+  makeSelectDefaultChannelId,
+  selectChannelById,
+  selectStatus as selectChannelsStatus,
+} from "@/redux/channels/channels.selectors";
 import { fetchChannelById } from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
@@ -84,6 +88,44 @@ export default function StatusScreen() {
   const allChannelTasks = useAppSelector(selectAllChannelTasks);
   // console.log("All channel tasks:", allChannelTasks);
   const list = useAppSelector(selectChannelTasksByStatus);
+  const channel = useAppSelector(selectChannelById(channelId ?? ""));
+
+  const memberLookup = useMemo(() => {
+    const map = new Map<string, string>();
+    const rawMembers = Array.isArray((channel as any)?.members)
+      ? (channel as any).members
+      : [];
+    rawMembers.forEach((m: any, idx: number) => {
+      const base = typeof m === "string" ? { _id: m } : m ?? {};
+      const entry = base?.user ?? base?.member ?? base ?? {};
+      const profile =
+        entry?._id && typeof entry._id === "object" ? entry._id : entry;
+      const rawId =
+        profile?._id ??
+        profile?.id ??
+        entry?._id ??
+        entry?.id ??
+        base?.userId ??
+        base?.memberId ??
+        base?._id ??
+        base?.id ??
+        (typeof m === "string" ? m : null) ??
+        `member-${idx}`;
+      const name =
+        profile?.fullname ??
+        profile?.name ??
+        profile?.username ??
+        profile?.email ??
+        entry?.name ??
+        entry?.username ??
+        base?.name ??
+        base?.email ??
+        null;
+      const id = rawId ? String(rawId) : "";
+      if (id && name && !map.has(id)) map.set(id, String(name));
+    });
+    return map;
+  }, [channel]);
 
   // modals
   const [showCreate, setShowCreate] = useState(false);
@@ -171,6 +213,16 @@ export default function StatusScreen() {
                 project={item.channelCode || "—"}
                 title={item.title}
                 description={item.description || ""}
+                assignees={(item.assignees || [])
+                  .map(
+                    (assignee) =>
+                      assignee.name ??
+                      assignee.email ??
+                      (assignee.id ? memberLookup.get(assignee.id) : null) ??
+                      assignee.id ??
+                      null
+                  )
+                  .filter(Boolean) as string[]}
                 statusLabel={
                   TABS.find((t) => t.key === item.status)?.label ?? item.status
                 }
