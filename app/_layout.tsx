@@ -8,6 +8,7 @@ import { Platform, View } from "react-native";
 import { Provider } from "react-redux";
 
 import { attachStore } from "@/api/axios";
+import AppUpdatePrompt from "@/components/common/AppUpdatePrompt";
 import { TasksProvider } from "@/features/staff/tasksStore";
 import Toast from "react-native-toast-message";
 import "../global.css";
@@ -134,6 +135,7 @@ function AppFrame() {
   return (
     <View style={{ flex: 1 }}>
       <Slot />
+      <AppUpdatePrompt />
     </View>
   );
 }
