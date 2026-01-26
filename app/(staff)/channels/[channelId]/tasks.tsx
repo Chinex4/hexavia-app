@@ -252,6 +252,7 @@ export default function StatusScreen() {
       <CreateTaskModal
         visible={showCreate}
         onClose={() => setShowCreate(false)}
+        defaultChannelId={channelId}
       />
       {edit && (
         <TaskDetailModal

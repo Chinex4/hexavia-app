@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, TextInput, Pressable, Text, FlatList } from "react-native";
 import { Paperclip, Mic, Send, X } from "lucide-react-native";
 import type { ReplyMeta } from "@/types/chat";
@@ -6,6 +6,8 @@ import type { Mentionable } from "@/utils/handles";
 
 type Props = {
   onSend: (text: string) => void;
+  value?: string;
+  onChangeText?: (text: string) => void;
   onToggleTray: () => void;
   trayOpen: boolean;
   replyTo?: ReplyMeta | null;
@@ -19,6 +21,8 @@ type Props = {
 
 export default function Composer({
   onSend,
+  value,
+  onChangeText,
   onToggleTray,
   trayOpen,
   replyTo,
@@ -29,7 +33,7 @@ export default function Composer({
   onCancelRecording,
   mentionables,
 }: Props) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(value ?? "");
   const [query, setQuery] = useState(""); // after "@"
   const [open, setOpen] = useState(false); // show typeahead
   const inputRef = useRef<TextInput>(null);
@@ -37,6 +41,11 @@ export default function Composer({
   const mm = Math.floor(recordDurationMs / 60000);
   const ss = Math.floor((recordDurationMs % 60000) / 1000);
   const durText = `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+
+  useEffect(() => {
+    if (value === undefined) return;
+    if (value !== text) setText(value);
+  }, [value, text]);
 
   // Filter mention suggestions by query
   const results = useMemo(() => {
@@ -65,6 +74,7 @@ export default function Composer({
 
   const onChange = (val: string) => {
     setText(val);
+    onChangeText?.(val);
     if (!isRecording) detectMention(val);
   };
 
@@ -87,6 +97,7 @@ export default function Composer({
     if (!val) return;
     onSend(val); // no backend change; we send plain text containing @handles
     setText("");
+    onChangeText?.("");
     setOpen(false);
     setQuery("");
   };

@@ -49,11 +49,13 @@ export default function CreateTaskModal({
   onClose,
   forcePersonalForUserId,
   hideModeToggle = false,
+  defaultChannelId = null,
 }: {
   visible: boolean;
   onClose: () => void;
   forcePersonalForUserId?: string | null;
   hideModeToggle?: boolean;
+  defaultChannelId?: string | null;
 }) {
   const dispatch = useAppDispatch();
   const user = useAppSelector(selectUser);
@@ -84,7 +86,8 @@ export default function CreateTaskModal({
     if (visible) {
       dispatch(fetchChannels());
       setShowChannelPicker(false);
-      setSelectedChannelId(null);
+      setSelectedChannelId(defaultChannelId || null);
+      setChannelCode("");
 
       // Lock to personal if forced
       if (forcePersonalForUserId) {
@@ -93,7 +96,7 @@ export default function CreateTaskModal({
         setMode("channel");
       }
     }
-  }, [visible, dispatch, forcePersonalForUserId]);
+  }, [visible, dispatch, forcePersonalForUserId, defaultChannelId]);
 
   const [title, setTitle] = useState("");
   const [desc, setDesc] = useState("");
@@ -154,6 +157,27 @@ export default function CreateTaskModal({
         })),
     [allChannels],
   );
+
+  const defaultChannel = useMemo(
+    () => allChannels.find((c) => c._id === defaultChannelId),
+    [allChannels, defaultChannelId],
+  );
+
+  useEffect(() => {
+    if (!visible) return;
+    if (!defaultChannelId) return;
+    if (selectedChannelId && selectedChannelId !== defaultChannelId) return;
+    if (channelCode) return;
+    if (!defaultChannel?.code) return;
+    setSelectedChannelId(defaultChannelId);
+    setChannelCode(defaultChannel.code);
+  }, [
+    visible,
+    defaultChannelId,
+    defaultChannel?.code,
+    selectedChannelId,
+    channelCode,
+  ]);
 
   const selectedChannel = useMemo(
     () => allChannels.find((c) => c._id === selectedChannelId),

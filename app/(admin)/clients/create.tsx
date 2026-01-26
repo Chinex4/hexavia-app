@@ -1,9 +1,10 @@
 import { yupResolver } from "@hookform/resolvers/yup";
 import clsx from "clsx";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ChevronDown, Home, Plus } from "lucide-react-native";
+import { ArrowLeft, ChevronDown, Home, Mic, Plus } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
-import React, { useCallback, useState } from "react";
+import Voice from "@react-native-voice/voice";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   ActivityIndicator,
@@ -48,6 +49,15 @@ type FormValues = {
   payableAmount?: string;
   status: "pending" | "current" | "completed";
 };
+
+type DictationField =
+  | "description"
+  | "problems"
+  | "strength"
+  | "weakness"
+  | "opportunities"
+  | "threats"
+  | "deliverables";
 
 const schema: yup.ObjectSchema<FormValues> = yup.object({
   name: yup.string().trim().optional(),
@@ -182,6 +192,7 @@ export default function CreateClient() {
     formState: { errors, isValid },
     setValue,
     watch,
+    getValues,
   } = useForm<FormValues>({
     mode: "onChange",
     resolver: yupResolver(schema),
@@ -248,6 +259,88 @@ export default function CreateClient() {
       // showError already handled in thunk
     }
   };
+
+  const [dictatingField, setDictatingField] =
+    useState<DictationField | null>(null);
+  const dictationBaseRef = useRef("");
+  const activeDictationRef = useRef<DictationField | null>(null);
+
+  const applyDictationText = useCallback(
+    (spoken?: string | null) => {
+      const field = activeDictationRef.current;
+      if (!field) return;
+      const fragment = (spoken ?? "").trim();
+      const combined = fragment
+        ? `${dictationBaseRef.current}${fragment}`
+        : dictationBaseRef.current;
+      setValue(field, combined, { shouldDirty: true });
+    },
+    [setValue],
+  );
+
+  const stopDictation = useCallback(async () => {
+    try {
+      await Voice.stop();
+    } catch (err) {
+      console.warn("[dictation] stop failed", err);
+    } finally {
+      setDictatingField(null);
+      activeDictationRef.current = null;
+    }
+  }, []);
+
+  const startDictation = useCallback(
+    async (field: DictationField) => {
+      try {
+        const existing = String(getValues(field) ?? "").trim();
+        dictationBaseRef.current = existing ? `${existing} ` : "";
+        activeDictationRef.current = field;
+        setDictatingField(field);
+        await Voice.start("en-US");
+      } catch (err) {
+        console.warn("[dictation] start failed", err);
+        setDictatingField(null);
+        activeDictationRef.current = null;
+      }
+    },
+    [getValues],
+  );
+
+  const toggleDictation = useCallback(
+    async (field: DictationField) => {
+      if (dictatingField === field) {
+        await stopDictation();
+        return;
+      }
+      if (dictatingField) {
+        await stopDictation();
+      }
+      await startDictation(field);
+    },
+    [dictatingField, startDictation, stopDictation],
+  );
+
+  useEffect(() => {
+    Voice.onSpeechPartialResults = (e) => {
+      applyDictationText(e.value?.[0]);
+    };
+    Voice.onSpeechResults = (e) => {
+      applyDictationText(e.value?.[0]);
+    };
+    Voice.onSpeechEnd = () => {
+      setDictatingField(null);
+      activeDictationRef.current = null;
+    };
+    Voice.onSpeechError = (e) => {
+      console.warn("[dictation] error", e);
+      setDictatingField(null);
+      activeDictationRef.current = null;
+    };
+
+    return () => {
+      Voice.destroy().then(Voice.removeAllListeners);
+    };
+  }, [applyDictationText]);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -462,6 +555,24 @@ export default function CreateClient() {
 
             {/* Description */}
             <Field label="Description">
+              <View className="flex-row items-center justify-end mb-2">
+                <Pressable
+                  onPress={() => toggleDictation("description")}
+                  className="flex-row items-center"
+                >
+                  <Mic
+                    size={16}
+                    color={
+                      dictatingField === "description" ? "#DC2626" : "#6B7280"
+                    }
+                  />
+                  <Text className="ml-2 text-xs text-gray-600 font-kumbh">
+                    {dictatingField === "description"
+                      ? "Listening…"
+                      : "Dictate"}
+                  </Text>
+                </Pressable>
+              </View>
               <Controller
                 control={control}
                 name="description"
@@ -481,6 +592,22 @@ export default function CreateClient() {
 
             {/* Problems */}
             <Field label="Problems Faced">
+              <View className="flex-row items-center justify-end mb-2">
+                <Pressable
+                  onPress={() => toggleDictation("problems")}
+                  className="flex-row items-center"
+                >
+                  <Mic
+                    size={16}
+                    color={
+                      dictatingField === "problems" ? "#DC2626" : "#6B7280"
+                    }
+                  />
+                  <Text className="ml-2 text-xs text-gray-600 font-kumbh">
+                    {dictatingField === "problems" ? "Listening…" : "Dictate"}
+                  </Text>
+                </Pressable>
+              </View>
               <Controller
                 control={control}
                 name="problems"
@@ -500,6 +627,22 @@ export default function CreateClient() {
 
             {/* Strength */}
             <Field label="Strengths">
+              <View className="flex-row items-center justify-end mb-2">
+                <Pressable
+                  onPress={() => toggleDictation("strength")}
+                  className="flex-row items-center"
+                >
+                  <Mic
+                    size={16}
+                    color={
+                      dictatingField === "strength" ? "#DC2626" : "#6B7280"
+                    }
+                  />
+                  <Text className="ml-2 text-xs text-gray-600 font-kumbh">
+                    {dictatingField === "strength" ? "Listening…" : "Dictate"}
+                  </Text>
+                </Pressable>
+              </View>
               <Controller
                 control={control}
                 name="strength"
@@ -519,6 +662,22 @@ export default function CreateClient() {
 
             {/* Weakness */}
             <Field label="Weaknesses">
+              <View className="flex-row items-center justify-end mb-2">
+                <Pressable
+                  onPress={() => toggleDictation("weakness")}
+                  className="flex-row items-center"
+                >
+                  <Mic
+                    size={16}
+                    color={
+                      dictatingField === "weakness" ? "#DC2626" : "#6B7280"
+                    }
+                  />
+                  <Text className="ml-2 text-xs text-gray-600 font-kumbh">
+                    {dictatingField === "weakness" ? "Listening…" : "Dictate"}
+                  </Text>
+                </Pressable>
+              </View>
               <Controller
                 control={control}
                 name="weakness"
@@ -538,6 +697,26 @@ export default function CreateClient() {
 
             {/* Opportunities */}
             <Field label="Opportunities">
+              <View className="flex-row items-center justify-end mb-2">
+                <Pressable
+                  onPress={() => toggleDictation("opportunities")}
+                  className="flex-row items-center"
+                >
+                  <Mic
+                    size={16}
+                    color={
+                      dictatingField === "opportunities"
+                        ? "#DC2626"
+                        : "#6B7280"
+                    }
+                  />
+                  <Text className="ml-2 text-xs text-gray-600 font-kumbh">
+                    {dictatingField === "opportunities"
+                      ? "Listening…"
+                      : "Dictate"}
+                  </Text>
+                </Pressable>
+              </View>
               <Controller
                 control={control}
                 name="opportunities"
@@ -557,6 +736,22 @@ export default function CreateClient() {
 
             {/* Threats */}
             <Field label="Threats">
+              <View className="flex-row items-center justify-end mb-2">
+                <Pressable
+                  onPress={() => toggleDictation("threats")}
+                  className="flex-row items-center"
+                >
+                  <Mic
+                    size={16}
+                    color={
+                      dictatingField === "threats" ? "#DC2626" : "#6B7280"
+                    }
+                  />
+                  <Text className="ml-2 text-xs text-gray-600 font-kumbh">
+                    {dictatingField === "threats" ? "Listening…" : "Dictate"}
+                  </Text>
+                </Pressable>
+              </View>
               <Controller
                 control={control}
                 name="threats"
@@ -594,6 +789,26 @@ export default function CreateClient() {
 
             {/* Deliverables */}
             <Field label="Deliverables">
+              <View className="flex-row items-center justify-end mb-2">
+                <Pressable
+                  onPress={() => toggleDictation("deliverables")}
+                  className="flex-row items-center"
+                >
+                  <Mic
+                    size={16}
+                    color={
+                      dictatingField === "deliverables"
+                        ? "#DC2626"
+                        : "#6B7280"
+                    }
+                  />
+                  <Text className="ml-2 text-xs text-gray-600 font-kumbh">
+                    {dictatingField === "deliverables"
+                      ? "Listening…"
+                      : "Dictate"}
+                  </Text>
+                </Pressable>
+              </View>
               <Controller
                 control={control}
                 name="deliverables"
