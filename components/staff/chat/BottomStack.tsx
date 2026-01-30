@@ -19,7 +19,7 @@ export default function BottomStack({ tray, composer, isAdmin = false }: Props) 
   const animatedStyle = useAnimatedStyle(() => {
     const h = kb.height.value;
     if (Platform.OS === "ios") {
-      const offset = Math.max(-45, h - 110);
+      const offset = Math.max(0, h - bottom);
       return {
         transform: [{ translateY: withTiming(-offset, { duration: 0 }) }],
       };

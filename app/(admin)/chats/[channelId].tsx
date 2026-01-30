@@ -19,7 +19,6 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import type { AttachmentKind, Message, ReplyMeta } from "@/types/chat";
 import type { ChatTaggedUser } from "@/types/chat-model";
 import { buildMentionables, type Mentionable } from "@/utils/handles";
-import { ENV } from "@/config/env";
 import { showError } from "@/components/ui/toast";
 import {
   AudioModule,
@@ -42,11 +41,9 @@ import React, {
   useState,
 } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   InteractionManager,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   Text,
@@ -141,14 +138,6 @@ export default function ChatScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordDurationMs, setRecordDurationMs] = useState(0);
   const [draftText, setDraftText] = useState("");
-  const [voiceChoiceOpen, setVoiceChoiceOpen] = useState(false);
-  const [transcribing, setTranscribing] = useState(false);
-  const [pendingVoice, setPendingVoice] = useState<{
-    uri: string;
-    name: string;
-    type: string;
-    durationMs: number;
-  } | null>(null);
   const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(audioRecorder, 200);
   const recordRef = useRef<typeof audioRecorder | null>(null);
@@ -235,13 +224,12 @@ export default function ChatScreen() {
       // (server-side libs often prefer audio/mp4 for .m4a)
       const type = "audio/mp4";
 
-      setPendingVoice({
+      await sendVoiceNote({
         uri: dest || srcUri,
         name,
         type,
         durationMs: recorderState.durationMillis ?? 0,
       });
-      setVoiceChoiceOpen(true);
     }
 
     setRecordDurationMs(0);
@@ -721,109 +709,65 @@ export default function ChatScreen() {
     setTrayOpen(false);
   };
 
-  const handleSendVoiceNote = async () => {
-    if (!pendingVoice || !channelId) return;
-    try {
-      const uploadAction = await dispatch(
-        uploadSingle({
-          uri: pendingVoice.uri,
-          name: pendingVoice.name,
-          type: pendingVoice.type,
-        })
-      );
-      if (uploadSingle.fulfilled.match(uploadAction)) {
-        const { url, publicId } = uploadAction.payload;
-
-        const secs = Math.max(1, Math.round(pendingVoice.durationMs / 1000));
-        await dispatch(
-          uploadChannelResources({
-            channelId,
-            resources: [
-              {
-                name: pendingVoice.name,
-                description: `Voice note • ${secs}s`,
-                resourceUpload: url,
-                publicId: publicId ?? pendingVoice.name,
-              },
-            ],
+  const sendVoiceNote = useCallback(
+    async (voice: {
+      uri: string;
+      name: string;
+      type: string;
+      durationMs: number;
+    }) => {
+      if (!channelId) return;
+      if (!voice.uri) return;
+      try {
+        const uploadAction = await dispatch(
+          uploadSingle({
+            uri: voice.uri,
+            name: voice.name,
+            type: voice.type,
           })
         );
+        if (uploadSingle.fulfilled.match(uploadAction)) {
+          const { url, publicId } = uploadAction.payload;
 
-        if (meId) {
-          dispatch({
-            type: "chat/sendChannel",
-            payload: {
-              meId,
+          const secs = Math.max(1, Math.round(voice.durationMs / 1000));
+          await dispatch(
+            uploadChannelResources({
               channelId,
-              text: "Voice note",
-              attachment: {
-                mediaUri: url,
-                mimeType: pendingVoice.type,
-                durationMs: pendingVoice.durationMs,
+              resources: [
+                {
+                  name: voice.name,
+                  description: `Voice note • ${secs}s`,
+                  resourceUpload: url,
+                  publicId: publicId ?? voice.name,
+                },
+              ],
+            })
+          );
+
+          if (meId) {
+            dispatch({
+              type: "chat/sendChannel",
+              payload: {
+                meId,
+                channelId,
+                text: "Voice note",
+                attachment: {
+                  mediaUri: url,
+                  mimeType: voice.type,
+                  durationMs: voice.durationMs,
+                },
               },
-            },
-          });
+            });
+          }
+          scrollToEnd();
         }
-        scrollToEnd();
+      } catch (e) {
+        console.warn(e);
+        showError("Failed to send voice note.");
       }
-    } catch (e) {
-      console.warn(e);
-      showError("Failed to send voice note.");
-    } finally {
-      setVoiceChoiceOpen(false);
-      setPendingVoice(null);
-    }
-  };
-
-  const handleTranscribeVoice = async () => {
-    if (!pendingVoice) return;
-    if (!ENV.EXPO_PUBLIC_OPENAI_API_KEY) {
-      showError("Missing OpenAI API key.");
-      return;
-    }
-    setTranscribing(true);
-    try {
-      const form = new FormData();
-      form.append("model", "whisper-1");
-      form.append("file", {
-        uri: pendingVoice.uri,
-        name: pendingVoice.name,
-        type: pendingVoice.type,
-      } as any);
-
-      const res = await fetch(
-        "https://api.openai.com/v1/audio/transcriptions",
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${ENV.EXPO_PUBLIC_OPENAI_API_KEY}`,
-          },
-          body: form,
-        }
-      );
-
-      const data = await res.json();
-      if (!res.ok) {
-        showError(data?.error?.message ?? "Transcription failed.");
-        return;
-      }
-
-      const text = String(data?.text ?? "").trim();
-      if (!text) {
-        showError("No transcription returned.");
-        return;
-      }
-
-      setDraftText(text);
-      setVoiceChoiceOpen(false);
-      setPendingVoice(null);
-    } catch (e) {
-      console.warn(e);
-      showError("Transcription failed.");
-    } finally {
-      setTranscribing(false);
-    }
-  };
+    },
+    [channelId, dispatch, meId, scrollToEnd]
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -929,68 +873,6 @@ export default function ChatScreen() {
           onClose={() => setSheetOpen(false)}
           items={items}
         />
-        <Modal
-          visible={voiceChoiceOpen}
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
-            if (transcribing) return;
-            setVoiceChoiceOpen(false);
-            setPendingVoice(null);
-          }}
-        >
-          <View className="flex-1 bg-black/40 items-center justify-center px-6">
-            <View className="w-full rounded-3xl bg-white p-5">
-              <Text className="font-kumbhBold text-lg text-gray-900">
-                Send voice note?
-              </Text>
-              <Text className="mt-2 text-sm text-gray-500">
-                You can send it as audio or transcribe it into text to edit
-                before sending.
-              </Text>
-
-              {transcribing ? (
-                <View className="mt-4 flex-row items-center">
-                  <ActivityIndicator size="small" color="#4C5FAB" />
-                  <Text className="ml-2 text-sm text-gray-600">
-                    Transcribing…
-                  </Text>
-                </View>
-              ) : null}
-
-              <View className="mt-5 flex-row justify-end" style={{ gap: 10 }}>
-                <Pressable
-                  onPress={() => {
-                    if (transcribing) return;
-                    setVoiceChoiceOpen(false);
-                    setPendingVoice(null);
-                  }}
-                  className="rounded-xl border border-gray-200 px-4 py-2"
-                >
-                  <Text className="font-kumbh text-sm text-gray-600">
-                    Cancel
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleTranscribeVoice}
-                  className="rounded-xl border border-[#4C5FAB] px-4 py-2"
-                >
-                  <Text className="font-kumbh text-sm text-[#4C5FAB]">
-                    Transcribe
-                  </Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleSendVoiceNote}
-                  className="rounded-xl bg-[#4C5FAB] px-4 py-2"
-                >
-                  <Text className="font-kumbh text-sm text-white">
-                    Send voice note
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </Modal>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

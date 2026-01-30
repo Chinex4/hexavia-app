@@ -5,8 +5,10 @@ import {
     createChannel,
     createChannelTask,
     deleteChannelById,
+    deleteChannelTask,
     fetchChannelByCode,
     fetchChannelById,
+    fetchChannelTasks,
     fetchChannels,
     generateChannelCode,
     joinChannel,
@@ -111,6 +113,25 @@ const channelsSlice = createSlice({
       .addCase(fetchChannelById.fulfilled, (state, action) => {
         state.status = "succeeded";
         upsertOne(state, action.payload);
+      });
+
+    builder
+      .addCase(fetchChannelTasks.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(fetchChannelTasks.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const { channelId, tasks } = action.payload;
+        const existing = state.byId[channelId];
+        if (existing) {
+          state.byId[channelId] = { ...existing, tasks };
+        }
+      })
+      .addCase(fetchChannelTasks.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
       });
 
     builder
@@ -226,6 +247,27 @@ const channelsSlice = createSlice({
         upsertOne(state, action.payload);
       })
       .addCase(updateChannelTask.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    builder
+      .addCase(deleteChannelTask.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(deleteChannelTask.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const { channelId, taskId } = action.payload;
+        const existing = state.byId[channelId];
+        if (existing?.tasks?.length) {
+          existing.tasks = existing.tasks.filter(
+            (t: any) => String(t?._id ?? t?.id) !== String(taskId)
+          );
+        }
+      })
+      .addCase(deleteChannelTask.rejected, (state, action) => {
         state.status = "failed";
         state.error =
           (action.payload as string) ?? action.error.message ?? null;

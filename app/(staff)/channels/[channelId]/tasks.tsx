@@ -23,7 +23,10 @@ import {
   selectChannelById,
   selectStatus as selectChannelsStatus,
 } from "@/redux/channels/channels.selectors";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import {
+  fetchChannelById,
+  fetchChannelTasks,
+} from "@/redux/channels/channels.thunks";
 import { selectUser } from "@/redux/user/user.slice";
 import { fetchProfile } from "@/redux/user/user.thunks";
 
@@ -70,7 +73,9 @@ export default function StatusScreen() {
 
   // fetch the chosen channel when id becomes known
   useEffect(() => {
-    if (channelId) dispatch(fetchChannelById(String(channelId)));
+    if (!channelId) return;
+    dispatch(fetchChannelById(String(channelId)));
+    dispatch(fetchChannelTasks(String(channelId)));
   }, [dispatch, channelId]);
 
   const channelsStatus = useAppSelector(selectChannelsStatus);
@@ -144,6 +149,7 @@ export default function StatusScreen() {
     try {
       setRefreshing(true);
       await dispatch(fetchChannelById(String(channelId))).unwrap();
+      await dispatch(fetchChannelTasks(String(channelId))).unwrap();
     } catch (e) {
     } finally {
       setRefreshing(false);

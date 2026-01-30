@@ -1,5 +1,7 @@
 import { selectAllChannels } from "@/redux/channels/channels.slice";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
+import { fetchChannelLinks } from "@/redux/channelLinks/channelLinks.thunks";
+import { fetchChannelNotes } from "@/redux/channelNotes/channelNotes.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { yupResolver } from "@hookform/resolvers/yup";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -26,6 +28,8 @@ import {
 } from "react-native";
 import logoIcon from "@/assets/images/logo-icon.png";
 import * as yup from "yup";
+import type { ChannelLink } from "@/redux/channelLinks/channelLinks.types";
+import type { ChannelNote } from "@/redux/channelNotes/channelNotes.types";
 
 /* ───────── types ───────── */
 type Channel = {
@@ -58,6 +62,13 @@ type TaskRow = {
   updatedAt?: string;
   channelName?: string;
   dueDate?: string;
+};
+
+type ChannelExtras = {
+  channelId: string;
+  channelName: string;
+  links: ChannelLink[];
+  notes: ChannelNote[];
 };
 
 /* ───────── validation ───────── */
@@ -131,6 +142,16 @@ function yyyymmdd(d: Date) {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function escapeHtml(input?: string | null) {
+  if (!input) return "";
+  return String(input)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 /* ───────── component ───────── */
@@ -350,8 +371,9 @@ export default function CreateReportScreen() {
     channels: string[];
     rows: TaskRow[];
     summary: ReturnType<typeof buildSummary>;
+    extras: ChannelExtras[];
   }) {
-    const { projectName, period, channels, rows, summary } = payload;
+    const { projectName, period, channels, rows, summary, extras } = payload;
 
     const tableBody =
       rows.length > 0
@@ -424,6 +446,64 @@ export default function CreateReportScreen() {
         </span>`
       )
       .join("");
+
+    const extrasSection =
+      extras.length > 0
+        ? extras
+            .map((ch) => {
+              const links =
+                ch.links.length > 0
+                  ? ch.links
+                      .map(
+                        (l) => `
+                        <li class="ln-item">
+                          <div class="ln-title">${escapeHtml(
+                            l.title || "Link"
+                          )}</div>
+                          <div class="ln-url">${escapeHtml(l.url)}</div>
+                          ${
+                            l.description
+                              ? `<div class="ln-desc">${escapeHtml(
+                                  l.description
+                                )}</div>`
+                              : ""
+                          }
+                        </li>`
+                      )
+                      .join("")
+                  : `<li class="ln-empty">No links</li>`;
+              const notes =
+                ch.notes.length > 0
+                  ? ch.notes
+                      .map(
+                        (n) => `
+                        <li class="ln-item">
+                          <div class="ln-title">${escapeHtml(n.title)}</div>
+                          <div class="ln-desc">${escapeHtml(
+                            n.description
+                          )}</div>
+                        </li>`
+                      )
+                      .join("")
+                  : `<li class="ln-empty">No notes</li>`;
+              return `
+                <div class="ln-card">
+                  <div class="channel-name">${escapeHtml(ch.channelName)}</div>
+                  <div class="ln-subsection">
+                    <div class="ln-subtitle">Links</div>
+                    <ul class="ln-list">${links}</ul>
+                  </div>
+                  <div class="ln-subsection">
+                    <div class="ln-subtitle">Notes</div>
+                    <ul class="ln-list">${notes}</ul>
+                  </div>
+                </div>`;
+            })
+            .join("")
+        : `<div class="ln-card empty">
+            <div class="channel-name">No links or notes found</div>
+            <div class="ln-empty">Add channel links/notes to include them here.</div>
+          </div>`;
 
     const logoMarkup = logoDataUrl
       ? `<img src="${logoDataUrl}" alt="Hexavia logo" class="logo" />`
@@ -613,6 +693,51 @@ export default function CreateReportScreen() {
     border-radius: 50%;
     display: inline-block;
   }
+  .ln-section {
+    margin-top: 32px;
+  }
+  .ln-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .ln-subsection {
+    margin-top: 12px;
+  }
+  .ln-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .ln-list {
+    margin: 0;
+    padding-left: 16px;
+  }
+  .ln-item {
+    margin-bottom: 8px;
+  }
+  .ln-title {
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 2px;
+  }
+  .ln-url {
+    font-size: 12px;
+    color: #2563eb;
+    word-break: break-all;
+  }
+  .ln-desc {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  .ln-empty {
+    font-size: 12px;
+    color: #9ca3af;
+  }
   .channel-section,
   .table-section {
     margin-top: 32px;
@@ -775,6 +900,14 @@ export default function CreateReportScreen() {
         </div>
       </div>
 
+      <div class="ln-section">
+        <div class="section-heading">
+          <div>Channel links & notes</div>
+          <div class="muted">Resources captured during the period</div>
+        </div>
+        ${extrasSection}
+      </div>
+
       <div class="table-section">
         <div class="section-heading">
           <div>Task list</div>
@@ -818,6 +951,25 @@ export default function CreateReportScreen() {
     setLastPdfUri(null);
 
     try {
+      const extras = await Promise.all(
+        values.channelIds.map(async (id) => {
+          const [links, notes] = await Promise.all([
+            dispatch(fetchChannelLinks(id))
+              .unwrap()
+              .catch(() => []),
+            dispatch(fetchChannelNotes(id))
+              .unwrap()
+              .catch(() => []),
+          ]);
+          const ch = idToChannel.get(id);
+          return {
+            channelId: id,
+            channelName: ch?.name ?? id,
+            links: Array.isArray(links) ? links : [],
+            notes: Array.isArray(notes) ? notes : [],
+          } as ChannelExtras;
+        })
+      );
       const rows = getRowsFromSelection(values.channelIds);
       const summary = buildSummary(rows);
       const html = htmlForPDF({
@@ -826,6 +978,7 @@ export default function CreateReportScreen() {
         channels: selectedNames,
         rows,
         summary,
+        extras,
       });
       const project = slugFileName(values.projectName);
       const start = values.startDate ? yyyymmdd(values.startDate) : "start";

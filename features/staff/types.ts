@@ -12,6 +12,11 @@ export type Task = {
   channelId?: string;
   status: StatusKey;
   createdAt: number;
+  assignees?: Array<{
+    id?: string;
+    name?: string;
+    email?: string;
+  }>;
 };
 
 export const TAB_ORDER: StatusKey[] = [
@@ -46,4 +51,3 @@ export const STATUS_META: Record<
     arrowBg: "#6B7280", // darker grey
   },
 };
-

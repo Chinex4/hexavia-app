@@ -1,16 +1,19 @@
+// UploadChooser.tsx
 import React from "react";
 import { Modal, Pressable, Text, View } from "react-native";
 
 export default function UploadChooser({
   visible,
   onClose,
-  onPickImage,
-  onPickDocument,
+  onPick,
+  onDismiss,
+  disabled = false,
 }: {
   visible: boolean;
   onClose: () => void;
-  onPickImage: () => void;
-  onPickDocument: () => void;
+  onPick: (type: "image" | "doc") => void;
+  onDismiss?: () => void; // ✅ add
+  disabled?: boolean;
 }) {
   return (
     <Modal
@@ -18,6 +21,7 @@ export default function UploadChooser({
       transparent
       animationType="fade"
       onRequestClose={onClose}
+      onDismiss={onDismiss} // ✅ add
     >
       <Pressable
         onPress={onClose}
@@ -38,24 +42,23 @@ export default function UploadChooser({
         <Text style={{ fontSize: 16, fontWeight: "600", marginBottom: 12 }}>
           Upload to channel
         </Text>
+
         <Pressable
-          onPress={() => {
-            onPickImage();
-            onClose();
-          }}
-          style={{ paddingVertical: 14 }}
+          disabled={disabled}
+          onPress={() => !disabled && onPick("image")}
+          style={{ paddingVertical: 14, opacity: disabled ? 0.5 : 1 }}
         >
           <Text>Pick Image</Text>
         </Pressable>
+
         <Pressable
-          onPress={() => {
-            onPickDocument();
-            onClose();
-          }}
-          style={{ paddingVertical: 14 }}
+          disabled={disabled}
+          onPress={() => !disabled && onPick("doc")}
+          style={{ paddingVertical: 14, opacity: disabled ? 0.5 : 1 }}
         >
           <Text>Pick File (PDF, audio, etc.)</Text>
         </Pressable>
+
         <Pressable onPress={onClose} style={{ paddingVertical: 14 }}>
           <Text style={{ color: "#6B7280" }}>Cancel</Text>
         </Pressable>

@@ -16,9 +16,19 @@ export interface Channel {
     _id: string;
     name: string;
     description?: string | null;
+    addedBy?: string;
     createdAt: string;
     updatedAt?: string;
     status: "not-started" | "in-progress" | "completed" | "canceled";
+    members?: Array<
+      | string
+      | {
+          _id?: string;
+          id?: string;
+          name?: string;
+          email?: string;
+        }
+    >;
   }>;
   resources: Array<{
     _id: string;
@@ -133,6 +143,40 @@ export interface UpdateTaskBody {
 export interface UpdateTaskResponse {
   message: string;
   channel: Channel;
+}
+
+export interface GetChannelTasksResponse {
+  message?: string;
+  tasks: Channel["tasks"];
+}
+
+export interface DeleteTaskBody {
+  channelId: string;
+  taskId: string;
+}
+
+export interface DeleteTaskResponse {
+  message?: string;
+}
+
+export interface AssignMemberTaskBody {
+  channelId: string;
+  taskId: string;
+  members: string[];
+}
+
+export interface AssignMemberTaskResponse {
+  message?: string;
+}
+
+export interface UnassignMemberTaskBody {
+  channelId: string;
+  taskId: string;
+  userId: string;
+}
+
+export interface UnassignMemberTaskResponse {
+  message?: string;
 }
 
 export interface UploadResourcesBody {

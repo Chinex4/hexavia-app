@@ -5,6 +5,8 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import type {
   AddMemberBody,
   AddMemberResponse,
+  AssignMemberTaskBody,
+  AssignMemberTaskResponse,
   Channel,
   CreateChannelBody,
   CreateChannelResponse,
@@ -12,13 +14,18 @@ import type {
   CreateTaskResponse,
   DeleteChannelBody,
   DeleteChannelResponse,
+  DeleteTaskBody,
+  DeleteTaskResponse,
   GenerateCodeResponse,
   GetChannelByCodeResponse,
   GetChannelByIdResponse,
   GetChannelsResponse,
+  GetChannelTasksResponse,
   JoinChannelResponse,
   RemoveMemberBody,
   RemoveMemberResponse,
+  UnassignMemberTaskBody,
+  UnassignMemberTaskResponse,
   UpdateMemberRoleBody,
   UpdateMemberRoleResponse,
   UpdateChannelBody,
@@ -60,6 +67,24 @@ export const fetchChannelById = createAsyncThunk<
   }
 });
 
+export const fetchChannelTasks = createAsyncThunk<
+  { channelId: string; tasks: Channel["tasks"] },
+  string,
+  { rejectValue: string }
+>("channels/fetchTasks", async (channelId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<GetChannelTasksResponse>(
+      `/channel/${channelId}/tasks`,
+    );
+    const tasks = Array.isArray(res.data?.tasks) ? res.data.tasks : [];
+    return { channelId, tasks };
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
 export const generateChannelCode = createAsyncThunk<
   string,
   void,
@@ -84,7 +109,7 @@ export const createChannel = createAsyncThunk<
     const res = await showPromise(
       api.post<CreateChannelResponse>("/channel", body),
       "Creating project...",
-      "Project created"
+      "Project created",
     );
     return res.data.channel as Channel;
   } catch (err) {
@@ -104,7 +129,7 @@ export const updateChannel = createAsyncThunk<
     const res = await showPromise(
       api.patch<UpdateChannelResponse>("/admin/channels", body),
       "Updating project...",
-      "Project updated"
+      "Project updated",
     );
     const channel =
       (res.data as any)?.channel ||
@@ -130,7 +155,7 @@ export const addMemberToChannel = createAsyncThunk<
     const res = await showPromise(
       api.post<AddMemberResponse>("/channel/add-member", body),
       "Adding member…",
-      "Member added"
+      "Member added",
     );
     return res.data.channel as Channel;
   } catch (err) {
@@ -149,7 +174,7 @@ export const removeMemberFromChannel = createAsyncThunk<
     const res = await showPromise(
       api.post<RemoveMemberResponse>("/channel/remove-member", body),
       "Removing member…",
-      "Member removed"
+      "Member removed",
     );
     return res.data.channel as Channel;
   } catch (err) {
@@ -168,7 +193,7 @@ export const updateChannelMemberRole = createAsyncThunk<
     const res = await showPromise(
       api.post<UpdateMemberRoleResponse>("/channel/update-member-role", body),
       "Updating role…",
-      "Member role updated"
+      "Member role updated",
     );
     return res.data.channel as Channel;
   } catch (err) {
@@ -188,7 +213,7 @@ export const deleteChannelById = createAsyncThunk<
     const res = await showPromise(
       api.delete<DeleteChannelResponse>("/admin/channels", { data: body }),
       "Deleting project...",
-      "Project deleted"
+      "Project deleted",
     );
 
     return res.data?.channelId ?? body.channelId;
@@ -209,7 +234,7 @@ export const createChannelTask = createAsyncThunk<
     const res = await showPromise(
       api.post<CreateTaskResponse>(`/channel/create-task`, body),
       "Creating task…",
-      "Task created"
+      "Task created",
     );
     // console.log(res.data)
     return res.data.channel as Channel;
@@ -229,12 +254,72 @@ export const updateChannelTask = createAsyncThunk<
     const res = await showPromise(
       api.put<UpdateTaskResponse>("/channel/update-task", body),
       "updating task…",
-      "Task updated"
+      "Task updated",
     );
     return res.data.channel as Channel;
   } catch (err) {
     const msg = extractErrorMessage(err);
     return rejectWithValue(msg ?? "Failed to update task");
+  }
+});
+
+export const deleteChannelTask = createAsyncThunk<
+  { channelId: string; taskId: string },
+  DeleteTaskBody,
+  { rejectValue: string }
+>("channels/deleteTask", async (body, { rejectWithValue }) => {
+  try {
+    await showPromise(
+      api.delete<DeleteTaskResponse>("/channel/delete-task", { data: body }),
+      "Deleting task…",
+      "Task deleted",
+    );
+    return { channelId: body.channelId, taskId: body.taskId };
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const assignChannelTaskMembers = createAsyncThunk<
+  { channelId: string; taskId: string; members: string[] },
+  AssignMemberTaskBody,
+  { rejectValue: string }
+>("channels/assignMemberTask", async (body, { rejectWithValue }) => {
+  try {
+    await showPromise(
+      api.post<AssignMemberTaskResponse>("/channel/assign-member-task", body),
+      "Assigning member…",
+      "Member assigned",
+    );
+    return body;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const unassignChannelTaskMember = createAsyncThunk<
+  { channelId: string; taskId: string; userId: string },
+  UnassignMemberTaskBody,
+  { rejectValue: string }
+>("channels/unassignMemberTask", async (body, { rejectWithValue }) => {
+  try {
+    await showPromise(
+      api.post<UnassignMemberTaskResponse>(
+        "/channel/unassign-member-task",
+        body,
+      ),
+      "Unassigning member…",
+      "Member unassigned",
+    );
+    return body;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
   }
 });
 
@@ -244,11 +329,7 @@ export const uploadChannelResources = createAsyncThunk<
   { rejectValue: string }
 >("channels/uploadResources", async (body, { rejectWithValue }) => {
   try {
-    const res = await showPromise(
-      api.post(`/channel/upload-resources`, body),
-      "Uploading resources…",
-      "Resources uploaded"
-    );
+    const res = await api.post(`/channel/upload-resources`, body);
     const channel =
       (res.data as any)?.channel ||
       (res.data as any)?.data?.channel ||
@@ -271,7 +352,7 @@ export const fetchChannelByCode = createAsyncThunk<
 >("channels/fetchByCode", async (code, { rejectWithValue }) => {
   try {
     const res = await api.get<GetChannelByCodeResponse>(
-      `/channel/${code}/code`
+      `/channel/${code}/code`,
     );
     return res.data.channel;
   } catch (err: any) {

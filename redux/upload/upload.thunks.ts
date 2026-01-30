@@ -48,7 +48,8 @@ export const uploadSingle = createAsyncThunk<
     } as any);
 
     const req = api.post("/upload/single", form, {
-      headers: { "Content-Type": "multipart/form-data" },
+      headers: { Accept: "application/json" },
+      transformRequest: (v) => v,
       onUploadProgress: (evt) => {
         if (!evt.total) return;
         const pct = Math.round((evt.loaded / evt.total) * 100);

@@ -62,7 +62,13 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
-import { ArrowUpDown, ChevronLeft, CloudUpload, Plus, X } from "lucide-react-native";
+import {
+  ArrowUpDown,
+  ChevronLeft,
+  CloudUpload,
+  Plus,
+  X,
+} from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -123,6 +129,7 @@ export default function ChannelResourcesScreen() {
 
   const [selection, setSelection] = useState<string | null>(null);
   const [chooser, setChooser] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [loadingInitial, setLoadingInitial] = useState(false);
   const [actionFor, setActionFor] = useState<ChannelResource | null>(null);
   const [emptyChooserOpen, setEmptyChooserOpen] = useState(false);
@@ -130,7 +137,7 @@ export default function ChannelResourcesScreen() {
 
   const routes = useMemo(
     () => TABS.map((t) => ({ key: t.id, title: t.label })),
-    []
+    [],
   );
 
   const [index, setIndex] = useState(0);
@@ -162,6 +169,8 @@ export default function ChannelResourcesScreen() {
     links: "desc",
     notes: "desc",
   });
+
+  const [pendingPick, setPendingPick] = useState<null | "doc" | "image">(null);
 
   useEffect(() => {
     let mounted = true;
@@ -241,101 +250,140 @@ export default function ChannelResourcesScreen() {
   };
 
   const handlePickImage = async () => {
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.9,
-      allowsMultipleSelection: true,
-      selectionLimit: 10,
-    } as any);
-    if ((res as any).canceled) return;
+    if (picking) return;
+    setPicking(true);
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.9,
+        allowsMultipleSelection: true,
+        selectionLimit: 10,
+      } as any);
+      if ((res as any).canceled) return;
 
-    const assets = (res as any).assets || [];
-    const staged: Array<{
-      url: string;
-      name: string;
-      mime?: string;
-      category: "image";
-      publicId?: string;
-    }> = [];
+      const assets = (res as any).assets || [];
+      const staged: Array<{
+        url: string;
+        name: string;
+        mime?: string;
+        category: "image";
+        publicId?: string;
+      }> = [];
 
-    for (const a of assets) {
-      const origName = (a as any).fileName || "image.jpg";
-      const safeName = slugifyFilename(origName);
-      const mime =
-        (a as any).mimeType || getMimeFromName(origName) || "image/jpeg";
-      try {
-        const up = await dispatch(
-          uploadSingle({ uri: (a as any).uri, name: safeName, type: mime })
-        ).unwrap();
-        const cleanUrl = ensureHttpUrl(normalizeCloudinaryUrl(up.url));
-        staged.push({
-          url: cleanUrl,
-          name: safeName,
-          mime,
-          category: "image",
-          publicId: up.publicId ?? safeName,
-        });
-      } catch (error) {
-        console.log("Failed to upload image", error);
+      for (const a of assets) {
+        const origName = (a as any).fileName || "image.jpg";
+        const safeName = slugifyFilename(origName);
+        const mime =
+          (a as any).mimeType || getMimeFromName(origName) || "image/jpeg";
+        try {
+          const up = await dispatch(
+            uploadSingle({ uri: (a as any).uri, name: safeName, type: mime }),
+          ).unwrap();
+          const cleanUrl = ensureHttpUrl(normalizeCloudinaryUrl(up.url));
+          staged.push({
+            url: cleanUrl,
+            name: safeName,
+            mime,
+            category: "image",
+            publicId: up.publicId ?? safeName,
+          });
+        } catch (error) {
+          console.log("Failed to upload image", error);
+        }
       }
-    }
-    if (staged.length) {
-      await doSaveToDb({
-        channelId: channelId!,
-        resources: toApiResources(staged),
-      });
+      if (staged.length) {
+        await doSaveToDb({
+          channelId: channelId!,
+          resources: toApiResources(staged),
+        });
+      }
+    } finally {
+      setPicking(false);
     }
   };
 
+  const pickingLock = React.useRef(false);
+  const docPickerBlockedUntil = React.useRef(0);
+
   const handlePickDocument = async () => {
-    const res = await DocumentPicker.getDocumentAsync({
-      multiple: true,
-      copyToCacheDirectory: true,
-    } as any);
-    if ((res as any).canceled) return;
+    if (picking) return;
+    setPicking(true);
 
-    const files = Array.isArray((res as any).assets)
-      ? (res as any).assets
-      : [res];
-    const staged: Array<{
-      url: string;
-      name: string;
-      mime?: string;
-      category: "document" | "audio" | "other";
-      publicId?: string;
-    }> = [];
-
-    for (const f of files as any[]) {
-      const origName = f.name || "file";
-      const safeName = slugifyFilename(origName);
-      const mime =
-        f.mimeType || getMimeFromName(origName) || "application/octet-stream";
-      try {
-        const up = await dispatch(
-          uploadSingle({ uri: f.uri as string, name: safeName, type: mime })
-        ).unwrap();
-        const cleanUrl = ensureHttpUrl(normalizeCloudinaryUrl(up.url));
-        const category =
-          mime === "application/pdf" || ext(safeName) === "pdf"
-            ? "document"
-            : mime.startsWith("audio/")
-              ? "audio"
-              : "other";
-        staged.push({
-          url: cleanUrl,
-          name: safeName,
-          mime,
-          category,
-          publicId: up.publicId ?? safeName,
-        });
-      } catch {}
+    if (Date.now() < docPickerBlockedUntil.current) {
+      showError("Please wait a moment and try again.");
+      return;
     }
 
-    if (staged.length) {
-      await doSaveToDb({
-        channelId: channelId!,
-        resources: toApiResources(staged),
-      });
+    pickingLock.current = true;
+    setPicking(true);
+    try {
+      console.log("about to open picker");
+
+      const res = await DocumentPicker.getDocumentAsync({
+        multiple: true,
+        copyToCacheDirectory: true,
+      } as any);
+
+      console.log("picker returned", res);
+      if ((res as any).canceled) return;
+
+      const files = Array.isArray((res as any).assets)
+        ? (res as any).assets
+        : [res];
+      const staged: Array<{
+        url: string;
+        name: string;
+        mime?: string;
+        category: "document" | "audio" | "other";
+        publicId?: string;
+      }> = [];
+
+      for (const f of files as any[]) {
+        const origName = f.name || "file";
+        const safeName = slugifyFilename(origName);
+        const mime =
+          f.mimeType || getMimeFromName(origName) || "application/octet-stream";
+        try {
+          const up = await dispatch(
+            uploadSingle({ uri: f.uri as string, name: safeName, type: mime }),
+          ).unwrap();
+          const cleanUrl = ensureHttpUrl(normalizeCloudinaryUrl(up.url));
+          const category =
+            mime === "application/pdf" || ext(safeName) === "pdf"
+              ? "document"
+              : mime.startsWith("audio/")
+                ? "audio"
+                : "other";
+          staged.push({
+            url: cleanUrl,
+            name: safeName,
+            mime,
+            category,
+            publicId: up.publicId ?? safeName,
+          });
+        } catch {}
+      }
+
+      if (staged.length) {
+        await doSaveToDb({
+          channelId: channelId!,
+          resources: toApiResources(staged),
+        });
+      }
+    } catch (e: any) {
+      const msg = String(e?.message || e);
+      console.log("Document picker failed", e);
+
+      if (msg.includes("Different document picking in progress")) {
+        docPickerBlockedUntil.current = Date.now() + 2000; // cooldown
+        showError("File picker is still closing. Try again.");
+        return;
+      }
+
+      showError("Failed to open file picker");
+    } finally {
+      setPicking(false);
+      pickingLock.current = false;
     }
   };
 
@@ -398,7 +446,7 @@ export default function ChannelResourcesScreen() {
         deleteChannelLink({
           channelId,
           linkId: linkToDelete._id,
-        })
+        }),
       ).unwrap();
     } finally {
       setLinkToDelete(null);
@@ -412,7 +460,7 @@ export default function ChannelResourcesScreen() {
         deleteChannelNote({
           channelId,
           noteId: noteToDelete._id,
-        })
+        }),
       ).unwrap();
     } finally {
       setNoteToDelete(null);
@@ -454,7 +502,7 @@ export default function ChannelResourcesScreen() {
             title: payload.title,
             url: payload.url,
             description: payload.description,
-          })
+          }),
         ).unwrap();
       } else {
         await dispatch(createChannelLink(payload)).unwrap();
@@ -504,7 +552,7 @@ export default function ChannelResourcesScreen() {
             noteId: editingNote._id,
             title,
             description: noteForm.description.trim() || "",
-          })
+          }),
         ).unwrap();
       } else {
         await dispatch(
@@ -512,7 +560,7 @@ export default function ChannelResourcesScreen() {
             channelId,
             title,
             description: noteForm.description.trim() || "",
-          })
+          }),
         ).unwrap();
       }
       await dispatch(fetchChannelNotes(channelId));
@@ -762,7 +810,7 @@ export default function ChannelResourcesScreen() {
                                 setSelection(
                                   selection === item._id
                                     ? null
-                                    : item._id || null
+                                    : item._id || null,
                                 );
                                 previewResource(item);
                               }}
@@ -833,8 +881,24 @@ export default function ChannelResourcesScreen() {
         <UploadChooser
           visible={chooser}
           onClose={() => setChooser(false)}
-          onPickImage={handlePickImage}
-          onPickDocument={handlePickDocument}
+          disabled={picking}
+          onPick={(type) => {
+            setPendingPick(type);
+            setChooser(false); // close first
+          }}
+          onDismiss={() => {
+            // ✅ only fires after modal is fully gone on iOS
+            const type = pendingPick;
+            if (!type) return;
+
+            setPendingPick(null);
+
+            // extra safety: let animations finish
+            setTimeout(() => {
+              if (type === "doc") handlePickDocument();
+              else handlePickImage();
+            }, 0);
+          }}
         />
       )}
 
@@ -847,7 +911,7 @@ export default function ChannelResourcesScreen() {
         <KeyboardAvoidingView
           behavior={Platform.select({ ios: "padding", android: undefined })}
           className="flex-1 justify-end"
-          style={{paddingTop: Platform.OS === 'ios' ? insets.top + 10 : 10}}
+          style={{ paddingTop: Platform.OS === "ios" ? insets.top + 10 : 10 }}
         >
           <Pressable
             className="absolute inset-0 bg-black/30"
@@ -946,7 +1010,7 @@ export default function ChannelResourcesScreen() {
         <KeyboardAvoidingView
           behavior={Platform.select({ ios: "padding", android: undefined })}
           className="flex-1 justify-end"
-          style={{paddingTop: Platform.OS === 'ios' ? insets.top + 10 : 10}}
+          style={{ paddingTop: Platform.OS === "ios" ? insets.top + 10 : 10 }}
         >
           <Pressable
             className="absolute inset-0 bg-black/30"
@@ -1040,7 +1104,10 @@ export default function ChannelResourcesScreen() {
         animationType="slide"
         onRequestClose={() => setPreviewNote(null)}
       >
-        <View className="flex-1 bg-white" style={{ paddingTop: Platform.OS === 'ios' ? insets.top : 0 }}>
+        <View
+          className="flex-1 bg-white"
+          style={{ paddingTop: Platform.OS === "ios" ? insets.top : 0 }}
+        >
           <View className="flex-row items-center justify-between px-4 py-3 border-b border-gray-100">
             <Text className="font-kumbhBold text-base text-gray-900">Note</Text>
             <Pressable

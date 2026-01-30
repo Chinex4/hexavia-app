@@ -307,6 +307,15 @@ export default function MessageBubble({
 
   const displayName = isMe ? "You" : msg.senderName || other?.name || "Member";
   const avatar = isMe ? me?.profilePicture : msg.avatar || other?.avatarUrl;
+  const initials = useMemo(() => {
+    if (isMe) return "";
+    const base = String(displayName || "").trim();
+    if (!base) return "";
+    const parts = base.split(/\s+/).filter(Boolean);
+    const first = parts[0]?.[0] ?? "";
+    const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
+    return (first + last).toUpperCase();
+  }, [displayName, isMe]);
 
   const normalizedMentionMap = useMemo(() => {
     if (!mentionMap) return undefined;
@@ -410,7 +419,13 @@ export default function MessageBubble({
             className="h-9 w-9 rounded-full mr-3 flex-shrink-0"
           />
         ) : (
-          <View className="h-9 w-9 rounded-full bg-emerald-700 mr-3 flex-shrink-0" />
+          <View className="h-9 w-9 rounded-full bg-emerald-700 mr-3 flex-shrink-0 items-center justify-center">
+            {initials ? (
+              <Text className="text-white text-[12px] font-kumbhBold">
+                {initials}
+              </Text>
+            ) : null}
+          </View>
         )}
 
         <Pressable

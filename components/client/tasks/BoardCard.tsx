@@ -100,9 +100,22 @@ export default function BoardCard({
       )}
 
       {!!assignees?.length && (
-        <Text className="font-kumbh mt-2 text-[12px]" style={{ color: subColor }}>
-          Assigned to: {assignees.join(", ")}
-        </Text>
+        <View className="mt-2 flex-row flex-wrap" style={{ gap: 6 }}>
+          {assignees.map((assignee) => (
+            <View
+              key={assignee}
+              className="px-2.5 py-1 rounded-full border"
+              style={{
+                borderColor: hairline,
+                backgroundColor: dark ? "rgba(255,255,255,0.12)" : "#F3F4F6",
+              }}
+            >
+              <Text className="font-kumbh text-[11px]" style={{ color: subColor }}>
+                {assignee}
+              </Text>
+            </View>
+          ))}
+        </View>
       )}
 
       <View

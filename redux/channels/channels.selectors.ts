@@ -183,7 +183,11 @@ export const makeSelectChannelTasksByChannelId = (channelId?: string | null) =>
       description: t?.description ?? null,
       status: t?.status,
       channelCode: String((channel as any)?.code ?? ""),
-      channelId: t?.channelId ? String(t.channelId) : undefined,
+      channelId: t?.channelId
+        ? String(t.channelId)
+        : (channel as any)?._id
+        ? String((channel as any)._id)
+        : undefined,
       createdAt:
         typeof t?.createdAt === "number"
           ? t.createdAt

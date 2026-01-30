@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Modal,
   Pressable,
@@ -14,7 +16,14 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { StatusKey, TAB_ORDER, Task } from "@/features/staff/types";
 import { toApiStatus } from "@/features/client/statusMap";
 import { showError } from "@/components/ui/toast";
-import { fetchChannelById } from "@/redux/channels/channels.thunks";
+import OptionSheet from "@/components/common/OptionSheet";
+import {
+  assignChannelTaskMembers,
+  deleteChannelTask,
+  fetchChannelById,
+  fetchChannelTasks,
+  unassignChannelTaskMember,
+} from "@/redux/channels/channels.thunks";
 import { fetchPersonalTasks } from "@/redux/personalTasks/personalTasks.thunks";
 import {
   normalizeCode,
@@ -53,6 +62,18 @@ export default function TaskDetailModal({
   const [desc, setDesc] = useState<string>(task.description ?? "");
   const [pending, setPending] = useState<StatusKey>(task.status);
   const [saving, setSaving] = useState(false);
+  const [assignedMembers, setAssignedMembers] = useState<
+    Array<{ id: string; name?: string | null; email?: string | null }>
+  >([]);
+  const [channelMembers, setChannelMembers] = useState<
+    Array<{ id: string; name?: string | null; email?: string | null; type?: string | null }>
+  >([]);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [showMemberPicker, setShowMemberPicker] = useState(false);
+  const [assigning, setAssigning] = useState(false);
+  const [unassigningId, setUnassigningId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [noMembers, setNoMembers] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -61,6 +82,102 @@ export default function TaskDetailModal({
       setPending(task.status);
     }
   }, [visible, task]);
+
+  const deriveAssigned = useMemo(() => {
+    const raw =
+      (task as any)?.assignees ??
+      (task as any)?.assignedTo ??
+      (task as any)?.assignee ??
+      (task as any)?.members ??
+      [];
+    const arr = Array.isArray(raw) ? raw : raw ? [raw] : [];
+    return arr
+      .map((a: any, idx: number) => {
+        const base = typeof a === "string" ? { _id: a } : a ?? {};
+        const entry = base?.user ?? base?.member ?? base?.assignee ?? base ?? {};
+        const id =
+          entry?._id ??
+          entry?.id ??
+          base?._id ??
+          base?.id ??
+          base?.userId ??
+          base?.memberId ??
+          (typeof a === "string" ? a : null) ??
+          `assignee-${idx}`;
+        const name =
+          entry?.name ??
+          entry?.fullname ??
+          entry?.username ??
+          entry?.email ??
+          base?.name ??
+          base?.email ??
+          null;
+        const email = entry?.email ?? base?.email ?? null;
+        return {
+          id: id ? String(id) : "",
+          name: name ? String(name) : null,
+          email: email ? String(email) : null,
+        };
+      })
+      .filter((a: any) => a.id);
+  }, [task]);
+
+  const resolvedAssigned = useMemo(() => {
+    if (!channelMembers.length) return deriveAssigned;
+    const byId = new Map(channelMembers.map((m) => [m.id, m]));
+    return deriveAssigned.map((a) => {
+      if (a.name || a.email) return a;
+      const member = byId.get(a.id);
+      if (!member) return a;
+      return {
+        ...a,
+        name: member.name ?? a.name ?? null,
+        email: member.email ?? a.email ?? null,
+      };
+    });
+  }, [deriveAssigned, channelMembers]);
+
+  useEffect(() => {
+    setAssignedMembers(resolvedAssigned);
+  }, [resolvedAssigned, visible]);
+
+  const loadMembers = React.useCallback(async () => {
+    if (isPersonal || !resolvedChannelId) return [];
+    setMembersLoading(true);
+    setNoMembers(false);
+    try {
+      const res = await api.get(`/channel/${resolvedChannelId}/members`);
+      const members = Array.isArray(res.data?.members) ? res.data.members : [];
+      const mapped = members
+        .map((m: any) => ({
+          id: String(
+            m?.id ??
+              m?._id ??
+              m?.userId ??
+              m?.user?._id ??
+              m?.user?.id ??
+              ""
+          ),
+          name: m?.name ?? m?.fullname ?? m?.username ?? m?.user?.name ?? null,
+          email: m?.email ?? m?.user?.email ?? null,
+          type: m?.type ?? m?.role ?? null,
+        }))
+        .filter((m: any) => m.id);
+      setChannelMembers(mapped);
+      setNoMembers(mapped.length === 0);
+      return mapped;
+    } catch (err: any) {
+      setNoMembers(true);
+      return [];
+    } finally {
+      setMembersLoading(false);
+    }
+  }, [isPersonal, resolvedChannelId]);
+
+  useEffect(() => {
+    if (!visible || isPersonal || !resolvedChannelId) return;
+    loadMembers();
+  }, [visible, isPersonal, resolvedChannelId, loadMembers]);
 
   const canSave = useMemo(() => {
     const changedText =
@@ -128,6 +245,106 @@ export default function TaskDetailModal({
     }
   };
 
+  const memberOptions = useMemo(
+    () =>
+      channelMembers.map((m) => ({
+        label: `${m.name || m.email || "Member"}${m.type ? ` · ${m.type}` : ""}`,
+        value: m.id,
+      })),
+    [channelMembers]
+  );
+
+  const handleAssignMember = async (memberId: string) => {
+    if (!resolvedChannelId) {
+      showError("Could not resolve channel id for this task.");
+      return;
+    }
+    if (assigning) return;
+    setAssigning(true);
+    try {
+      await dispatch(
+        assignChannelTaskMembers({
+          channelId: resolvedChannelId,
+          taskId: task.id,
+          members: [memberId],
+        })
+      ).unwrap();
+      const member = channelMembers.find((m) => m.id === memberId);
+      setAssignedMembers((prev) => {
+        if (prev.some((p) => p.id === memberId)) return prev;
+        return [
+          ...prev,
+          {
+            id: memberId,
+            name: member?.name ?? null,
+            email: member?.email ?? null,
+          },
+        ];
+      });
+      await dispatch(fetchChannelTasks(resolvedChannelId));
+    } catch {
+      // error already surfaced
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const handleUnassignMember = async (memberId: string) => {
+    if (!resolvedChannelId) {
+      showError("Could not resolve channel id for this task.");
+      return;
+    }
+    if (unassigningId) return;
+    setUnassigningId(memberId);
+    try {
+      await dispatch(
+        unassignChannelTaskMember({
+          channelId: resolvedChannelId,
+          taskId: task.id,
+          userId: memberId,
+        })
+      ).unwrap();
+      setAssignedMembers((prev) => prev.filter((m) => m.id !== memberId));
+      await dispatch(fetchChannelTasks(resolvedChannelId));
+    } catch {
+      // error already surfaced
+    } finally {
+      setUnassigningId(null);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (!resolvedChannelId) {
+      showError("Could not resolve channel id for this task.");
+      return;
+    }
+    Alert.alert("Delete Task", "Remove this task from the channel?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          if (deleting) return;
+          setDeleting(true);
+          try {
+            await dispatch(
+              deleteChannelTask({
+                channelId: resolvedChannelId,
+                taskId: task.id,
+              })
+            ).unwrap();
+            await dispatch(fetchChannelTasks(resolvedChannelId));
+            onClose();
+          } catch {
+            // error already surfaced
+          } finally {
+            setDeleting(false);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -183,10 +400,89 @@ export default function TaskDetailModal({
                 })}
               </View>
 
+              {!isPersonal && (
+                <View className="mt-4">
+                  <Text className="font-kumbh text-[#6B7280] mb-2">
+                    Assigned members
+                  </Text>
+                  {assignedMembers.length ? (
+                    <View style={{ gap: 8 }}>
+                      {assignedMembers.map((m) => (
+                        <View
+                          key={m.id}
+                          className="flex-row items-center justify-between rounded-xl border border-[#E5E7EB] px-3 py-2"
+                        >
+                          <View className="flex-1 mr-2">
+                            <Text className="font-kumbh text-[#111827]">
+                              {m.name || m.email || m.id}
+                            </Text>
+                            {!!m.email && (
+                              <Text className="font-kumbh text-[12px] text-[#6B7280]">
+                                {m.email}
+                              </Text>
+                            )}
+                          </View>
+                          <Pressable
+                            onPress={() => handleUnassignMember(m.id)}
+                            disabled={!!unassigningId}
+                            className="rounded-lg px-3 py-1"
+                            style={{
+                              backgroundColor: "#FEE2E2",
+                              opacity: unassigningId === m.id ? 0.6 : 1,
+                            }}
+                          >
+                            <Text className="font-kumbh text-[12px] text-[#B91C1C]">
+                              {unassigningId === m.id ? "Removing…" : "Remove"}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      ))}
+                    </View>
+                  ) : (
+                    <Text className="font-kumbh text-[12px] text-[#9CA3AF]">
+                      No members assigned yet.
+                    </Text>
+                  )}
+
+                  <Pressable
+                    onPress={async () => {
+                      if (membersLoading) return;
+                      if (!memberOptions.length) {
+                        const fetched = await loadMembers();
+                        if (!fetched.length) return;
+                      }
+                      setShowMemberPicker(true);
+                    }}
+                    className="mt-3 rounded-xl border border-[#E5E7EB] px-4 py-3"
+                  >
+                    <View className="flex-row items-center justify-between">
+                      <Text className="font-kumbh text-[#111827]">
+                        Assign member
+                      </Text>
+                      {membersLoading ? (
+                        <ActivityIndicator size="small" color="#4C5FAB" />
+                      ) : null}
+                    </View>
+                  </Pressable>
+                  {noMembers && !membersLoading ? (
+                    <Text className="mt-2 font-kumbh text-[12px] text-[#9CA3AF]">
+                      No members found for this channel.
+                    </Text>
+                  ) : null}
+                </View>
+              )}
+
               <View className="flex-row justify-end items-center mt-6" style={{ gap: 12 }}>
                 <Pressable disabled={saving} onPress={onClose}>
                   <Text className="font-kumbh text-[#6B7280]">Close</Text>
                 </Pressable>
+                {!isPersonal && (
+                  <Pressable onPress={confirmDelete} disabled={deleting || saving}>
+                    <Text className="font-kumbh text-[#B91C1C]">
+                      {deleting ? "Deleting…" : "Delete"}
+                    </Text>
+                  </Pressable>
+                )}
                 <Pressable
                   onPress={save}
                   disabled={!canSave || saving}
@@ -203,6 +499,16 @@ export default function TaskDetailModal({
           </View>
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
+      <OptionSheet
+        visible={showMemberPicker}
+        onClose={() => setShowMemberPicker(false)}
+        onSelect={(value) => {
+          setShowMemberPicker(false);
+          handleAssignMember(String(value));
+        }}
+        title="Assign member"
+        options={memberOptions}
+      />
     </Modal>
   );
 }
