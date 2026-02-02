@@ -12,6 +12,8 @@ export type ChannelResource = {
   description?: string | null;
   resourceUpload: string;
   mime?: string | null;
+  mimetype?: string | null;
+  rawFile?: string | null;
   category?: ChannelResourceCategory;
   publicId?: string | null;
 };

@@ -9,6 +9,7 @@ import {
   joinedChannel,
   markReadBulk,
   replaceTempId,
+  removeMessage,
   setError,
   setMe,
   setMessageStatus,
@@ -169,6 +170,13 @@ export const chatMiddleware: Middleware<{}, RootState> =
               )
             );
           });
+          const handleDelete = (data: any) => {
+            const rawId = data?.messageId ?? data?._id ?? data?.id;
+            if (!rawId) return;
+            store.dispatch(removeMessage({ id: String(rawId) }));
+          };
+          socket.on("messageDeleted", handleDelete);
+          socket.on("deleteMessage", handleDelete);
         }
 
         return result;
@@ -387,6 +395,19 @@ export const chatMiddleware: Middleware<{}, RootState> =
           });
         }
         store.dispatch(markReadBulk(messageIds));
+        return result;
+      }
+
+      case "chat/deleteMessage": {
+        const { userId, messageId } = a.payload as {
+          userId: string;
+          messageId: string;
+        };
+        const socket = getSocket();
+        store.dispatch(removeMessage({ id: messageId }));
+        if (socket?.connected) {
+          socket.emit("deleteMessage", { userId, messageId });
+        }
         return result;
       }
     }

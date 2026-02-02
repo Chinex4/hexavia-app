@@ -33,7 +33,7 @@ export const ext = (name?: string | null) => {
 };
 
 export const detectCategory = (r: ChannelResource): ChannelResourceCategory => {
-  const m = (r.resourceUpload || "").toLowerCase();
+  const m = (r.mimetype || r.mime || r.resourceUpload || "").toLowerCase();
   // console.log("m: ",m)
   const e = ext(r.name || r.resourceUpload);
 

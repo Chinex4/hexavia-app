@@ -6,6 +6,8 @@ import LinkList from "@/components/channels/LinkList";
 import NoteList from "@/components/channels/NoteList";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import { showError, showSuccess } from "@/components/ui/toast";
+import { api } from "@/api/axios";
+import * as Sharing from "expo-sharing";
 import { selectChannelById } from "@/redux/channels/channels.slice";
 import {
   fetchChannelById,
@@ -59,6 +61,7 @@ import {
 } from "@/utils/slugAndCloudinary";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
@@ -249,6 +252,23 @@ export default function ChannelResourcesScreen() {
     }
   };
 
+  const uploadPdfDirect = async (input: { uri: string; name: string }) => {
+    if (!channelId) return;
+    const form = new FormData();
+    form.append("channelId", channelId);
+    form.append("name", input.name);
+    form.append("description", "PDF document");
+    form.append("pdfUpload", {
+      uri: input.uri,
+      type: "application/pdf",
+      name: input.name,
+    } as any);
+    await api.post("/channel/upload-resources", form, {
+      headers: { Accept: "application/json" },
+      transformRequest: (v) => v,
+    });
+  };
+
   const handlePickImage = async () => {
     if (picking) return;
     setPicking(true);
@@ -330,6 +350,7 @@ export default function ChannelResourcesScreen() {
       const files = Array.isArray((res as any).assets)
         ? (res as any).assets
         : [res];
+      const directPdfUploads: Array<{ uri: string; name: string }> = [];
       const staged: Array<{
         url: string;
         name: string;
@@ -343,6 +364,15 @@ export default function ChannelResourcesScreen() {
         const safeName = slugifyFilename(origName);
         const mime =
           f.mimeType || getMimeFromName(origName) || "application/octet-stream";
+        const isPdf =
+          mime === "application/pdf" || ext(safeName).toLowerCase() === "pdf";
+        if (isPdf) {
+          directPdfUploads.push({
+            uri: f.uri as string,
+            name: safeName.endsWith(".pdf") ? safeName : `${safeName}.pdf`,
+          });
+          continue;
+        }
         try {
           const up = await dispatch(
             uploadSingle({ uri: f.uri as string, name: safeName, type: mime }),
@@ -364,11 +394,25 @@ export default function ChannelResourcesScreen() {
         } catch {}
       }
 
+      for (const pdf of directPdfUploads) {
+        try {
+          await uploadPdfDirect(pdf);
+        } catch (error) {
+          console.log("Failed to upload PDF directly", error);
+          showError(`Failed to upload ${pdf.name}`);
+        }
+      }
+
       if (staged.length) {
         await doSaveToDb({
           channelId: channelId!,
           resources: toApiResources(staged),
         });
+      }
+
+      if (directPdfUploads.length) {
+        showSuccess("PDF uploaded");
+        await dispatch(fetchChannelById(channelId!)).unwrap();
       }
     } catch (e: any) {
       const msg = String(e?.message || e);
@@ -387,7 +431,68 @@ export default function ChannelResourcesScreen() {
     }
   };
 
+  const toFileUrl = (p: string) =>
+    p.startsWith("file://") ? p : `file://${p}`;
+
   const previewResource = async (r: ChannelResource) => {
+    if (r.rawFile) {
+      try {
+        const safeName = slugifyFilename(r.name || "document.pdf");
+        const filename = safeName.toLowerCase().endsWith(".pdf")
+          ? safeName
+          : `${safeName}.pdf`;
+
+        const dest = `${FileSystem.cacheDirectory}${filename}`;
+
+        await FileSystem.writeAsStringAsync(dest, r.rawFile, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        // ✅ WEB: data URL is fine
+        if (Platform.OS === "web") {
+          await WebBrowser.openBrowserAsync(
+            `data:application/pdf;base64,${r.rawFile}`,
+          );
+          return;
+        }
+
+        // ✅ iOS: use Quick Look via Sharing (most reliable)
+        if (Platform.OS === "ios") {
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(dest, {
+              mimeType: "application/pdf",
+              dialogTitle: "Open PDF",
+            });
+            return;
+          }
+
+          // fallback if Sharing isn't available
+          await Linking.openURL(toFileUrl(dest));
+          return;
+        }
+
+        // ✅ Android: content:// then open
+        if (Platform.OS === "android") {
+          if (await Sharing.isAvailableAsync()) {
+            await Sharing.shareAsync(dest, {
+              mimeType: "application/pdf",
+              dialogTitle: "Open PDF",
+            });
+            return;
+          }
+
+          // fallback
+          const contentUri = await FileSystem.getContentUriAsync(dest);
+          await Linking.openURL(contentUri);
+          return;
+        }
+      } catch (e) {
+        console.log("Failed to open PDF", e);
+        showError("Failed to open PDF");
+      }
+      return;
+    }
+
     const url = ensureHttpUrl(r.resourceUpload);
     if (!url) return;
     try {

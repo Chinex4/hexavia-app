@@ -117,6 +117,14 @@ export const chatSlice = createSlice({
         if (m) m.isRead = true;
       });
     },
+    removeMessage(state, action: PayloadAction<{ id: string }>) {
+      const { id } = action.payload;
+      delete state.messages[id];
+      Object.values(state.threads).forEach((t) => {
+        const idx = t.messages.indexOf(id);
+        if (idx >= 0) t.messages.splice(idx, 1);
+      });
+    },
     setError(state, action: PayloadAction<string | null>) {
       state.error = action.payload;
     },
@@ -192,6 +200,7 @@ export const {
   replaceTempId,
   setMessageStatus,
   markReadBulk,
+  removeMessage,
   setError,
 } = chatSlice.actions;
 

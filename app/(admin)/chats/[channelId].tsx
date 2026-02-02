@@ -245,25 +245,47 @@ export default function ChatScreen() {
     setSheetOpen(true);
   };
 
-  const items = [
-    {
-      key: "reply",
-      label: "Reply",
-      onPress: () => {
-        if (!selected) return;
-        setReplyTo({
-          id: selected.id,
-          preview: selected.text,
-          senderName: selected.senderName,
-        });
+  const handleDeleteSelected = () => {
+    if (!selected || !meId) return;
+    if (selected.senderId !== meId) return;
+    dispatch({
+      type: "chat/deleteMessage",
+      payload: { userId: meId, messageId: selected.id },
+    });
+  };
+
+  const items = useMemo(() => {
+    const base = [
+      {
+        key: "reply",
+        label: "Reply",
+        onPress: () => {
+          if (!selected) return;
+          setReplyTo({
+            id: selected.id,
+            preview: selected.text,
+            senderName: selected.senderName,
+          });
+        },
       },
-    },
-    {
-      key: "copy",
-      label: "Copy",
-      onPress: () => selected && Clipboard.setStringAsync(selected.text),
-    },
-  ];
+      {
+        key: "copy",
+        label: "Copy",
+        onPress: () => selected && Clipboard.setStringAsync(selected.text),
+      },
+    ];
+
+    if (selected?.senderId === meId) {
+      base.push({
+        key: "delete",
+        label: "Delete",
+        danger: true,
+        onPress: handleDeleteSelected,
+      });
+    }
+
+    return base;
+  }, [handleDeleteSelected, meId, selected]);
 
   const ALWAYS_SNAP_TO_BOTTOM = false;
   const atBottomRef = useRef(true);
