@@ -76,6 +76,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  InteractionManager,
   KeyboardAvoidingView,
   Linking,
   Modal,
@@ -272,6 +273,11 @@ export default function ChannelResourcesScreen() {
   const handlePickImage = async () => {
     if (picking) return;
     setPicking(true);
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      showError("Allow photos permission to pick images.");
+      return;
+    }
     try {
       const res = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -331,6 +337,7 @@ export default function ChannelResourcesScreen() {
 
     if (Date.now() < docPickerBlockedUntil.current) {
       showError("Please wait a moment and try again.");
+      setPicking(false);
       return;
     }
 
@@ -989,20 +996,29 @@ export default function ChannelResourcesScreen() {
           disabled={picking}
           onPick={(type) => {
             setPendingPick(type);
-            setChooser(false); // close first
+            setChooser(false);
+
+            if (Platform.OS === "android") {
+              // Run after modal closing animation/layout settles
+              InteractionManager.runAfterInteractions(() => {
+                if (type === "doc") handlePickDocument();
+                else handlePickImage();
+              });
+            }
           }}
           onDismiss={() => {
-            // ✅ only fires after modal is fully gone on iOS
+            // iOS only
+            if (Platform.OS !== "ios") return;
+
             const type = pendingPick;
             if (!type) return;
 
             setPendingPick(null);
 
-            // extra safety: let animations finish
-            setTimeout(() => {
+            InteractionManager.runAfterInteractions(() => {
               if (type === "doc") handlePickDocument();
               else handlePickImage();
-            }, 0);
+            });
           }}
         />
       )}

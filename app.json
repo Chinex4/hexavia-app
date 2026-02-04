@@ -2,7 +2,7 @@
   "expo": {
     "name": "Hexavian Business Management",
     "slug": "hexavia",
-    "version": "1.0.8",
+    "version": "1.0.9",
     "orientation": "portrait",
     "icon": "./assets/images/logo-icon.png",
     "scheme": "hexavia",
@@ -17,7 +17,6 @@
         "NSMicrophoneUsageDescription": "We use the mic for sending voice notes.",
         "NSCameraUsageDescription": "We use the camera for sharing photos in chat.",
         "NSPhotoLibraryUsageDescription": "We use your photos so you can upload a profile picture or media to your chat.",
-        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to use speech recognition.",
         "ITSAppUsesNonExemptEncryption": false
       }
     },
@@ -73,22 +72,7 @@
           "mode": "production"
         }
       ],
-      [
-        "@jamsch/expo-speech-recognition",
-        {
-          "android": {
-            "permissions": [
-              "RECORD_AUDIO"
-            ]
-          },
-          "ios": {
-            "NSMicrophoneUsageDescription": "We use the microphone to fill text fields by voice.",
-            "NSSpeechRecognitionUsageDescription": "We use speech recognition to convert your voice to text."
-          }
-        }
-      ],
-      "@react-native-community/datetimepicker",
-      "@react-native-voice/voice"
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
