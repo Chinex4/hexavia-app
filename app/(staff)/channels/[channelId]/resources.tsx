@@ -122,6 +122,7 @@ export default function ChannelResourcesScreen() {
   const insets = useSafeAreaInsets();
 
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
+  console.log("channelId", channelId);
   // console.log("channelId", channelId);
   const dispatch = useAppDispatch();
   const channel = useAppSelector(selectChannelById(channelId || ""));
@@ -265,7 +266,10 @@ export default function ChannelResourcesScreen() {
       name: input.name,
     } as any);
     await api.post("/channel/upload-resources", form, {
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "multipart/form-data",
+      },
       transformRequest: (v) => v,
     });
   };
@@ -401,11 +405,18 @@ export default function ChannelResourcesScreen() {
         } catch {}
       }
 
+      let pdfUploadOk = 0;
       for (const pdf of directPdfUploads) {
         try {
           await uploadPdfDirect(pdf);
-        } catch (error) {
-          console.log("Failed to upload PDF directly", error);
+          pdfUploadOk += 1;
+        } catch (error: any) {
+          console.log("Failed to upload PDF directly", {
+            message: error?.message,
+            code: error?.code,
+            status: error?.response?.status,
+            data: error?.response?.data,
+          });
           showError(`Failed to upload ${pdf.name}`);
         }
       }
@@ -417,7 +428,7 @@ export default function ChannelResourcesScreen() {
         });
       }
 
-      if (directPdfUploads.length) {
+      if (directPdfUploads.length && pdfUploadOk > 0) {
         showSuccess("PDF uploaded");
         await dispatch(fetchChannelById(channelId!)).unwrap();
       }

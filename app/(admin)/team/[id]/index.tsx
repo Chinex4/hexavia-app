@@ -14,28 +14,8 @@ import {
 } from "@/redux/channels/channels.slice";
 import { fetchChannels } from "@/redux/channels/channels.thunks";
 
-import { dialPhone, openEmail } from "@/utils/contact";
+import { dialPhone, openEmail, openWhatsApp } from "@/utils/contact";
 import { Mail, MessageCircle, Phone as PhoneIcon } from "lucide-react-native";
-import { Linking } from "react-native";
-
-function openWhatsApp(phone?: string) {
-  if (!phone) return;
-
-  // keep only digits (and +)
-  const digits = phone.replace(/[^\d+]/g, "");
-
-  // WhatsApp wants country code, no leading 0. Example: 2348012345678
-  // If your numbers are stored like "080..." you should normalize to 234...
-  // This keeps it simple; adjust if you already store intl format.
-  const normalized = digits.startsWith("0")
-    ? `234${digits.slice(1)}`
-    : digits.startsWith("+")
-      ? digits.slice(1)
-      : digits;
-
-  const url = `https://wa.me/${normalized}`;
-  Linking.openURL(url).catch(() => {});
-}
 
 export default function StaffDetails() {
   const router = useRouter();

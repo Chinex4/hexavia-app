@@ -39,12 +39,13 @@ export async function dialPhone(phone?: string) {
 }
 
 export async function openWhatsApp(phone?: string, message?: string) {
-  if (!phone) return;
-  const digitsOnly = phone.replace(/\D/g, "");
-  if (!digitsOnly) return;
+  const normalized = normalizeWhatsAppPhone(phone);
+  if (!normalized) return;
   const text = message ? `&text=${encodeURIComponent(message)}` : "";
-  const appUrl = `whatsapp://send?phone=+234${digitsOnly}${text}`;
-  const webUrl = `https://wa.me/+234${digitsOnly}${message ? `?text=${encodeURIComponent(message)}` : ""}`;
+  const appUrl = `whatsapp://send?phone=${normalized}${text}`;
+  const webUrl = `https://wa.me/${normalized}${
+    message ? `?text=${encodeURIComponent(message)}` : ""
+  }`;
   try {
     const supported = await Linking.canOpenURL(appUrl);
     if (supported) {
@@ -64,4 +65,20 @@ export async function openWhatsApp(phone?: string, message?: string) {
     console.warn("Unable to open WhatsApp web", error);
   }
   console.warn("Unable to open WhatsApp for number", phone);
+}
+
+function normalizeWhatsAppPhone(phone?: string) {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+
+  if (digits.startsWith("2340") && digits.length === 14) {
+    return `234${digits.slice(4)}`;
+  }
+
+  if (digits.startsWith("0") && digits.length === 11) {
+    return `234${digits.slice(1)}`;
+  }
+
+  return digits;
 }
