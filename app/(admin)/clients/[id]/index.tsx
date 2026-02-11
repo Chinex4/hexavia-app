@@ -1,11 +1,12 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import {
   ArrowLeft,
   ChevronDown,
   ClipboardCheck,
-  FileText,
   Save,
   Share2,
 } from "lucide-react-native";
@@ -79,6 +80,7 @@ type BaseUser = AdminUser & { statusApi: ApiStatus };
 const BG_INPUT = "#F7F9FC";
 const BORDER = "#E5E7EB";
 const PRIMARY = "#4C5FAB";
+const DOCUMENT_TYPES: string[] = ["application/pdf"];
 
 const STATUS_OPTIONS: {
   value: ApiStatus;
@@ -277,7 +279,15 @@ export default function ClientDetails() {
     [id]
   );
   const clientFromStore = useAppSelector(selectClient) as Client | null;
-  const documentLink = clientFromStore?.documentUrl;
+  const documentLink = clientFromStore?.document;
+  const documentLabel = useMemo(() => {
+    if (documentName) return documentName;
+    if (documentLink) {
+      const tail = documentLink.split("/").pop();
+      return tail || "Document.pdf";
+    }
+    return "No document uploaded";
+  }, [documentLink, documentName]);
 
   const detailLoading = useAppSelector(selectClientDetailLoading);
   const mutationLoading = useAppSelector(selectClientMutationLoading);
@@ -393,28 +403,94 @@ export default function ClientDetails() {
   const [showIndustrySheet, setShowIndustrySheet] = useState(false);
   const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [documentName, setDocumentName] = useState("");
+  const [documentBinary, setDocumentBinary] = useState<string | null>(null);
+  const [uploadingDocument, setUploadingDocument] = useState(false);
+  const [documentRemoved, setDocumentRemoved] = useState(false);
   const effectiveIndustry =
     industry === "Other" ? industryOther.trim() : industry.trim();
   const joined = formatDate(baseUser.createdAt);
-  const handleOpenDocument = useCallback(async () => {
-    if (!documentLink) return;
+  const handleSaveDocument = useCallback(async () => {
+    if (!documentLink && !documentBinary) return;
     try {
-      const canOpen = await Linking.canOpenURL(documentLink);
-      if (!canOpen) {
-        Alert.alert(
-          "Cannot open document",
-          "This document link cannot be opened on your device."
-        );
+      if (Platform.OS === "web") {
+        if (documentLink) {
+          await Linking.openURL(documentLink);
+        }
         return;
       }
-      await Linking.openURL(documentLink);
+
+      const safeName =
+        documentName ||
+        (documentLink ? documentLink.split("/").pop() : "document.pdf") ||
+        "document.pdf";
+      const filename = safeName.toLowerCase().endsWith(".pdf")
+        ? safeName
+        : `${safeName}.pdf`;
+      const dest = `${FileSystem.cacheDirectory}${filename}`;
+
+      if (documentBinary) {
+        await FileSystem.writeAsStringAsync(dest, documentBinary, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      } else if (documentLink) {
+        await FileSystem.downloadAsync(documentLink, dest);
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(dest, {
+          UTI: "com.adobe.pdf",
+          mimeType: "application/pdf",
+          dialogTitle: "Save document",
+        });
+      } else {
+        Alert.alert(
+          "Sharing unavailable",
+          "Sharing is not available on this device."
+        );
+      }
+    } catch {
+      Alert.alert("Unable to save document", "Please try again.");
+    }
+  }, [documentBinary, documentLink, documentName]);
+
+  const handleAttachDocument = useCallback(async () => {
+    if (uploadingDocument) return;
+    setUploadingDocument(true);
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        type: DOCUMENT_TYPES,
+      });
+      if (res.canceled) return;
+      const asset = res.assets?.[0];
+      if (!asset) return;
+
+      const name = asset.name ?? `document_${Date.now()}.pdf`;
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (!base64) {
+        throw new Error("Selected document is empty.");
+      }
+      setDocumentBinary(base64);
+      setDocumentName(name);
+      setDocumentRemoved(false);
     } catch {
       Alert.alert(
-        "Unable to open document",
-        "Something went wrong while opening the document."
+        "Upload failed",
+        "Unable to attach document. Please try again."
       );
+    } finally {
+      setUploadingDocument(false);
     }
-  }, [documentLink]);
+  }, [uploadingDocument]);
+
+  const handleRemoveDocument = useCallback(() => {
+    setDocumentBinary(null);
+    setDocumentName("");
+    setDocumentRemoved(true);
+  }, []);
 
   const handleShareClientPdf = useCallback(async () => {
     const displayName = name.trim() || baseUser.fullname || "Client";
@@ -737,7 +813,9 @@ export default function ClientDetails() {
       engagement !== (baseUser.engagement ?? "") ||
       deliverables !== (baseUser.deliverables ?? "") ||
       payable !== basePay ||
-      statusApi !== baseUser.statusApi
+      statusApi !== baseUser.statusApi ||
+      documentRemoved ||
+      !!documentBinary
     );
   }, [
     baseUser,
@@ -757,6 +835,8 @@ export default function ClientDetails() {
     deliverables,
     payable,
     statusApi,
+    documentRemoved,
+    documentBinary,
   ]);
 
   useEffect(() => {
@@ -777,6 +857,9 @@ export default function ClientDetails() {
     setDeliverables(baseUser.deliverables ?? "");
     setPayable(formatMoneyNaira(baseUser.payableAmount));
     setStatusApi(baseUser.statusApi);
+    setDocumentBinary(null);
+    setDocumentName("");
+    setDocumentRemoved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUser._id]);
 
@@ -800,6 +883,7 @@ export default function ClientDetails() {
       deliverables: deliverables.trim() || undefined,
       payableAmount: parseMoney(payable) || undefined,
       status: statusApi,
+      document: documentRemoved ? null : documentBinary ?? undefined,
     };
     console.log("Updating client with data:", body);
 
@@ -1085,6 +1169,63 @@ export default function ClientDetails() {
                   </View>
                 </View>
 
+                {/* Client Document */}
+                <View className="mt-6">
+                  <FieldLabel>Client Document (PDF)</FieldLabel>
+                  <View
+                    className="rounded-2xl border border-gray-200 p-4"
+                    style={{ backgroundColor: BG_INPUT }}
+                  >
+                    <Text className="font-kumbh text-[#111827]">
+                      {documentLabel}
+                    </Text>
+                    <View className="mt-3 flex-row" style={{ gap: 10 }}>
+                      <Pressable
+                        onPress={handleSaveDocument}
+                        disabled={!documentLink && !documentBinary}
+                        className="flex-1 rounded-2xl px-3 py-3 items-center"
+                        style={{
+                          backgroundColor: PRIMARY,
+                          opacity:
+                            !documentLink && !documentBinary ? 0.5 : 1,
+                        }}
+                      >
+                        <Text className="font-kumbhBold text-white">
+                          Save PDF
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        onPress={handleAttachDocument}
+                        disabled={uploadingDocument}
+                        className="flex-1 rounded-2xl px-3 py-3 items-center border"
+                        style={{
+                          borderColor: PRIMARY,
+                          backgroundColor: "transparent",
+                          opacity: uploadingDocument ? 0.6 : 1,
+                        }}
+                      >
+                        <Text className="font-kumbhBold" style={{ color: PRIMARY }}>
+                          {documentBinary ? "Replace" : "Upload"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                    <Pressable
+                      onPress={handleRemoveDocument}
+                      disabled={!documentLink && !documentBinary}
+                      className="mt-3 rounded-2xl px-3 py-3 items-center border"
+                      style={{
+                        borderColor: "#DC2626",
+                        backgroundColor: "transparent",
+                        opacity: !documentLink && !documentBinary ? 0.5 : 1,
+                      }}
+                    >
+                      <Text className="font-kumbhBold" style={{ color: "#DC2626" }}>
+                        Remove Document
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+
                 {/* Buttons row */}
                 <View className="mt-6 flex-row" style={{ gap: 12 }}>
                   <View style={{ flex: 1 }}>
@@ -1098,15 +1239,6 @@ export default function ClientDetails() {
                           params: { clientId: id },
                         });
                       }}
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <PillButton
-                      variant="outline"
-                      icon={<FileText size={16} color={PRIMARY} />}
-                      label="View Document"
-                      disabled={!documentLink}
-                      onPress={handleOpenDocument}
                     />
                   </View>
                 </View>

@@ -7,6 +7,7 @@ export const CATEGORY_ORDER: ChannelResourceCategory[] = [
   "image",
   "document",
   "audio",
+  "video",
   "folder",
   "other",
 ];
@@ -19,6 +20,8 @@ export const prettyCategory = (c: ChannelResourceCategory) => {
       return "Documents";
     case "audio":
       return "Audio";
+    case "video":
+      return "Videos";
     case "folder":
       return "Folders";
     default:
@@ -33,15 +36,30 @@ export const ext = (name?: string | null) => {
 };
 
 export const detectCategory = (r: ChannelResource): ChannelResourceCategory => {
-  const m = (r.mimetype || r.mime || r.resourceUpload || "").toLowerCase();
-  // console.log("m: ",m)
+  if (r.category && CATEGORY_ORDER.includes(r.category)) return r.category;
+
+  const raw = (r.resourceUpload || "").toLowerCase();
+  const dataMime =
+    raw.startsWith("data:") && raw.includes(";")
+      ? raw.slice(5, raw.indexOf(";"))
+      : "";
+  const m = (r.mimetype || r.mime || dataMime || raw || "").toLowerCase();
   const e = ext(r.name || r.resourceUpload);
 
   if (m.includes("image/")) return "image";
   if (m === "application/pdf" || e === "pdf") return "document";
-  if (m.includes("audio/") || ["mp3", "wav", "m4a", "aac", "ogg"].includes(e))
+  if (
+    m.includes("audio/") ||
+    ["mp3", "wav", "m4a", "aac", "ogg"].includes(e)
+  )
     return "audio";
-  // if (m.includes("video/") || ["mp4", "mov", "avi", "mkv"].includes(e)) return "video";
+  if (
+    m.includes("video/") ||
+    ["mp4", "mov", "avi", "mkv", "webm"].includes(e)
+  )
+    return "video";
+  if (["jpg", "jpeg", "png", "webp", "gif", "heic", "heif"].includes(e))
+    return "image";
   // console.log(r.category)
   return "other";
 };

@@ -3,6 +3,7 @@ import { Image, Pressable, Text, View, ViewStyle } from "react-native";
 import { MoreVertical } from "lucide-react-native";
 import type { ChannelResource } from "@/redux/channels/resources.types";
 import { detectCategory, ext } from "@/redux/channels/resources.utils";
+import { getMimeFromName } from "@/utils/getMime";
 import clsx from "clsx";
 
 const icons = {
@@ -32,6 +33,11 @@ export default function ResourceCard({
   const cat = detectCategory(item);
   // console.log("ResourceCard", { item, cat });
   const fileExt = (ext(item.name || item.resourceUpload) || "").toUpperCase();
+  const rawMime =
+    item.mimetype || item.mime || getMimeFromName(item.name || "");
+  const imageUri = item.rawFile
+    ? `data:${rawMime || "image/*"};base64,${item.rawFile}`
+    : item.resourceUpload;
   // console.log(item.resourceUpload)
 
   return (
@@ -55,7 +61,7 @@ export default function ResourceCard({
       {/* thumbnail */}
       {cat === "image" ? (
         <Image
-          source={{ uri: item.resourceUpload }}
+          source={{ uri: imageUri }}
           className="w-full h-24 rounded-xl bg-gray-100"
           resizeMode="cover"
         />
@@ -74,6 +80,20 @@ export default function ResourceCard({
       <Text numberOfLines={1} className="mt-3 text-gray-900 font-kumbh">
         {item.name || "Untitled"}
       </Text>
+      <Text className="mt-1 text-[11px] text-gray-500 font-kumbh">
+        {formatCreatedAt((item as any).createdAt)}
+      </Text>
     </Pressable>
   );
+}
+
+function formatCreatedAt(v?: string | number) {
+  if (!v) return "—";
+  try {
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return "—";
+    return `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  } catch {
+    return "—";
+  }
 }

@@ -11,12 +11,8 @@ import * as Sharing from "expo-sharing";
 import { selectChannelById } from "@/redux/channels/channels.slice";
 import {
   fetchChannelById,
-  uploadChannelResources,
 } from "@/redux/channels/channels.thunks";
-import type {
-  ChannelResource,
-  UploadResourcesBody,
-} from "@/redux/channels/resources.types";
+import type { ChannelResource } from "@/redux/channels/resources.types";
 import {
   CATEGORY_ORDER,
   detectCategory,
@@ -47,18 +43,10 @@ import {
   updateChannelNote,
 } from "@/redux/channelNotes/channelNotes.thunks";
 import type { ChannelNote } from "@/redux/channelNotes/channelNotes.types";
-import {
-  reset as resetUpload,
-  selectUpload,
-} from "@/redux/upload/upload.slice";
-import { uploadSingle } from "@/redux/upload/upload.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { toApiResources } from "@/utils/buildApiResources";
+import { makeDescriptionFromName } from "@/utils/buildApiResources";
 import { getMimeFromName } from "@/utils/getMime";
-import {
-  normalizeCloudinaryUrl,
-  slugifyFilename,
-} from "@/utils/slugAndCloudinary";
+import { slugifyFilename } from "@/utils/slugAndCloudinary";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -71,10 +59,13 @@ import {
   CloudUpload,
   Plus,
   X,
+  Maximize2,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Image,
   FlatList,
   InteractionManager,
   KeyboardAvoidingView,
@@ -89,13 +80,15 @@ import {
   View,
 } from "react-native";
 import {
+  PinchGestureHandler,
+  TapGestureHandler,
+  State as GestureState,
   GestureHandlerRootView,
-  PanGestureHandler,
-  PanGestureHandlerGestureEvent,
 } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TabView } from "react-native-tab-view";
 import { useWindowDimensions } from "react-native";
+import { Audio, Video } from "expo-av";
 
 function ensureHttpUrl(u?: string | null) {
   if (!u) return "";
@@ -122,11 +115,8 @@ export default function ChannelResourcesScreen() {
   const insets = useSafeAreaInsets();
 
   const { channelId } = useLocalSearchParams<{ channelId: string }>();
-  console.log("channelId", channelId);
-  // console.log("channelId", channelId);
   const dispatch = useAppDispatch();
   const channel = useAppSelector(selectChannelById(channelId || ""));
-  const upload = useAppSelector(selectUpload);
   const links = useAppSelector(selectChannelLinks(channelId || ""));
   const linksStatus = useAppSelector(selectChannelLinksStatus(channelId || ""));
   const notes = useAppSelector(selectChannelNotes(channelId || ""));
@@ -169,6 +159,14 @@ export default function ChannelResourcesScreen() {
   );
   const [resourceDeleting, setResourceDeleting] = useState(false);
   const [previewNote, setPreviewNote] = useState<ChannelNote | null>(null);
+  const [previewMedia, setPreviewMedia] = useState<{
+    type: "image" | "video" | "audio";
+    uri: string;
+    name?: string;
+    mime?: string;
+  } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [sortOrder, setSortOrder] = useState<{
     resources: "asc" | "desc";
     links: "asc" | "desc";
@@ -195,7 +193,6 @@ export default function ChannelResourcesScreen() {
     })();
     return () => {
       mounted = false;
-      dispatch(resetUpload());
     };
   }, [channelId, dispatch]);
 
@@ -248,31 +245,36 @@ export default function ChannelResourcesScreen() {
     })).filter((s) => s.data.length > 0);
   }, [channel?.resources, sortOrder.resources]);
 
-  const doSaveToDb = async (payload: UploadResourcesBody) => {
-    try {
-      await dispatch(uploadChannelResources(payload as any)).unwrap();
-      showSuccess("Resources added to Project");
-      await dispatch(fetchChannelById(channelId!)).unwrap();
-    } catch (error) {
-      console.log("Failed to save resources to DB", error);
-    }
-  };
-
-  const uploadPdfDirect = async (input: { uri: string; name: string }) => {
+  const uploadDirect = async (input: {
+    uri: string;
+    name: string;
+    mime: string;
+    field: "pdfUpload" | "imageUpload" | "videoUpload" | "audioUpload" | "fileUpload";
+    description?: string;
+  }) => {
     if (!channelId) return;
     const form = new FormData();
     form.append("channelId", channelId);
     form.append("name", input.name);
-    form.append("description", "PDF document");
-    form.append("pdfUpload", {
+    form.append(
+      "description",
+      input.description || makeDescriptionFromName(input.name),
+    );
+    form.append("mime", input.mime);
+    form.append(input.field, {
       uri: input.uri,
-      type: "application/pdf",
+      type: input.mime,
       name: input.name,
     } as any);
     await api.post("/channel/upload-resources", form, {
       headers: {
         Accept: "application/json",
         "Content-Type": "multipart/form-data",
+      },
+      onUploadProgress: (evt) => {
+        if (!evt.total) return;
+        const pct = Math.round((evt.loaded / evt.total) * 100);
+        setUploadProgress(pct);
       },
       transformRequest: (v) => v,
     });
@@ -284,6 +286,7 @@ export default function ChannelResourcesScreen() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
       showError("Allow photos permission to pick images.");
+      setPicking(false);
       return;
     }
     try {
@@ -296,42 +299,33 @@ export default function ChannelResourcesScreen() {
       if ((res as any).canceled) return;
 
       const assets = (res as any).assets || [];
-      const staged: Array<{
-        url: string;
-        name: string;
-        mime?: string;
-        category: "image";
-        publicId?: string;
-      }> = [];
-
+      let uploaded = 0;
+      setUploading(true);
       for (const a of assets) {
         const origName = (a as any).fileName || "image.jpg";
         const safeName = slugifyFilename(origName);
         const mime =
           (a as any).mimeType || getMimeFromName(origName) || "image/jpeg";
         try {
-          const up = await dispatch(
-            uploadSingle({ uri: (a as any).uri, name: safeName, type: mime }),
-          ).unwrap();
-          const cleanUrl = ensureHttpUrl(normalizeCloudinaryUrl(up.url));
-          staged.push({
-            url: cleanUrl,
+          await uploadDirect({
+            uri: (a as any).uri,
             name: safeName,
             mime,
-            category: "image",
-            publicId: up.publicId ?? safeName,
+            field: "pdfUpload",
+            description: "Image resource",
           });
+          uploaded += 1;
         } catch (error) {
           console.log("Failed to upload image", error);
         }
       }
-      if (staged.length) {
-        await doSaveToDb({
-          channelId: channelId!,
-          resources: toApiResources(staged),
-        });
+      if (uploaded > 0) {
+        showSuccess("Image uploaded");
+        await dispatch(fetchChannelById(channelId!)).unwrap();
       }
     } finally {
+      setUploading(false);
+      setUploadProgress(0);
       setPicking(false);
     }
   };
@@ -366,12 +360,16 @@ export default function ChannelResourcesScreen() {
         ? (res as any).assets
         : [res];
       const directPdfUploads: Array<{ uri: string; name: string }> = [];
-      const staged: Array<{
-        url: string;
+      const directUploads: Array<{
+        uri: string;
         name: string;
-        mime?: string;
-        category: "document" | "audio" | "other";
-        publicId?: string;
+        mime: string;
+        field:
+          | "imageUpload"
+          | "videoUpload"
+          | "audioUpload"
+          | "fileUpload";
+        description: string;
       }> = [];
 
       for (const f of files as any[]) {
@@ -388,31 +386,53 @@ export default function ChannelResourcesScreen() {
           });
           continue;
         }
-        try {
-          const up = await dispatch(
-            uploadSingle({ uri: f.uri as string, name: safeName, type: mime }),
-          ).unwrap();
-          const cleanUrl = ensureHttpUrl(normalizeCloudinaryUrl(up.url));
-          const category =
-            mime === "application/pdf" || ext(safeName) === "pdf"
-              ? "document"
-              : mime.startsWith("audio/")
-                ? "audio"
-                : "other";
-          staged.push({
-            url: cleanUrl,
+        if (mime.startsWith("image/")) {
+          directUploads.push({
+            uri: f.uri as string,
             name: safeName,
             mime,
-            category,
-            publicId: up.publicId ?? safeName,
+            field: "imageUpload",
+            description: "Image resource",
           });
-        } catch {}
+        } else if (mime.startsWith("audio/")) {
+          directUploads.push({
+            uri: f.uri as string,
+            name: safeName,
+            mime,
+            field: "audioUpload",
+            description: "Audio resource",
+          });
+        } else if (mime.startsWith("video/")) {
+          directUploads.push({
+            uri: f.uri as string,
+            name: safeName,
+            mime,
+            field: "videoUpload",
+            description: "Video resource",
+          });
+        } else {
+          directUploads.push({
+            uri: f.uri as string,
+            name: safeName,
+            mime,
+            field: "fileUpload",
+            description: "Document resource",
+          });
+        }
       }
 
       let pdfUploadOk = 0;
+      let otherUploadOk = 0;
+      setUploading(true);
       for (const pdf of directPdfUploads) {
         try {
-          await uploadPdfDirect(pdf);
+          await uploadDirect({
+            uri: pdf.uri,
+            name: pdf.name,
+            mime: "application/pdf",
+            field: "pdfUpload",
+            description: "PDF document",
+          });
           pdfUploadOk += 1;
         } catch (error: any) {
           console.log("Failed to upload PDF directly", {
@@ -425,15 +445,25 @@ export default function ChannelResourcesScreen() {
         }
       }
 
-      if (staged.length) {
-        await doSaveToDb({
-          channelId: channelId!,
-          resources: toApiResources(staged),
-        });
+      for (const item of directUploads) {
+        try {
+          await uploadDirect(item);
+          otherUploadOk += 1;
+        } catch (error: any) {
+          console.log("Failed to upload file directly", {
+            message: error?.message,
+            code: error?.code,
+            status: error?.response?.status,
+            data: error?.response?.data,
+          });
+          showError(`Failed to upload ${item.name}`);
+        }
       }
 
-      if (directPdfUploads.length && pdfUploadOk > 0) {
-        showSuccess("PDF uploaded");
+      if (directPdfUploads.length + directUploads.length > 0) {
+        if (pdfUploadOk + otherUploadOk > 0) {
+          showSuccess("Resources uploaded");
+        }
         await dispatch(fetchChannelById(channelId!)).unwrap();
       }
     } catch (e: any) {
@@ -448,6 +478,8 @@ export default function ChannelResourcesScreen() {
 
       showError("Failed to open file picker");
     } finally {
+      setUploading(false);
+      setUploadProgress(0);
       setPicking(false);
       pickingLock.current = false;
     }
@@ -456,8 +488,35 @@ export default function ChannelResourcesScreen() {
   const toFileUrl = (p: string) =>
     p.startsWith("file://") ? p : `file://${p}`;
 
+  const getResourceMime = (r: ChannelResource) =>
+    r.mimetype || r.mime || getMimeFromName(r.name || r.resourceUpload);
+
+  const getResourceUri = (r: ChannelResource) => {
+    const mime = getResourceMime(r) || "application/octet-stream";
+    if (r.rawFile) return `data:${mime};base64,${r.rawFile}`;
+    return ensureHttpUrl(r.resourceUpload);
+  };
+
   const previewResource = async (r: ChannelResource) => {
-    if (r.rawFile) {
+    const mime = getResourceMime(r);
+    const cat = detectCategory(r);
+    const uri = getResourceUri(r);
+
+    if (cat === "image" || cat === "video" || cat === "audio") {
+      if (!uri) {
+        showError("This resource has no preview data.");
+        return;
+      }
+      setPreviewMedia({
+        type: cat === "image" ? "image" : cat === "video" ? "video" : "audio",
+        uri,
+        name: r.name,
+        mime: mime || undefined,
+      });
+      return;
+    }
+
+    if (mime === "application/pdf" || ext(r.name) === "pdf") {
       try {
         const safeName = slugifyFilename(r.name || "document.pdf");
         const filename = safeName.toLowerCase().endsWith(".pdf")
@@ -466,15 +525,23 @@ export default function ChannelResourcesScreen() {
 
         const dest = `${FileSystem.cacheDirectory}${filename}`;
 
-        await FileSystem.writeAsStringAsync(dest, r.rawFile, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        if (r.rawFile) {
+          await FileSystem.writeAsStringAsync(dest, r.rawFile, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        } else if (uri) {
+          await FileSystem.downloadAsync(uri, dest);
+        }
 
         // ✅ WEB: data URL is fine
         if (Platform.OS === "web") {
-          await WebBrowser.openBrowserAsync(
-            `data:application/pdf;base64,${r.rawFile}`,
-          );
+          if (r.rawFile) {
+            await WebBrowser.openBrowserAsync(
+              `data:application/pdf;base64,${r.rawFile}`,
+            );
+          } else if (uri) {
+            await WebBrowser.openBrowserAsync(uri);
+          }
           return;
         }
 
@@ -535,7 +602,12 @@ export default function ChannelResourcesScreen() {
   const copyLink = async (r: ChannelResource) => {
     try {
       const { setStringAsync } = await import("expo-clipboard");
-      await setStringAsync(ensureHttpUrl(r.resourceUpload));
+      const url = ensureHttpUrl(r.resourceUpload);
+      if (!url) {
+        showError("No link available for this resource.");
+        return;
+      }
+      await setStringAsync(url);
       showSuccess("Link copied");
     } catch {}
   };
@@ -622,6 +694,46 @@ export default function ChannelResourcesScreen() {
     } finally {
       setResourceDeleting(false);
       setResourceToDelete(null);
+    }
+  };
+
+  const downloadResource = async (r: ChannelResource) => {
+    try {
+      const mime = getResourceMime(r);
+      const safeName = slugifyFilename(r.name || "resource");
+      const filename = safeName || "resource";
+      const dest = `${FileSystem.cacheDirectory}${filename}`;
+
+      if (r.rawFile) {
+        await FileSystem.writeAsStringAsync(dest, r.rawFile, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+      } else {
+        const url = ensureHttpUrl(r.resourceUpload);
+        if (!url) {
+          showError("No file available to download.");
+          return;
+        }
+        await FileSystem.downloadAsync(url, dest);
+      }
+
+      if (Platform.OS === "web") {
+        const url = ensureHttpUrl(r.resourceUpload);
+        if (url) await WebBrowser.openBrowserAsync(url);
+        return;
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(dest, {
+          mimeType: mime || undefined,
+          dialogTitle: "Save resource",
+        });
+        return;
+      }
+
+      showSuccess("Resource saved to device.");
+    } catch {
+      showError("Failed to download resource.");
     }
   };
 
@@ -1311,6 +1423,43 @@ export default function ChannelResourcesScreen() {
         </View>
       </Modal>
 
+      <Modal
+        visible={Boolean(previewMedia)}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewMedia(null)}
+      >
+        <GestureHandlerRootView className="flex-1">
+          <View className="flex-1 bg-black/90">
+            <View
+              className="absolute top-0 left-0 right-0 flex-row items-center justify-between px-4"
+              style={{ paddingTop: Platform.OS === "ios" ? insets.top + 8 : 16 }}
+            >
+              <Text className="text-white font-kumbhBold text-base">
+                {previewMedia?.name || "Preview"}
+              </Text>
+              <Pressable
+                onPress={() => setPreviewMedia(null)}
+                className="h-10 w-10 items-center justify-center rounded-full bg-white/10"
+                accessibilityLabel="Close preview"
+              >
+                <X size={18} color="#ffffff" />
+              </Pressable>
+            </View>
+
+            <View className="flex-1 items-center justify-center px-4">
+              {previewMedia?.type === "image" ? (
+                <ZoomableImage uri={previewMedia.uri} />
+              ) : previewMedia?.type === "video" ? (
+                <VideoPreview uri={previewMedia.uri} />
+              ) : previewMedia?.type === "audio" ? (
+                <AudioPreview uri={previewMedia.uri} />
+              ) : null}
+            </View>
+          </View>
+        </GestureHandlerRootView>
+      </Modal>
+
       {activeTab === "resources" && actionFor ? (
         <View className="absolute inset-0 bg-black/30">
           <View className="absolute left-0 right-0 bottom-0 bg-white rounded-t-2xl p-4">
@@ -1325,6 +1474,15 @@ export default function ChannelResourcesScreen() {
               className="py-3"
             >
               <Text className="font-kumbh">Preview</Text>
+            </Pressable>
+            <Pressable
+              onPress={async () => {
+                await downloadResource(actionFor);
+                setActionFor(null);
+              }}
+              className="py-3"
+            >
+              <Text className="font-kumbh">Download</Text>
             </Pressable>
             <Pressable
               onPress={async () => {
@@ -1356,7 +1514,7 @@ export default function ChannelResourcesScreen() {
         </View>
       ) : null}
 
-      {upload.phase === "uploading" && (
+      {uploading && (
         <View
           pointerEvents="none"
           className="absolute left-0 right-0 bottom-[90px] items-center"
@@ -1364,11 +1522,172 @@ export default function ChannelResourcesScreen() {
           <View className="bg-gray-900 px-4 py-2.5 rounded-xl flex-row items-center">
             <ActivityIndicator color="#fff" />
             <Text className="text-white ml-2 font-kumbh">
-              Uploading… {upload.progress}%
+              Uploading… {uploadProgress}%
             </Text>
           </View>
         </View>
       )}
+    </View>
+  );
+}
+
+function ZoomableImage({ uri }: { uri: string }) {
+  const baseScale = useRef(new Animated.Value(1)).current;
+  const lastScaleRef = useRef(1);
+  const doubleTapRef = useRef(null);
+
+  return (
+    <TapGestureHandler
+      ref={doubleTapRef}
+      numberOfTaps={2}
+      onHandlerStateChange={(e) => {
+        if (e.nativeEvent.state === GestureState.ACTIVE) {
+          const next = lastScaleRef.current > 1 ? 1 : 2;
+          lastScaleRef.current = next;
+          baseScale.setValue(next);
+        }
+      }}
+    >
+      <Animated.View style={{ transform: [{ scale: baseScale }] }}>
+        <Image
+          source={{ uri }}
+          style={{ width: 320, height: 320, borderRadius: 12 }}
+          resizeMode="contain"
+        />
+      </Animated.View>
+    </TapGestureHandler>
+  );
+}
+
+function AudioPreview({ uri }: { uri: string }) {
+  const [sound, setSound] = useState<Audio.Sound | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [position, setPosition] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [barWidth, setBarWidth] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let localSound: Audio.Sound | null = null;
+
+    const load = async () => {
+      try {
+        const { sound: s } = await Audio.Sound.createAsync(
+          { uri },
+          { shouldPlay: false },
+        );
+        if (cancelled) {
+          await s.unloadAsync();
+          return;
+        }
+        localSound = s;
+        setSound(s);
+        s.setOnPlaybackStatusUpdate((status) => {
+          if (!status.isLoaded) return;
+          setIsPlaying(status.isPlaying);
+          setPosition(status.positionMillis ?? 0);
+          setDuration(status.durationMillis ?? 0);
+        });
+      } catch {
+        // ignore
+      }
+    };
+
+    load();
+
+    return () => {
+      cancelled = true;
+      if (localSound) {
+        localSound.unloadAsync();
+      }
+      setSound(null);
+    };
+  }, [uri]);
+
+  const toggle = async () => {
+    if (!sound) return;
+    const status = await sound.getStatusAsync();
+    if (!status.isLoaded) return;
+    if (status.isPlaying) {
+      await sound.pauseAsync();
+    } else {
+      await sound.playAsync();
+    }
+  };
+
+  const seekTo = async (ratio: number) => {
+    if (!sound || !duration) return;
+    const ms = Math.max(0, Math.min(duration, Math.floor(duration * ratio)));
+    await sound.setPositionAsync(ms);
+  };
+
+  return (
+    <View className="w-full max-w-[340px] rounded-2xl bg-white/10 px-4 py-4">
+      <Text className="text-white font-kumbhBold text-base mb-2">Audio</Text>
+      <Pressable
+        onLayout={(e) => setBarWidth(e.nativeEvent.layout.width)}
+        onPress={(e) => {
+          if (!barWidth) return;
+          const x = e.nativeEvent.locationX;
+          seekTo(x / barWidth);
+        }}
+        className="h-2 rounded-full bg-white/20 overflow-hidden mb-3"
+      >
+        <View
+          className="h-2 bg-white/80"
+          style={{
+            width:
+              duration > 0 && barWidth > 0
+                ? (position / duration) * barWidth
+                : 0,
+          }}
+        />
+      </Pressable>
+      <View className="flex-row items-center justify-between">
+        <Pressable
+          onPress={toggle}
+          className="px-4 py-2 rounded-full bg-white"
+        >
+          <Text className="font-kumbhBold text-gray-900">
+            {isPlaying ? "Pause" : "Play"}
+          </Text>
+        </Pressable>
+        <Text className="text-white font-kumbh">
+          {formatAudioTime(position)} / {formatAudioTime(duration)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function formatAudioTime(ms: number) {
+  if (!ms || ms < 0) return "0:00";
+  const total = Math.floor(ms / 1000);
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function VideoPreview({ uri }: { uri: string }) {
+  const ref = useRef<Video>(null);
+
+  return (
+    <View className="w-full">
+      <Video
+        ref={ref}
+        source={{ uri }}
+        style={{ width: "100%", height: 260, borderRadius: 12 }}
+        useNativeControls
+        resizeMode="contain"
+        shouldPlay
+      />
+      <Pressable
+        onPress={() => ref.current?.presentFullscreenPlayerAsync?.()}
+        className="mt-3 self-center flex-row items-center gap-2 rounded-full bg-white px-4 py-2"
+      >
+        <Maximize2 size={16} color="#111827" />
+        <Text className="font-kumbhBold text-gray-900">Fullscreen</Text>
+      </Pressable>
     </View>
   );
 }
