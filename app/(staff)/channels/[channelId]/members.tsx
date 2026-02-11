@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ChevronLeft, Plus, Share2 } from "lucide-react-native";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
+import * as FileSystem from "expo-file-system/legacy";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -36,6 +37,7 @@ import { selectUser } from "@/redux/user/user.slice";
 import { StatusBar } from "expo-status-bar";
 import OptionSheet from "@/components/common/OptionSheet";
 import type { ChannelResource } from "@/redux/channels/resources.types";
+import { slugifyFilename } from "@/utils/slugAndCloudinary";
 
 type MemberItem = {
   id: string;
@@ -234,6 +236,61 @@ function htmlForSingleChannelReport(payload: {
   const notStarted = tasks.filter((t) => t.status === "not-started").length;
   const canceled = tasks.filter((t) => t.status === "canceled").length;
 
+  const narrativeLines = (() => {
+    if (!tasks.length) {
+      return [
+        "No tasks were recorded for this project in the selected period.",
+        "Add tasks with owners and due dates to improve tracking.",
+      ];
+    }
+    const completionRate = tasks.length
+      ? Math.round((completed / tasks.length) * 100)
+      : 0;
+    return [
+      `This report summarizes ${tasks.length} task${tasks.length === 1 ? "" : "s"} for ${escapeHtml(channelName)}.`,
+      `${completed} completed, ${inProgress} in progress, ${notStarted} not started, and ${canceled} canceled.`,
+      `Completion rate is ${completionRate}%.`,
+      `${resources.length} resource${resources.length === 1 ? "" : "s"}, ${links.length} link${links.length === 1 ? "" : "s"}, and ${notes.length} note${notes.length === 1 ? "" : "s"} were logged.`,
+    ];
+  })();
+
+  const nextSteps = (() => {
+    const steps: string[] = [];
+    if (notStarted > 0) steps.push("Prioritize not-started tasks and assign owners.");
+    if (inProgress > 0) steps.push("Review in-progress tasks for blockers.");
+    if (canceled > 0) steps.push("Revisit canceled items to confirm scope changes.");
+    steps.push("Confirm upcoming milestones and due dates.");
+    return steps;
+  })();
+
+  const contextObjectives = [
+    "Summarize project execution in plain language for stakeholders.",
+    "Highlight delivery momentum, risks, and resource activity.",
+    "Provide a clear next‑step plan for the upcoming period.",
+  ];
+
+  const highlights = (() => {
+    if (!tasks.length) {
+      return [
+        "No activity recorded in the selected period.",
+        "Consider broadening the date range to capture milestones.",
+      ];
+    }
+    const items: string[] = [];
+    if (completed > 0) items.push(`${completed} task${completed === 1 ? "" : "s"} completed.`);
+    if (inProgress > 0) items.push(`${inProgress} task${inProgress === 1 ? "" : "s"} in progress.`);
+    if (resources.length > 0) items.push(`${resources.length} resource${resources.length === 1 ? "" : "s"} uploaded.`);
+    return items;
+  })();
+
+  const risks = (() => {
+    const items: string[] = [];
+    if (notStarted > 0) items.push(`${notStarted} task${notStarted === 1 ? "" : "s"} not started yet.`);
+    if (canceled > 0) items.push(`${canceled} task${canceled === 1 ? "" : "s"} canceled.`);
+    if (items.length === 0) items.push("No critical risks identified in this period.");
+    return items;
+  })();
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -338,6 +395,47 @@ function htmlForSingleChannelReport(payload: {
     font-size: 22px;
     font-weight: 700;
     color: #111827;
+  }
+  .narrative {
+    margin-top: 20px;
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    color: #1f2937;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .snapshot-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .snapshot-table td {
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+  }
+  .snapshot-table td.label {
+    color: #6b7280;
+    width: 45%;
+    font-weight: 600;
+  }
+  .narrative h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #374151;
+  }
+  .narrative ul {
+    margin: 8px 0 0 16px;
+    padding: 0;
+  }
+  .narrative li {
+    margin-bottom: 6px;
   }
   .section {
     margin-top: 32px;
@@ -480,6 +578,39 @@ function htmlForSingleChannelReport(payload: {
 
       <div class="member-row">
         ${memberMarkup}
+      </div>
+
+      <div class="narrative">
+        <h3>1. Executive Summary</h3>
+        ${narrativeLines.map((line) => `<div>${line}</div>`).join("")}
+
+        <h3 style="margin-top:14px;">High-level Status Snapshot</h3>
+        <table class="snapshot-table">
+          <tr><td class="label">Completion rate</td><td>${tasks.length ? Math.round((completed / tasks.length) * 100) : 0}%</td></tr>
+          <tr><td class="label">In progress</td><td>${inProgress}</td></tr>
+          <tr><td class="label">Not started</td><td>${notStarted}</td></tr>
+          <tr><td class="label">Resources logged</td><td>${resources.length}</td></tr>
+        </table>
+
+        <h3 style="margin-top:14px;">2. Project Context & Objectives</h3>
+        <ul>
+          ${contextObjectives.map((line) => `<li>${line}</li>`).join("")}
+        </ul>
+
+        <h3 style="margin-top:14px;">3. Highlights</h3>
+        <ul>
+          ${highlights.map((line) => `<li>${line}</li>`).join("")}
+        </ul>
+
+        <h3 style="margin-top:14px;">4. Risks & Blockers</h3>
+        <ul>
+          ${risks.map((line) => `<li>${line}</li>`).join("")}
+        </ul>
+
+        <h3 style="margin-top:14px;">5. Next Steps</h3>
+        <ul>
+          ${nextSteps.map((step) => `<li>${step}</li>`).join("")}
+        </ul>
       </div>
 
       <div class="stat-grid">
@@ -910,16 +1041,27 @@ export default function ChannelInfoScreen() {
       }
 
       const file = await Print.printToFileAsync({ html });
+      const safeName = slugifyFilename(latestChannel.name || "Project");
+      const stamp = new Date().toISOString().slice(0, 10);
+      const namedUri = `${FileSystem.cacheDirectory}${safeName}_${stamp}.pdf`;
+      try {
+        await FileSystem.moveAsync({ from: file.uri, to: namedUri });
+      } catch {
+        // keep original uri if rename fails
+      }
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
         Alert.alert("Share unavailable", "Sharing is not available on this device.");
         return;
       }
-      await Sharing.shareAsync(file.uri, {
+      await Sharing.shareAsync(
+        (await FileSystem.getInfoAsync(namedUri)).exists ? namedUri : file.uri,
+        {
         UTI: "com.adobe.pdf",
         mimeType: "application/pdf",
         dialogTitle: `Export Report - ${latestChannel.name || "Channel"}`,
-      });
+        }
+      );
     } catch (err: any) {
       Alert.alert("Generate report failed", err?.message || "Please try again.");
     } finally {

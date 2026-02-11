@@ -514,6 +514,110 @@ export default function CreateReportScreen() {
         ? "All projects"
         : `${channels.length} project${channels.length === 1 ? "" : "s"} selected`;
 
+    const summaryLines = (() => {
+      if (!rows.length) {
+        return [
+          "No tasks were recorded in the selected period.",
+          "Use the filters above to broaden the report range.",
+        ];
+      }
+      const total = summary.total;
+      const completed = summary.counts.completed;
+      const inProgress = summary.counts.inProgress;
+      const notStarted = summary.counts.notStarted;
+      const overdue = summary.overdue;
+      const completionRate = summary.completionRate;
+      const topChannels = Array.from(summary.byChannel.entries())
+        .sort((a, b) => b[1].completed - a[1].completed)
+        .slice(0, 3)
+        .map(([name]) => name);
+
+      return [
+        `During ${period.start} — ${period.end}, the team tracked ${total} task${total === 1 ? "" : "s"} across ${channels.length || "all"} project${channels.length === 1 ? "" : "s"}.`,
+        `${completed} completed, ${inProgress} in progress, and ${notStarted} not started. Completion rate is ${completionRate}%.`,
+        overdue > 0
+          ? `${overdue} task${overdue === 1 ? "" : "s"} are overdue and need attention.`
+          : "No overdue tasks were identified in this period.",
+        topChannels.length
+          ? `Top momentum: ${topChannels.join(", ")}.`
+          : "No per-channel momentum could be determined.",
+      ];
+    })();
+
+    const nextSteps = (() => {
+      if (!rows.length) {
+        return [
+          "Confirm scope for the next reporting period.",
+          "Add tasks with clear owners and due dates to improve tracking.",
+        ];
+      }
+      const actions: string[] = [];
+      if (summary.overdue > 0) {
+        actions.push("Review overdue tasks and remove blockers.");
+      }
+      if (summary.counts.notStarted > 0) {
+        actions.push("Prioritize not-started tasks and assign owners.");
+      }
+      actions.push("Align on upcoming milestones and due dates.");
+      return actions;
+    })();
+
+    const contextObjectives = [
+      "Provide a clear view of project progress across selected channels.",
+      "Highlight delivery momentum, bottlenecks, and overdue work.",
+      "Summarize key activity for stakeholders without requiring technical context.",
+    ];
+
+    const highlights = (() => {
+      if (!rows.length) {
+        return [
+          "No activity recorded in the selected period.",
+          "Consider widening the date range to capture more milestones.",
+        ];
+      }
+      const items: string[] = [];
+      if (summary.counts.completed > 0) {
+        items.push(
+          `${summary.counts.completed} task${
+            summary.counts.completed === 1 ? "" : "s"
+          } completed during this period.`
+        );
+      }
+      if (summary.counts.inProgress > 0) {
+        items.push(
+          `${summary.counts.inProgress} task${
+            summary.counts.inProgress === 1 ? "" : "s"
+          } currently in progress.`
+        );
+      }
+      if (summary.overdue === 0) {
+        items.push("No overdue tasks recorded.");
+      }
+      return items;
+    })();
+
+    const risks = (() => {
+      const items: string[] = [];
+      if (summary.overdue > 0) {
+        items.push(
+          `${summary.overdue} overdue task${
+            summary.overdue === 1 ? "" : "s"
+          } may affect delivery timelines.`
+        );
+      }
+      if (summary.counts.notStarted > 0) {
+        items.push(
+          `${summary.counts.notStarted} task${
+            summary.counts.notStarted === 1 ? "" : "s"
+          } not started yet.`
+        );
+      }
+      if (items.length === 0) {
+        items.push("No critical risks identified in this period.");
+      }
+      return items;
+    })();
+
     return `
 <!DOCTYPE html>
 <html>
@@ -612,6 +716,47 @@ export default function CreateReportScreen() {
     gap: 12px 20px;
     font-size: 13px;
     color: #475467;
+  }
+  .narrative {
+    margin-top: 20px;
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    color: #1f2937;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .snapshot-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 12px;
+  }
+  .snapshot-table td {
+    padding: 6px 8px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+  }
+  .snapshot-table td.label {
+    color: #6b7280;
+    width: 45%;
+    font-weight: 600;
+  }
+  .narrative h3 {
+    margin: 0 0 10px 0;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #374151;
+  }
+  .narrative ul {
+    margin: 8px 0 0 16px;
+    padding: 0;
+  }
+  .narrative li {
+    margin-bottom: 6px;
   }
   .stat-grid {
     margin-top: 24px;
@@ -863,6 +1008,39 @@ export default function CreateReportScreen() {
           channels.length ? channels.join(", ") : "All projects"
         }</div>
         <div><strong>Status Filter:</strong> not-started, in-progress, completed</div>
+      </div>
+
+      <div class="narrative">
+        <h3>1. Executive Summary</h3>
+        ${summaryLines.map((line) => `<div>${line}</div>`).join("")}
+
+        <h3 style="margin-top:14px;">High-level Status Snapshot</h3>
+        <table class="snapshot-table">
+          <tr><td class="label">Operational progress</td><td>${summary.completionRate}% completion</td></tr>
+          <tr><td class="label">Overdue items</td><td>${summary.overdue}</td></tr>
+          <tr><td class="label">Tasks in progress</td><td>${summary.counts.inProgress}</td></tr>
+          <tr><td class="label">Tasks not started</td><td>${summary.counts.notStarted}</td></tr>
+        </table>
+
+        <h3 style="margin-top:14px;">2. Project Context & Objectives</h3>
+        <ul>
+          ${contextObjectives.map((line) => `<li>${line}</li>`).join("")}
+        </ul>
+
+        <h3 style="margin-top:14px;">3. Highlights</h3>
+        <ul>
+          ${highlights.map((line) => `<li>${line}</li>`).join("")}
+        </ul>
+
+        <h3 style="margin-top:14px;">4. Risks & Blockers</h3>
+        <ul>
+          ${risks.map((line) => `<li>${line}</li>`).join("")}
+        </ul>
+
+        <h3 style="margin-top:14px;">5. Next Steps</h3>
+        <ul>
+          ${nextSteps.map((step) => `<li>${step}</li>`).join("")}
+        </ul>
       </div>
 
       <div class="stat-grid">
