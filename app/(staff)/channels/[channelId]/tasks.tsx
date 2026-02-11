@@ -33,11 +33,13 @@ import { fetchProfile } from "@/redux/user/user.thunks";
 // NEW: our task selectors
 import {
   ChannelStatusKey,
+  ChannelTask,
   makeSelectChannelTasksByChannelId,
   makeSelectChannelTasksByStatus,
 } from "@/redux/channels/channels.selectors";
 
 import { STATUS_META } from "@/features/staff/types";
+import { formatDateLabel, getDateKey } from "@/utils/format";
 
 const PRIMARY = "#4C5FAB";
 
@@ -50,6 +52,9 @@ const TABS: { key: ChannelStatusKey; label: string }[] = [
 ];
 
 export default function StatusScreen() {
+  type TaskListItem =
+    | { type: "date"; key: string; ts: number }
+    | { type: "task"; key: string; task: ChannelTask };
   const params = useLocalSearchParams<{
     status?: ChannelStatusKey;
     channelId?: string;
@@ -138,6 +143,23 @@ export default function StatusScreen() {
 
   const isLoading = channelsStatus === "loading" && !allChannelTasks.length;
 
+  const listData = useMemo<TaskListItem[]>(() => {
+    const out: TaskListItem[] = [];
+    let lastDateKey: string | null = null;
+    for (const task of list) {
+      const ts = typeof task.createdAt === "number" ? task.createdAt : NaN;
+      if (Number.isFinite(ts)) {
+        const dateKey = getDateKey(ts);
+        if (dateKey !== lastDateKey) {
+          out.push({ type: "date", key: `d-${dateKey}`, ts });
+          lastDateKey = dateKey;
+        }
+      }
+      out.push({ type: "task", key: `t-${task.id}`, task });
+    }
+    return out;
+  }, [list]);
+
   const goTab = (key: ChannelStatusKey) => {
     router.setParams({ status: key, channelId: channelId ?? undefined });
   };
@@ -210,33 +232,47 @@ export default function StatusScreen() {
             paddingBottom: 120,
             paddingTop: 12,
           }}
-          data={list}
-          keyExtractor={(i) => i.id}
-          ItemSeparatorComponent={() => <View style={{ height: 10 }} />}
-          renderItem={({ item }) => (
-            <Pressable onPress={() => setEdit(item as any)}>
-              <BoardCard
-                project={item.channelCode || "—"}
-                title={item.title}
-                description={item.description || ""}
-                assignees={(item.assignees || [])
-                  .map(
-                    (assignee) =>
-                      assignee.name ??
-                      assignee.email ??
-                      (assignee.id ? memberLookup.get(assignee.id) : null) ??
-                      assignee.id ??
-                      null
-                  )
-                  .filter(Boolean) as string[]}
-                statusLabel={
-                  TABS.find((t) => t.key === item.status)?.label ?? item.status
-                }
-                cardBg={STATUS_META[item.status].bgColor}
-                pillBg={STATUS_META[item.status].arrowBg}
-              />
-            </Pressable>
-          )}
+          data={listData}
+          keyExtractor={(i) => i.key}
+          renderItem={({ item }) => {
+            if (item.type === "date") {
+              return (
+                <View className="px-4 mt-3 mb-1 items-center">
+                  <View className="px-3 py-1 rounded-full bg-gray-100">
+                    <Text className="text-[11px] text-gray-500 font-kumbh">
+                      {formatDateLabel(item.ts)}
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+            const task = item.task;
+            return (
+              <Pressable onPress={() => setEdit(task as any)}>
+                <BoardCard
+                  project={task.channelCode || "—"}
+                  title={task.title}
+                  description={task.description || ""}
+                  assignees={(task.assignees || [])
+                    .map(
+                      (assignee) =>
+                        assignee.name ??
+                        assignee.email ??
+                        (assignee.id ? memberLookup.get(assignee.id) : null) ??
+                        assignee.id ??
+                        null
+                    )
+                    .filter(Boolean) as string[]}
+                  statusLabel={
+                    TABS.find((t) => t.key === task.status)?.label ??
+                    task.status
+                  }
+                  cardBg={STATUS_META[task.status].bgColor}
+                  pillBg={STATUS_META[task.status].arrowBg}
+                />
+              </Pressable>
+            );
+          }}
           ListEmptyComponent={
             <View className="px-4 mt-4">
               <Text className="font-kumbh text-[#9CA3AF] text-center">

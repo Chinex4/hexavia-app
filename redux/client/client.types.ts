@@ -22,6 +22,7 @@ export interface Client {
   threats?: string;
   deliverables?: string;
   payableAmount?: number;
+  document?: string | null;
   documentUrl?: string | null;
   status?: ClientStatus;
   createdAt?: string;
@@ -73,6 +74,7 @@ export interface ClientCreateInput {
   threats?: string;
   deliverables?: string;
   payableAmount?: number;
+  document?: string;
   documentUrl?: string;
   status?: ClientStatus;
 }

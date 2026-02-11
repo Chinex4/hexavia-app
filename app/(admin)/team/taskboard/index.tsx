@@ -12,6 +12,8 @@ import TaskDetailModal from "@/components/staff/tasks/modals/TaskDetailModal";
 import CreateTaskModal from "@/components/staff/tasks/modals/CreateTaskModal";
 import type { Task } from "@/features/staff/types";
 import { fromApiStatus } from "@/features/client/statusMap";
+import type { PersonalTaskApi } from "@/features/staff/personalTasks.types";
+import { api } from "@/api/axios";
 
 type ApiTask = {
   _id: string;
@@ -38,6 +40,31 @@ export default function TaskBoard() {
   // Channels this staff is in
   const channelsForUser = useAppSelector(selectChannelsForUser(String(staffId ?? "")));
 
+  // Personal tasks assigned to this staff (admin -> personal tasks)
+  const [personalTasks, setPersonalTasks] = useState<PersonalTaskApi[]>([]);
+
+  const fetchAssignedPersonalTasks = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!staffId) return;
+      try {
+        const res = await api.get(`/personal-task/assigned/${staffId}`, {
+          signal,
+        });
+        const tasks = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.tasks)
+            ? res.data.tasks
+            : [];
+        setPersonalTasks(tasks);
+      } catch {
+        // ignore; leave previous tasks if any
+      } finally {
+        // no-op
+      }
+    },
+    [staffId]
+  );
+
   // Ensure each channel is hydrated with tasks (like your other screens)
   useEffect(() => {
     if (!channelsForUser?.length) return;
@@ -47,6 +74,13 @@ export default function TaskBoard() {
       }
     });
   }, [dispatch, channelsForUser]);
+
+  useEffect(() => {
+    if (!staffId) return;
+    const controller = new AbortController();
+    fetchAssignedPersonalTasks(controller.signal);
+    return () => controller.abort();
+  }, [fetchAssignedPersonalTasks, staffId]);
 
   // Build UI task objects (with channelId + channelCode)
   const { todo, doing, done, canceled } = useMemo(() => {
@@ -89,6 +123,36 @@ export default function TaskBoard() {
       }
     }
 
+    for (const t of personalTasks) {
+      const rawStatus = (t.status ?? "").toString().toLowerCase();
+      const uiStatus = fromApiStatus(rawStatus);
+      const api: ApiTask = {
+        _id: String(t._id),
+        name: t.name ?? "(Untitled Task)",
+        description: t.description ?? "",
+        status: rawStatus,
+        channelId: "personal",
+        channelCode: "Personal",
+      };
+
+      const ui: Task = {
+        id: api._id,
+        title: api.name || "(Untitled Task)",
+        description: api.description || "",
+        status: uiStatus,
+        channelCode: "Personal",
+        channelId: "personal",
+        createdAt:
+          typeof t?.createdAt === "number"
+            ? t.createdAt
+            : t?.createdAt
+              ? new Date(t.createdAt).getTime()
+              : Date.now(),
+      };
+
+      all.push({ ...api, ui });
+    }
+
     const bucket = {
       todo: [] as (ApiTask & { ui: Task })[],
       doing: [] as (ApiTask & { ui: Task })[],
@@ -105,7 +169,7 @@ export default function TaskBoard() {
     }
 
     return bucket;
-  }, [channelsForUser]);
+  }, [channelsForUser, personalTasks]);
 
   // Edit modal state
   const [edit, setEdit] = useState<Task | null>(null);
@@ -116,6 +180,12 @@ export default function TaskBoard() {
   const openEdit = useCallback((t: ApiTask & { ui: Task }) => setEdit(t.ui), []);
   const closeEdit = useCallback(() => setEdit(null), []);
 
+  useEffect(() => {
+    if (!showCreate && staffId) {
+      fetchAssignedPersonalTasks();
+    }
+  }, [showCreate, staffId, fetchAssignedPersonalTasks]);
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {/* Header */}
@@ -123,7 +193,7 @@ export default function TaskBoard() {
         <Pressable onPress={() => router.back()} className="w-10 h-10 items-center justify-center">
           <ArrowLeft size={24} color="#111827" />
         </Pressable>
-        <Text className="text-2xl font-kumbh text-[#111827]">{staffName}: Task Board</Text>
+        <Text className="text-xl font-kumbh text-[#111827]">{staffName}: Task Board</Text>
         <View className="w-10" />
       </View>
 
@@ -214,6 +284,10 @@ function Column({
               {t.channelCode}
             </Text>
           ) : null}
+
+          <Text className="mt-1 text-[11px] font-kumbh" style={{ color: "#6B7280" }}>
+            {formatCreatedAt(t.ui.createdAt)}
+          </Text>
         </Pressable>
       ))}
 
@@ -246,4 +320,17 @@ function chipFg(s?: string) {
   if (["canceled", "cancelled", "archived"].includes(v)) return "#991B1B";
   if (["doing", "in-progress", "progress", "active", "working"].includes(v)) return "#1E40AF";
   return "#374151";
+}
+
+function formatCreatedAt(ms?: number) {
+  if (!ms) return "Created —";
+  try {
+    const d = new Date(ms);
+    return `Created ${d.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+    })} ${d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  } catch {
+    return "Created —";
+  }
 }

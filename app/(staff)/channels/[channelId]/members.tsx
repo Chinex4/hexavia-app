@@ -9,10 +9,13 @@ import {
   ActivityIndicator,
   Pressable,
   Alert,
+  Platform,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ChevronLeft, Plus } from "lucide-react-native";
+import { ChevronLeft, Plus, Share2 } from "lucide-react-native";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -24,10 +27,15 @@ import {
   adminAddChannelMember,
   fetchAdminUsers,
 } from "@/redux/admin/admin.thunks";
+import { fetchChannelLinks } from "@/redux/channelLinks/channelLinks.thunks";
+import type { ChannelLink } from "@/redux/channelLinks/channelLinks.types";
+import { fetchChannelNotes } from "@/redux/channelNotes/channelNotes.thunks";
+import type { ChannelNote } from "@/redux/channelNotes/channelNotes.types";
 import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { selectUser } from "@/redux/user/user.slice";
 import { StatusBar } from "expo-status-bar";
 import OptionSheet from "@/components/common/OptionSheet";
+import type { ChannelResource } from "@/redux/channels/resources.types";
 
 type MemberItem = {
   id: string;
@@ -50,6 +58,507 @@ function Chip({ children }: { children: React.ReactNode }) {
       <Text className="text-xs text-gray-700 font-kumbh">{children}</Text>
     </View>
   );
+}
+
+function fmtDate(d?: string | Date | null) {
+  if (!d) return "—";
+  const date = typeof d === "string" ? new Date(d) : d;
+  if (!date || Number.isNaN(date.getTime())) return "—";
+  const dd = String(date.getDate()).padStart(2, "0");
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function escapeHtml(input?: string | number | null) {
+  if (input === null || input === undefined) return "";
+  return String(input)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function statusBadgeColor(s?: string) {
+  switch (String(s || "").toLowerCase()) {
+    case "completed":
+      return "#16a34a";
+    case "in-progress":
+      return "#f59e0b";
+    case "not-started":
+      return "#9ca3af";
+    case "canceled":
+      return "#ef4444";
+    default:
+      return "#6b7280";
+  }
+}
+
+function detectResourceCategory(resource: ChannelResource) {
+  const explicit = String(resource.category ?? "").toLowerCase();
+  if (explicit) return explicit;
+  const mime = String(resource.mime || resource.mimetype || "").toLowerCase();
+  if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("audio/")) return "audio";
+  if (mime.startsWith("video/")) return "video";
+  if (mime.includes("pdf") || mime.includes("document")) return "document";
+  const name = String(resource.name || "").toLowerCase();
+  const url = String(resource.resourceUpload || "").toLowerCase();
+  if (/\.(png|jpg|jpeg|gif|webp|bmp|svg)$/.test(name + url)) return "image";
+  if (/\.(mp3|wav|m4a|aac|ogg)$/.test(name + url)) return "audio";
+  if (/\.(mp4|mov|avi|mkv|webm)$/.test(name + url)) return "video";
+  if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/.test(name + url))
+    return "document";
+  return "other";
+}
+
+function htmlForSingleChannelReport(payload: {
+  channelName: string;
+  channelCode?: string;
+  generatedAt: Date;
+  createdAt?: string;
+  createdBy?: string;
+  members: MemberItem[];
+  tasks: {
+    _id: string;
+    name: string;
+    description?: string | null;
+    status?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    dueDate?: string;
+    due_date?: string;
+  }[];
+  resources: ChannelResource[];
+  links: ChannelLink[];
+  notes: ChannelNote[];
+}) {
+  const {
+    channelName,
+    channelCode,
+    generatedAt,
+    createdAt,
+    createdBy,
+    members,
+    tasks,
+    resources,
+    links,
+    notes,
+  } = payload;
+
+  const taskRows =
+    tasks.length > 0
+      ? tasks
+          .map((t, i) => {
+            const due = t.dueDate || t.due_date;
+            return `
+              <tr>
+                <td>${i + 1}</td>
+                <td class="task-title">${escapeHtml(t.name || "Untitled Task")}</td>
+                <td><span class="status-pill" style="background:${statusBadgeColor(
+                  t.status
+                )};color:#fff;">${escapeHtml(t.status || "unknown")}</span></td>
+                <td>${escapeHtml(fmtDate(t.createdAt))}</td>
+                <td>${escapeHtml(fmtDate(t.updatedAt))}</td>
+                <td>${escapeHtml(fmtDate(due))}</td>
+                <td>${escapeHtml(t.description || "—")}</td>
+              </tr>
+            `;
+          })
+          .join("")
+      : `<tr><td colspan="7" class="empty-row">No tasks found.</td></tr>`;
+
+  const resourceRows =
+    resources.length > 0
+      ? resources
+          .map(
+            (r, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${escapeHtml(r.name || "Untitled")}</td>
+                <td>${escapeHtml(detectResourceCategory(r))}</td>
+                <td>${escapeHtml(r.description || "—")}</td>
+                <td>${escapeHtml(r.resourceUpload || "—")}</td>
+              </tr>
+            `
+          )
+          .join("")
+      : `<tr><td colspan="5" class="empty-row">No resources found.</td></tr>`;
+
+  const linksMarkup =
+    links.length > 0
+      ? links
+          .map(
+            (l) => `
+              <li class="ln-item">
+                <div class="ln-title">${escapeHtml(l.title || "Link")}</div>
+                <div class="ln-url">${escapeHtml(l.url)}</div>
+                ${
+                  l.description
+                    ? `<div class="ln-desc">${escapeHtml(l.description)}</div>`
+                    : ""
+                }
+              </li>
+            `
+          )
+          .join("")
+      : `<li class="ln-empty">No links</li>`;
+
+  const notesMarkup =
+    notes.length > 0
+      ? notes
+          .map(
+            (n) => `
+              <li class="ln-item">
+                <div class="ln-title">${escapeHtml(n.title || "Untitled Note")}</div>
+                <div class="ln-desc">${escapeHtml(n.description || "—")}</div>
+              </li>
+            `
+          )
+          .join("")
+      : `<li class="ln-empty">No notes</li>`;
+
+  const memberMarkup =
+    members.length > 0
+      ? members
+          .map(
+            (m) =>
+              `<span class="member-chip">${escapeHtml(m.username || "Member")}</span>`
+          )
+          .join("")
+      : `<span class="ln-empty">No members found</span>`;
+
+  const completed = tasks.filter((t) => t.status === "completed").length;
+  const inProgress = tasks.filter((t) => t.status === "in-progress").length;
+  const notStarted = tasks.filter((t) => t.status === "not-started").length;
+  const canceled = tasks.filter((t) => t.status === "canceled").length;
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Channel Report</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+    background: #eef2ff;
+    color: #111827;
+    margin: 0;
+  }
+  .page {
+    width: 100%;
+    padding: 32px 24px 48px;
+  }
+  .report-surface {
+    max-width: 1020px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 32px;
+    padding: 32px;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.15);
+  }
+  .report-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .h1 {
+    font-size: 26px;
+    margin: 0;
+    font-weight: 700;
+  }
+  .brand-subtitle {
+    color: #6b7280;
+    font-size: 14px;
+    margin-top: 4px;
+  }
+  .header-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+  }
+  .chip {
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: #eef2ff;
+    color: #312e81;
+  }
+  .chip.subtle {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+  .report-meta {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px 20px;
+    font-size: 13px;
+    color: #475467;
+  }
+  .member-row {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .member-chip {
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 12px;
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+  .stat-grid {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+  .stat-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 14px;
+    background: #f9fafb;
+  }
+  .stat-card .label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+  .stat-card .value {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .section {
+    margin-top: 32px;
+  }
+  .section-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .muted {
+    color: #6b7280;
+    font-size: 12px;
+  }
+  .table-wrapper {
+    margin-top: 12px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead {
+    background: #111827;
+    color: #fff;
+  }
+  th {
+    padding: 12px;
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+    vertical-align: middle;
+  }
+  tbody tr:nth-child(odd) {
+    background: #f8fafc;
+  }
+  .task-title {
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .status-pill {
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 11px;
+    text-transform: capitalize;
+    letter-spacing: 0.04em;
+    display: inline-flex;
+    align-items: center;
+  }
+  .empty-row {
+    text-align: center;
+    padding: 24px 0;
+    color: #6b7280;
+  }
+  .ln-grid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 14px;
+  }
+  .ln-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 18px;
+    padding: 14px 16px;
+  }
+  .ln-subtitle {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .ln-list {
+    margin: 0;
+    padding-left: 16px;
+  }
+  .ln-item {
+    margin-bottom: 8px;
+  }
+  .ln-title {
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 2px;
+  }
+  .ln-url {
+    font-size: 12px;
+    color: #2563eb;
+    word-break: break-all;
+  }
+  .ln-desc {
+    font-size: 12px;
+    color: #6b7280;
+  }
+  .ln-empty {
+    font-size: 12px;
+    color: #9ca3af;
+  }
+  .footer {
+    margin-top: 32px;
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 0.08em;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="report-surface">
+      <div class="report-header">
+        <div>
+          <div class="h1">Channel Work Report</div>
+          <div class="brand-subtitle">${escapeHtml(channelName)}</div>
+        </div>
+        <div class="header-chips">
+          <div class="chip">HEXAVIA</div>
+          <div class="chip subtle">Single Channel</div>
+        </div>
+      </div>
+
+      <div class="report-meta">
+        <div><strong>Channel:</strong> ${escapeHtml(channelName)}</div>
+        <div><strong>Code:</strong> ${escapeHtml(channelCode || "—")}</div>
+        <div><strong>Owner:</strong> ${escapeHtml(createdBy || "—")}</div>
+        <div><strong>Created:</strong> ${escapeHtml(fmtDate(createdAt))}</div>
+        <div><strong>Generated:</strong> ${escapeHtml(fmtDate(generatedAt))}</div>
+      </div>
+
+      <div class="member-row">
+        ${memberMarkup}
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card"><div class="label">Total Tasks</div><div class="value">${tasks.length}</div></div>
+        <div class="stat-card"><div class="label">Completed</div><div class="value">${completed}</div></div>
+        <div class="stat-card"><div class="label">In Progress</div><div class="value">${inProgress}</div></div>
+        <div class="stat-card"><div class="label">Not Started</div><div class="value">${notStarted}</div></div>
+        <div class="stat-card"><div class="label">Canceled</div><div class="value">${canceled}</div></div>
+        <div class="stat-card"><div class="label">Resources</div><div class="value">${resources.length}</div></div>
+        <div class="stat-card"><div class="label">Links</div><div class="value">${links.length}</div></div>
+        <div class="stat-card"><div class="label">Notes</div><div class="value">${notes.length}</div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-heading">
+          <div>Tasks</div>
+          <div class="muted">Task board snapshot</div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Task</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Updated</th>
+                <th>Due</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>${taskRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-heading">
+          <div>Resources</div>
+          <div class="muted">Uploaded files and media</div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>URL</th>
+              </tr>
+            </thead>
+            <tbody>${resourceRows}</tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-heading">
+          <div>Links & Notes</div>
+          <div class="muted">Knowledge captured in channel</div>
+        </div>
+        <div class="ln-grid">
+          <div class="ln-card">
+            <div class="ln-subtitle">Links</div>
+            <ul class="ln-list">${linksMarkup}</ul>
+          </div>
+          <div class="ln-card">
+            <div class="ln-subtitle">Notes</div>
+            <ul class="ln-list">${notesMarkup}</ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">Hexavia • Auto-generated channel report</div>
+    </div>
+  </div>
+</body>
+</html>`;
 }
 
 function RowMember({
@@ -139,6 +648,7 @@ export default function ChannelInfoScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isAddSheetVisible, setAddSheetVisible] = useState(false);
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
   const onRefresh = useCallback(async () => {
     if (!channelId) return;
@@ -349,10 +859,73 @@ export default function ChannelInfoScreen() {
         console.warn("[admin/add-channel-member] failed", err);
       }
     },
-    [channel, channelId, dispatch, fetchChannelById]
+    [channel, channelId, dispatch]
   );
 
   const isLoading = !channel && !!channelId;
+
+  const handleGenerateReport = useCallback(async () => {
+    if (!channelId || !channel) return;
+
+    setIsGeneratingReport(true);
+    try {
+      const latestChannel = await dispatch(fetchChannelById(channelId)).unwrap();
+      const [links, notes] = await Promise.all([
+        dispatch(fetchChannelLinks(channelId))
+          .unwrap()
+          .catch(() => [] as ChannelLink[]),
+        dispatch(fetchChannelNotes(channelId))
+          .unwrap()
+          .catch(() => [] as ChannelNote[]),
+      ]);
+
+      const ownerName =
+        typeof (latestChannel as any)?.createdBy === "string"
+          ? String((latestChannel as any).createdBy)
+          : (latestChannel as any)?.createdBy?.username ||
+            (latestChannel as any)?.createdBy?.name ||
+            (latestChannel as any)?.createdBy?.email ||
+            "Unknown";
+
+      const html = htmlForSingleChannelReport({
+        channelName: latestChannel.name || "Channel",
+        channelCode: (latestChannel as any)?.code,
+        generatedAt: new Date(),
+        createdAt: (latestChannel as any)?.createdAt,
+        createdBy: ownerName,
+        members,
+        tasks: Array.isArray((latestChannel as any)?.tasks)
+          ? ((latestChannel as any).tasks as any[])
+          : [],
+        resources: Array.isArray((latestChannel as any)?.resources)
+          ? ((latestChannel as any).resources as ChannelResource[])
+          : [],
+        links: Array.isArray(links) ? links : [],
+        notes: Array.isArray(notes) ? notes : [],
+      });
+
+      if (Platform.OS === "web") {
+        await Print.printAsync({ html });
+        return;
+      }
+
+      const file = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert("Share unavailable", "Sharing is not available on this device.");
+        return;
+      }
+      await Sharing.shareAsync(file.uri, {
+        UTI: "com.adobe.pdf",
+        mimeType: "application/pdf",
+        dialogTitle: `Export Report - ${latestChannel.name || "Channel"}`,
+      });
+    } catch (err: any) {
+      Alert.alert("Generate report failed", err?.message || "Please try again.");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  }, [channelId, channel, dispatch, members]);
 
   const HeaderBar = (
     <View
@@ -445,6 +1018,23 @@ export default function ChannelInfoScreen() {
           }
         >
           <Text className="text-gray-900 font-medium font-kumbh">Tasks</Text>
+        </Pressable>
+      </View>
+      <View className="mt-3">
+        <Pressable
+          className="bg-gray-900 px-4 py-3 rounded-2xl flex-row items-center justify-center"
+          disabled={isGeneratingReport}
+          onPress={handleGenerateReport}
+          style={{ opacity: isGeneratingReport ? 0.7 : 1 }}
+        >
+          {isGeneratingReport ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Share2 size={18} color="#ffffff" />
+          )}
+          <Text className="text-white font-medium font-kumbh ml-2">
+            {isGeneratingReport ? "Generating report..." : "Generate Report"}
+          </Text>
         </Pressable>
       </View>
 

@@ -20,6 +20,7 @@ import type { AttachmentKind, Message, ReplyMeta } from "@/types/chat";
 import type { ChatTaggedUser } from "@/types/chat-model";
 import { buildMentionables, type Mentionable } from "@/utils/handles";
 import { showError } from "@/components/ui/toast";
+import { formatDateLabel, getDateKey } from "@/utils/format";
 import {
   AudioModule,
   RecordingPresets,
@@ -134,7 +135,10 @@ export default function ChatScreen() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Message | null>(null);
   const [replyTo, setReplyTo] = useState<ReplyMeta | null>(null);
-  const listRef = useRef<FlatList<Message>>(null);
+  type ChatListItem =
+    | { type: "date"; key: string; ts: number }
+    | { type: "message"; key: string; message: Message };
+  const listRef = useRef<FlatList<ChatListItem>>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordDurationMs, setRecordDurationMs] = useState(0);
   const [draftText, setDraftText] = useState("");
@@ -161,6 +165,25 @@ export default function ChatScreen() {
       replyTo: (m as any).replyTo,
     }));
   }, [messagesFromRedux]);
+
+  const listData = useMemo<ChatListItem[]>(() => {
+    const out: ChatListItem[] = [];
+    let lastDateKey: string | null = null;
+    for (const m of data) {
+      if (!m) continue;
+      const isTyping = m.id === "typing";
+      const ts = typeof m.createdAt === "number" ? m.createdAt : NaN;
+      if (!isTyping && Number.isFinite(ts)) {
+        const dateKey = getDateKey(ts);
+        if (dateKey !== lastDateKey) {
+          out.push({ type: "date", key: `d-${dateKey}`, ts });
+          lastDateKey = dateKey;
+        }
+      }
+      out.push({ type: "message", key: `m-${m.id}`, message: m });
+    }
+    return out;
+  }, [data]);
 
   useEffect(() => {
     if (!channelId) return;
@@ -811,10 +834,22 @@ export default function ChatScreen() {
         <FlatList
           ref={listRef}
           contentContainerStyle={{ paddingTop: 16, paddingBottom }}
-          data={data}
-          keyExtractor={(m) => m.id}
+          data={listData}
+          keyExtractor={(item) => item.key}
           renderItem={({ item }) => {
-            if (item.id === "typing") {
+            if (item.type === "date") {
+              return (
+                <View className="px-5 mb-3 items-center">
+                  <View className="px-3 py-1 rounded-full bg-gray-100">
+                    <Text className="text-[11px] text-gray-500 font-kumbh">
+                      {formatDateLabel(item.ts)}
+                    </Text>
+                  </View>
+                </View>
+              );
+            }
+
+            if (item.message.id === "typing") {
               return (
                 <View className="px-5 mb-3">
                   <View className="h-4 w-12 rounded-full bg-gray-2 00" />
@@ -823,8 +858,8 @@ export default function ChatScreen() {
             }
             return (
               <MessageBubble
-                msg={item}
-                isMe={item.senderId === meId}
+                msg={item.message}
+                isMe={item.message.senderId === meId}
                 onLongPress={openSheetFor}
                 mentionMap={mentionMap}
               />

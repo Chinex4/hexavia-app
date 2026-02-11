@@ -7,11 +7,19 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft, ArrowRight, Plus } from "lucide-react-native";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Plus,
+  Search,
+  ChevronDown,
+} from "lucide-react-native";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import OptionSheet from "@/components/common/OptionSheet";
 
 import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
 import {
@@ -37,6 +45,11 @@ export default function TeamIndex() {
   const totalSanctions = sanctions.length;
 
   const [refreshing, setRefreshing] = useState(false);
+  const [query, setQuery] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "createdAt">("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [showSortSheet, setShowSortSheet] = useState(false);
+  const [showOrderSheet, setShowOrderSheet] = useState(false);
 
   useEffect(() => {
     dispatch(fetchAdminUsers({ role: "staff" }));
@@ -55,7 +68,44 @@ export default function TeamIndex() {
     }
   }, [dispatch]);
 
-  const data = useMemo(() => staff, [staff]);
+  const data = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = staff;
+
+    if (q) {
+      list = list.filter((u) => {
+        const name = u.fullname ?? "";
+        const username = u.username ?? "";
+        const email = u.email ?? "";
+        return (
+          name.toLowerCase().includes(q) ||
+          username.toLowerCase().includes(q) ||
+          email.toLowerCase().includes(q)
+        );
+      });
+    }
+
+    const toMs = (v?: string) => {
+      if (!v) return 0;
+      const ms = new Date(v).getTime();
+      return Number.isFinite(ms) ? ms : 0;
+    };
+
+    const sorted = [...list].sort((a, b) => {
+      if (sortBy === "name") {
+        const an = (a.fullname || a.username || a.email || "").toLowerCase();
+        const bn = (b.fullname || b.username || b.email || "").toLowerCase();
+        return an.localeCompare(bn);
+      }
+      return toMs(a.createdAt) - toMs(b.createdAt);
+    });
+
+    if (sortOrder === "desc") {
+      sorted.reverse();
+    }
+
+    return sorted;
+  }, [staff, query, sortBy, sortOrder]);
 
   return (
     <SafeAreaView className="flex-1 bg-background">
@@ -92,6 +142,43 @@ export default function TeamIndex() {
           >
             <Plus size={18} color="#fff" />
             <Text className="text-white font-kumbhBold">Add New</Text>
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Search + Filters */}
+      <View className="px-5">
+        <View className="flex-row items-center rounded-full bg-gray-200 py-2 px-4">
+          <Search size={18} color="#6B7280" />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search name, username, email"
+            placeholderTextColor="#9CA3AF"
+            className="flex-1 px-2 py-3 font-kumbh text-text"
+            returnKeyType="search"
+          />
+        </View>
+
+        <View className="mt-3 flex-row gap-3">
+          <Pressable
+            onPress={() => setShowSortSheet(true)}
+            className="flex-1 rounded-2xl px-4 py-4 bg-gray-200 flex-row items-center justify-between"
+          >
+            <Text className="text-gray-700 font-kumbh">
+              {sortBy === "name" ? "Sort: Name" : "Sort: Joined"}
+            </Text>
+            <ChevronDown size={18} color="#111827" />
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowOrderSheet(true)}
+            className="flex-1 rounded-2xl px-4 py-4 bg-gray-200 flex-row items-center justify-between"
+          >
+            <Text className="text-gray-700 font-kumbh">
+              {sortOrder === "asc" ? "Order: Asc" : "Order: Desc"}
+            </Text>
+            <ChevronDown size={18} color="#111827" />
           </Pressable>
         </View>
       </View>
@@ -152,6 +239,30 @@ export default function TeamIndex() {
           }
         />
       )}
+
+      <OptionSheet
+        visible={showSortSheet}
+        onClose={() => setShowSortSheet(false)}
+        title="Sort staff by"
+        selectedValue={sortBy}
+        onSelect={(v) => setSortBy(v as "name" | "createdAt")}
+        options={[
+          { label: "Name", value: "name" },
+          { label: "Joined date", value: "createdAt" },
+        ]}
+      />
+
+      <OptionSheet
+        visible={showOrderSheet}
+        onClose={() => setShowOrderSheet(false)}
+        title="Sort order"
+        selectedValue={sortOrder}
+        onSelect={(v) => setSortOrder(v as "asc" | "desc")}
+        options={[
+          { label: "Ascending", value: "asc" },
+          { label: "Descending", value: "desc" },
+        ]}
+      />
     </SafeAreaView>
   );
 }

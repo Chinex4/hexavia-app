@@ -1,10 +1,13 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import {
   ArrowLeft,
   ChevronDown,
   ClipboardCheck,
   FileText,
   Save,
+  Share2,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -121,6 +124,16 @@ const INDUSTRY_OPTIONS = [
 
 const toUiLabel = (s?: ApiStatus) =>
   STATUS_OPTIONS.find((x) => x.value === s)?.label ?? "Pending";
+
+function escapeHtml(input?: string | number | null) {
+  if (input === null || input === undefined) return "";
+  return String(input)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
@@ -379,8 +392,10 @@ export default function ClientDetails() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [showIndustrySheet, setShowIndustrySheet] = useState(false);
   const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const effectiveIndustry =
     industry === "Other" ? industryOther.trim() : industry.trim();
+  const joined = formatDate(baseUser.createdAt);
   const handleOpenDocument = useCallback(async () => {
     if (!documentLink) return;
     try {
@@ -393,13 +408,310 @@ export default function ClientDetails() {
         return;
       }
       await Linking.openURL(documentLink);
-    } catch (err) {
+    } catch {
       Alert.alert(
         "Unable to open document",
         "Something went wrong while opening the document."
       );
     }
   }, [documentLink]);
+
+  const handleShareClientPdf = useCallback(async () => {
+    const displayName = name.trim() || baseUser.fullname || "Client";
+    const safeProjectName = projectName.trim() || "Untitled Project";
+    const payableAmount = parseMoney(payable);
+    const generatedAt = new Date();
+
+    const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Client Detail Report</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, sans-serif;
+    background: #eef2ff;
+    color: #111827;
+    margin: 0;
+  }
+  .page {
+    width: 100%;
+    padding: 32px 24px 48px;
+  }
+  .report-surface {
+    max-width: 980px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 32px;
+    padding: 32px;
+    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.15);
+  }
+  .report-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .h1 {
+    font-size: 26px;
+    margin: 0;
+    font-weight: 700;
+  }
+  .brand-subtitle {
+    margin-top: 4px;
+    color: #6b7280;
+    font-size: 14px;
+  }
+  .header-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-end;
+  }
+  .chip {
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    background: #eef2ff;
+    color: #312e81;
+  }
+  .chip.subtle {
+    background: #f3f4f6;
+    color: #4b5563;
+  }
+  .report-meta {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 20px;
+    font-size: 13px;
+    color: #475467;
+  }
+  .stat-grid {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  .stat-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 20px;
+    padding: 16px;
+    background: #f9fafb;
+  }
+  .stat-card .label {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+  .stat-card .value {
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .section {
+    margin-top: 30px;
+  }
+  .section-heading {
+    font-weight: 600;
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+  .table-wrapper {
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  thead {
+    background: #111827;
+    color: #fff;
+  }
+  th {
+    padding: 12px;
+    text-align: left;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    color: #1f2937;
+    vertical-align: top;
+  }
+  tbody tr:nth-child(odd) {
+    background: #f8fafc;
+  }
+  .k {
+    width: 33%;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .footer {
+    margin-top: 32px;
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 0.08em;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="report-surface">
+      <div class="report-header">
+        <div>
+          <div class="h1">Client Detail Report</div>
+          <div class="brand-subtitle">${escapeHtml(displayName)} • ${escapeHtml(
+      safeProjectName
+    )}</div>
+        </div>
+        <div class="header-chips">
+          <div class="chip">HEXAVIA</div>
+          <div class="chip subtle">${escapeHtml(toUiLabel(statusApi))}</div>
+        </div>
+      </div>
+
+      <div class="report-meta">
+        <div><strong>Generated:</strong> ${escapeHtml(
+          generatedAt.toLocaleDateString()
+        )}</div>
+        <div><strong>Joined:</strong> ${escapeHtml(joined)}</div>
+        <div><strong>Email:</strong> ${escapeHtml(email || "—")}</div>
+        <div><strong>Phone:</strong> ${escapeHtml(phoneNumber || "—")}</div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="label">Industry</div>
+          <div class="value">${escapeHtml(effectiveIndustry || "—")}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Staff Size</div>
+          <div class="value">${escapeHtml(staffSize || "—")}</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Payable Amount</div>
+          <div class="value">${escapeHtml(formatMoneyNaira(payableAmount))}</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-heading">Client Information</div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr><th>Field</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+              <tr><td class="k">Name</td><td>${escapeHtml(displayName)}</td></tr>
+              <tr><td class="k">Project Name</td><td>${escapeHtml(
+                safeProjectName
+              )}</td></tr>
+              <tr><td class="k">Status</td><td>${escapeHtml(
+                toUiLabel(statusApi)
+              )}</td></tr>
+              <tr><td class="k">Industry</td><td>${escapeHtml(
+                effectiveIndustry || "—"
+              )}</td></tr>
+              <tr><td class="k">Staff Size</td><td>${escapeHtml(
+                staffSize || "—"
+              )}</td></tr>
+              <tr><td class="k">Description</td><td>${escapeHtml(
+                description || "—"
+              )}</td></tr>
+              <tr><td class="k">Problems Faced</td><td>${escapeHtml(
+                problems || "—"
+              )}</td></tr>
+              <tr><td class="k">Strengths</td><td>${escapeHtml(
+                strength || "—"
+              )}</td></tr>
+              <tr><td class="k">Weakness</td><td>${escapeHtml(
+                weakness || "—"
+              )}</td></tr>
+              <tr><td class="k">Opportunities</td><td>${escapeHtml(
+                opportunities || "—"
+              )}</td></tr>
+              <tr><td class="k">Threats</td><td>${escapeHtml(
+                threats || "—"
+              )}</td></tr>
+              <tr><td class="k">Engagement Offered</td><td>${escapeHtml(
+                engagement || "—"
+              )}</td></tr>
+              <tr><td class="k">Deliverables</td><td>${escapeHtml(
+                deliverables || "—"
+              )}</td></tr>
+              <tr><td class="k">Document</td><td>${escapeHtml(
+                documentLink || "No document uploaded"
+              )}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer">Hexavia • Auto-generated client report</div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+    setIsGeneratingPdf(true);
+    try {
+      if (Platform.OS === "web") {
+        await Print.printAsync({ html });
+        return;
+      }
+
+      const file = await Print.printToFileAsync({ html });
+      const canShare = await Sharing.isAvailableAsync();
+
+      if (!canShare) {
+        Alert.alert("Share unavailable", "Sharing is not available on this device.");
+        return;
+      }
+
+      const dialogTitle = `Client Report - ${displayName}`;
+      await Sharing.shareAsync(file.uri, {
+        UTI: "com.adobe.pdf",
+        mimeType: "application/pdf",
+        dialogTitle,
+      });
+    } catch (err: any) {
+      Alert.alert("Share failed", err?.message ?? "Unable to generate PDF.");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  }, [
+    baseUser.fullname,
+    deliverables,
+    description,
+    documentLink,
+    effectiveIndustry,
+    email,
+    engagement,
+    joined,
+    name,
+    opportunities,
+    payable,
+    phoneNumber,
+    problems,
+    projectName,
+    staffSize,
+    statusApi,
+    strength,
+    threats,
+    weakness,
+  ]);
 
   const dirty = useMemo(() => {
     const basePay = formatMoneyNaira(baseUser.payableAmount);
@@ -467,8 +779,6 @@ export default function ClientDetails() {
     setStatusApi(baseUser.statusApi);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [baseUser._id]);
-
-  const joined = formatDate(baseUser.createdAt);
 
   const onSave = async () => {
     if (!id || !dirty) return;
@@ -799,6 +1109,21 @@ export default function ClientDetails() {
                       onPress={handleOpenDocument}
                     />
                   </View>
+                </View>
+                <View className="mt-3">
+                  <PillButton
+                    variant="outline"
+                    icon={
+                      isGeneratingPdf ? (
+                        <ActivityIndicator size="small" color={PRIMARY} />
+                      ) : (
+                        <Share2 size={16} color={PRIMARY} />
+                      )
+                    }
+                    label={isGeneratingPdf ? "Generating..." : "Share Client PDF"}
+                    disabled={isGeneratingPdf}
+                    onPress={handleShareClientPdf}
+                  />
                 </View>
 
                 {/* Delete */}

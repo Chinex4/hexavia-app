@@ -164,6 +164,10 @@ export default function ChannelResourcesScreen() {
   const [editingNote, setEditingNote] = useState<ChannelNote | null>(null);
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<ChannelNote | null>(null);
+  const [resourceToDelete, setResourceToDelete] = useState<ChannelResource | null>(
+    null,
+  );
+  const [resourceDeleting, setResourceDeleting] = useState(false);
   const [previewNote, setPreviewNote] = useState<ChannelNote | null>(null);
   const [sortOrder, setSortOrder] = useState<{
     resources: "asc" | "desc";
@@ -587,6 +591,37 @@ export default function ChannelResourcesScreen() {
       ).unwrap();
     } finally {
       setNoteToDelete(null);
+    }
+  };
+
+  const handleDeleteResource = async () => {
+    if (!channelId || !resourceToDelete || resourceDeleting) return;
+    const resourceId = resourceToDelete._id;
+    if (!resourceId) {
+      showError("Resource ID is missing. Unable to delete.");
+      setResourceToDelete(null);
+      return;
+    }
+
+    try {
+      setResourceDeleting(true);
+      await api.delete("/channel/delete-resource", {
+        data: {
+          channelId,
+          resourceId,
+        },
+      });
+      showSuccess("Resource deleted");
+      await dispatch(fetchChannelById(channelId)).unwrap();
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to delete resource.";
+      showError(String(message));
+    } finally {
+      setResourceDeleting(false);
+      setResourceToDelete(null);
     }
   };
 
@@ -1231,6 +1266,17 @@ export default function ChannelResourcesScreen() {
         onConfirm={handleDeleteNote}
       />
 
+      <ConfirmModal
+        visible={Boolean(resourceToDelete)}
+        title="Delete resource"
+        message="This will remove the resource from this project permanently."
+        onCancel={() => {
+          if (resourceDeleting) return;
+          setResourceToDelete(null);
+        }}
+        onConfirm={handleDeleteResource}
+      />
+
       <Modal
         visible={Boolean(previewNote)}
         animationType="slide"
@@ -1288,6 +1334,20 @@ export default function ChannelResourcesScreen() {
               className="py-3"
             >
               <Text className="font-kumbh">Copy link</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => {
+                if (!actionFor._id) {
+                  showError("This resource cannot be deleted.");
+                  setActionFor(null);
+                  return;
+                }
+                setResourceToDelete(actionFor);
+                setActionFor(null);
+              }}
+              className="py-3"
+            >
+              <Text className="font-kumbh text-red-600">Delete resource</Text>
             </Pressable>
             <Pressable onPress={() => setActionFor(null)} className="py-3">
               <Text className="text-gray-500 font-kumbh">Cancel</Text>

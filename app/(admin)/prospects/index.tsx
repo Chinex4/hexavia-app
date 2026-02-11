@@ -36,13 +36,18 @@ import {
 } from "@/redux/client/client.selectors";
 import { setClientFilters } from "@/redux/client/client.slice";
 import { fetchClients } from "@/redux/client/client.thunks";
-import type { Client, ClientFilters } from "@/redux/client/client.types";
+import type {
+  Client,
+  ClientFilters,
+  ClientListResponse,
+} from "@/redux/client/client.types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { openEmail, dialPhone, openWhatsApp } from "@/utils/contact";
+import { api } from "@/api/axios";
 import clsx from "clsx";
 const STATUS_OPTS = ["current", "pending", "completed"] as const;
 const ENGAGEMENT_OPTS = ["Full-time", "Part-time", "Contract"] as const;
-const SORTBY_OPTS = ["createdAt", "payableAmount"] as const;
+const SORTBY_OPTS = ["createdAt", "updatedAt", "payableAmount"] as const;
 const ORDER_OPTS = ["desc", "asc"] as const;
 const LIMIT_OPTS = [10, 20, 50, 100] as const;
 type TabKey = "all" | "current" | "pending" | "completed";
@@ -79,6 +84,8 @@ export default function ClientsIndex() {
   const router = useRouter();
   const dispatch = useAppDispatch();
   const [range, setRange] = useState<RangeKey>("30D");
+  const SEARCH_LIMIT = 100;
+  const SEARCH_MAX = 2000;
 
   const clients = useAppSelector(selectAllClients);
   const loading = useAppSelector(selectClientsLoading);
@@ -89,6 +96,9 @@ export default function ClientsIndex() {
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounced(query, 300);
+  const [searchResults, setSearchResults] = useState<Client[] | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   const [form, setForm] = useState<ClientFilters>({
     status: undefined,
@@ -142,6 +152,74 @@ export default function ClientsIndex() {
     }
   }, [debouncedKey, dispatch, filters, range]);
 
+  useEffect(() => {
+    const q = debouncedQuery.trim();
+    if (!q) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const run = async () => {
+      setSearchLoading(true);
+      try {
+        const sinceISO = getSinceDate(range).toISOString();
+        const baseParams = {
+          status: filters.status,
+          industry: filters.industry,
+          engagement: filters.engagement,
+          sortBy: filters.sortBy,
+          sortOrder: filters.sortOrder ?? "desc",
+          from: sinceISO,
+          limit: SEARCH_LIMIT,
+        };
+
+        const first = await api.get<ClientListResponse>("/admin/clients", {
+          params: { ...baseParams, page: 1 },
+          signal: controller.signal,
+        });
+
+        let all = [...(first.data.clients ?? [])];
+        const totalPages = first.data.pagination?.totalPages ?? 1;
+
+        for (let page = 2; page <= totalPages; page += 1) {
+          if (all.length >= SEARCH_MAX) break;
+          const res = await api.get<ClientListResponse>("/admin/clients", {
+            params: { ...baseParams, page },
+            signal: controller.signal,
+          });
+          all = all.concat(res.data.clients ?? []);
+        }
+
+        if (!cancelled) setSearchResults(all);
+      } catch (err: any) {
+        if (!cancelled && err?.name !== "CanceledError") {
+          setSearchResults([]);
+        }
+      } finally {
+        if (!cancelled) setSearchLoading(false);
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    debouncedQuery,
+    filters.status,
+    filters.industry,
+    filters.engagement,
+    filters.sortBy,
+    filters.sortOrder,
+    range,
+  ]);
+
   const switchTab = useCallback(
     (next: TabKey) => {
       setTab(next);
@@ -177,12 +255,14 @@ export default function ClientsIndex() {
     });
 
     if (!query.trim()) return base;
+    if (!searchResults) return [];
 
     const q = query.trim().toLowerCase();
-    return base.filter((c: any) =>
+    return searchResults.filter((c: any) =>
       [
         c.name,
         c.projectName,
+        c.email,
         c.industry,
         c.status,
         String(c.payableAmount ?? ""),
@@ -191,7 +271,7 @@ export default function ClientsIndex() {
         .toLowerCase()
         .includes(q)
     );
-  }, [clients, query, range]);
+  }, [clients, query, range, searchResults]);
 
   const canPrev = (pagination?.currentPage ?? 1) > 1;
   const canNext =
@@ -240,7 +320,7 @@ export default function ClientsIndex() {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Search name, project, industry, status"
+              placeholder="Search name, project, email, industry"
               className="flex-1 text-[15px] font-kumbh text-gray-800"
               returnKeyType="search"
             />
@@ -329,13 +409,15 @@ export default function ClientsIndex() {
             ListEmptyComponent={
               <View className="px-5 py-16">
                 <Text className="text-center text-gray-500 font-kumbh">
-                  No clients found.
+                  {query.trim() && searchLoading
+                    ? "Searching all clients..."
+                    : "No clients found."}
                 </Text>
               </View>
             }
           />
 
-          {pagination && pagination.totalPages > 1 && (
+          {pagination && pagination.totalPages > 1 && !query.trim() && (
             <View className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-5 py-3">
               <View className="flex-row items-center justify-between">
                 <Pressable

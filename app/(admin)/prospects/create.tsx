@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { useRouter } from "expo-router";
 import { ArrowLeft, ChevronDown, Home, Plus } from "lucide-react-native";
 import * as DocumentPicker from "expo-document-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import React, { useCallback, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
@@ -27,7 +28,6 @@ import { selectClientMutationLoading } from "@/redux/client/client.selectors";
 import { createClient } from "@/redux/client/client.thunks";
 import type { ClientCreateInput } from "@/redux/client/client.types";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { uploadSingle } from "@/redux/upload/upload.thunks";
 
 type FormValues = {
   name?: string;
@@ -126,8 +126,6 @@ const INDUSTRY_OPTIONS = [
 
 const DOCUMENT_TYPES: string[] = [
   "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 ];
 
 export default function CreateClient() {
@@ -139,7 +137,7 @@ export default function CreateClient() {
   const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
   const [showIndustrySheet, setShowIndustrySheet] = useState(false);
   const [documentName, setDocumentName] = useState("");
-  const [documentUrl, setDocumentUrl] = useState<string | null>(null);
+  const [documentBinary, setDocumentBinary] = useState<string | null>(null);
   const [uploadingDocument, setUploadingDocument] = useState(false);
 
   const handleAttachDocument = useCallback(async () => {
@@ -155,24 +153,23 @@ export default function CreateClient() {
       if (!asset) return;
 
       const name = asset.name ?? `document_${Date.now()}`;
-      const type = asset.mimeType ?? "application/octet-stream";
-
-      const uploadAction = await dispatch(
-        uploadSingle({ uri: asset.uri, name, type })
-      );
-      if (uploadSingle.fulfilled.match(uploadAction)) {
-        setDocumentUrl(uploadAction.payload.url);
-        setDocumentName(name);
+      const base64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      if (!base64) {
+        throw new Error("Selected document is empty.");
       }
+      setDocumentBinary(base64);
+      setDocumentName(name);
     } catch (err) {
       console.warn("[prospect/create] document upload failed", err);
     } finally {
       setUploadingDocument(false);
     }
-  }, [dispatch, uploadingDocument]);
+  }, [uploadingDocument]);
 
   const handleRemoveDocument = useCallback(() => {
-    setDocumentUrl(null);
+    setDocumentBinary(null);
     setDocumentName("");
   }, []);
 
@@ -227,7 +224,7 @@ export default function CreateClient() {
       opportunities: values.opportunities?.trim() || undefined,
       threats: values.threats?.trim() || undefined,
       deliverables: values.deliverables?.trim() || undefined,
-      documentUrl: documentUrl ?? undefined,
+      document: documentBinary ?? undefined,
       payableAmount: values.payableAmount
         ? Number(values.payableAmount)
         : undefined,
@@ -628,11 +625,11 @@ export default function CreateClient() {
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <Text className="text-white font-kumbh">
-                      {documentUrl ? "Replace document" : "Upload document"}
+                      {documentBinary ? "Replace document" : "Upload document"}
                     </Text>
                   )}
                 </Pressable>
-                {documentUrl ? (
+                {documentBinary ? (
                   <Pressable
                     onPress={handleRemoveDocument}
                     className="rounded-full border border-gray-200 px-3 py-2"
@@ -646,7 +643,7 @@ export default function CreateClient() {
               <Text className="text-xs text-gray-500 mt-1 font-kumbh">
                 {documentName
                   ? `Uploaded: ${documentName}`
-                  : "Attach a PDF or Word document (optional)."}
+                  : "Attach a PDF document (optional)."}
               </Text>
             </Field>
 
