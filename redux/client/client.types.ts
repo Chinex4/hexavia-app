@@ -76,6 +76,7 @@ export interface ClientCreateInput {
   payableAmount?: number;
   document?: string;
   documentUrl?: string;
+  documentFile?: { uri: string; name: string; type?: string };
   status?: ClientStatus;
 }
 

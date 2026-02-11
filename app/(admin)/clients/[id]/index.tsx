@@ -404,14 +404,18 @@ export default function ClientDetails() {
   const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [documentName, setDocumentName] = useState("");
-  const [documentBinary, setDocumentBinary] = useState<string | null>(null);
+  const [documentFile, setDocumentFile] = useState<{
+    uri: string;
+    name: string;
+    type?: string;
+  } | null>(null);
   const [uploadingDocument, setUploadingDocument] = useState(false);
   const [documentRemoved, setDocumentRemoved] = useState(false);
   const effectiveIndustry =
     industry === "Other" ? industryOther.trim() : industry.trim();
   const joined = formatDate(baseUser.createdAt);
   const handleSaveDocument = useCallback(async () => {
-    if (!documentLink && !documentBinary) return;
+    if (!documentLink && !documentFile) return;
     try {
       if (Platform.OS === "web") {
         if (documentLink) {
@@ -422,6 +426,7 @@ export default function ClientDetails() {
 
       const safeName =
         documentName ||
+        documentFile?.name ||
         (documentLink ? documentLink.split("/").pop() : "document.pdf") ||
         "document.pdf";
       const filename = safeName.toLowerCase().endsWith(".pdf")
@@ -429,10 +434,8 @@ export default function ClientDetails() {
         : `${safeName}.pdf`;
       const dest = `${FileSystem.cacheDirectory}${filename}`;
 
-      if (documentBinary) {
-        await FileSystem.writeAsStringAsync(dest, documentBinary, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+      if (documentFile?.uri) {
+        await FileSystem.copyAsync({ from: documentFile.uri, to: dest });
       } else if (documentLink) {
         await FileSystem.downloadAsync(documentLink, dest);
       }
@@ -452,7 +455,7 @@ export default function ClientDetails() {
     } catch {
       Alert.alert("Unable to save document", "Please try again.");
     }
-  }, [documentBinary, documentLink, documentName]);
+  }, [documentFile, documentLink, documentName]);
 
   const handleAttachDocument = useCallback(async () => {
     if (uploadingDocument) return;
@@ -467,13 +470,11 @@ export default function ClientDetails() {
       if (!asset) return;
 
       const name = asset.name ?? `document_${Date.now()}.pdf`;
-      const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
+      setDocumentFile({
+        uri: asset.uri,
+        name,
+        type: asset.mimeType ?? "application/pdf",
       });
-      if (!base64) {
-        throw new Error("Selected document is empty.");
-      }
-      setDocumentBinary(base64);
       setDocumentName(name);
       setDocumentRemoved(false);
     } catch {
@@ -487,7 +488,7 @@ export default function ClientDetails() {
   }, [uploadingDocument]);
 
   const handleRemoveDocument = useCallback(() => {
-    setDocumentBinary(null);
+    setDocumentFile(null);
     setDocumentName("");
     setDocumentRemoved(true);
   }, []);
@@ -815,7 +816,7 @@ export default function ClientDetails() {
       payable !== basePay ||
       statusApi !== baseUser.statusApi ||
       documentRemoved ||
-      !!documentBinary
+      !!documentFile
     );
   }, [
     baseUser,
@@ -836,7 +837,7 @@ export default function ClientDetails() {
     payable,
     statusApi,
     documentRemoved,
-    documentBinary,
+    documentFile,
   ]);
 
   useEffect(() => {
@@ -857,7 +858,7 @@ export default function ClientDetails() {
     setDeliverables(baseUser.deliverables ?? "");
     setPayable(formatMoneyNaira(baseUser.payableAmount));
     setStatusApi(baseUser.statusApi);
-    setDocumentBinary(null);
+    setDocumentFile(null);
     setDocumentName("");
     setDocumentRemoved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -883,7 +884,8 @@ export default function ClientDetails() {
       deliverables: deliverables.trim() || undefined,
       payableAmount: parseMoney(payable) || undefined,
       status: statusApi,
-      document: documentRemoved ? null : documentBinary ?? undefined,
+      document: documentRemoved ? null : undefined,
+      documentFile: documentRemoved ? undefined : documentFile ?? undefined,
     };
     console.log("Updating client with data:", body);
 
@@ -1182,12 +1184,12 @@ export default function ClientDetails() {
                     <View className="mt-3 flex-row" style={{ gap: 10 }}>
                       <Pressable
                         onPress={handleSaveDocument}
-                        disabled={!documentLink && !documentBinary}
+                        disabled={!documentLink && !documentFile}
                         className="flex-1 rounded-2xl px-3 py-3 items-center"
                         style={{
                           backgroundColor: PRIMARY,
                           opacity:
-                            !documentLink && !documentBinary ? 0.5 : 1,
+                            !documentLink && !documentFile ? 0.5 : 1,
                         }}
                       >
                         <Text className="font-kumbhBold text-white">
@@ -1205,18 +1207,18 @@ export default function ClientDetails() {
                         }}
                       >
                         <Text className="font-kumbhBold" style={{ color: PRIMARY }}>
-                          {documentBinary ? "Replace" : "Upload"}
+                          {documentFile ? "Replace" : "Upload"}
                         </Text>
                       </Pressable>
                     </View>
                     <Pressable
                       onPress={handleRemoveDocument}
-                      disabled={!documentLink && !documentBinary}
+                      disabled={!documentLink && !documentFile}
                       className="mt-3 rounded-2xl px-3 py-3 items-center border"
                       style={{
                         borderColor: "#DC2626",
                         backgroundColor: "transparent",
-                        opacity: !documentLink && !documentBinary ? 0.5 : 1,
+                        opacity: !documentLink && !documentFile ? 0.5 : 1,
                       }}
                     >
                       <Text className="font-kumbhBold" style={{ color: "#DC2626" }}>

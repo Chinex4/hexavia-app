@@ -461,17 +461,17 @@ function htmlForSingleChannelReport(payload: {
     <div class="report-surface">
       <div class="report-header">
         <div>
-          <div class="h1">Channel Work Report</div>
+          <div class="h1">Project Work Report</div>
           <div class="brand-subtitle">${escapeHtml(channelName)}</div>
         </div>
         <div class="header-chips">
           <div class="chip">HEXAVIA</div>
-          <div class="chip subtle">Single Channel</div>
+          <div class="chip subtle">Single Project</div>
         </div>
       </div>
 
       <div class="report-meta">
-        <div><strong>Channel:</strong> ${escapeHtml(channelName)}</div>
+        <div><strong>Project:</strong> ${escapeHtml(channelName)}</div>
         <div><strong>Code:</strong> ${escapeHtml(channelCode || "—")}</div>
         <div><strong>Owner:</strong> ${escapeHtml(createdBy || "—")}</div>
         <div><strong>Created:</strong> ${escapeHtml(fmtDate(createdAt))}</div>

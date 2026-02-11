@@ -28,6 +28,7 @@ import {
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
+import { api } from "@/api/axios";
 import * as Clipboard from "expo-clipboard";
 import * as DocumentPicker from "expo-document-picker";
 import * as FileSystem from "expo-file-system/legacy";
@@ -518,26 +519,31 @@ export default function ChatScreen() {
           const ext = ".m4a";
           const dest = FileSystem.cacheDirectory + name; // ensure name includes .m4a
           await FileSystem.copyAsync({ from: a.uri, to: dest });
-          const uploadAction = await dispatch(
-            uploadSingle({ uri: dest, name, type })
-          );
-          if (uploadSingle.fulfilled.match(uploadAction)) {
-            const { url, publicId } = uploadAction.payload;
-            if (channelId) {
-              await dispatch(
-                uploadChannelResources({
-                  channelId,
-                  resources: [
-                    {
-                      name,
-                      description: "Audio file shared in chat",
-                      resourceUpload: url,
-                      publicId: publicId ?? name,
-                    },
-                  ],
-                })
-              );
-            }
+          const form = new FormData();
+          form.append("channelId", channelId);
+          form.append("name", name);
+          form.append("description", "Audio file shared in chat");
+          form.append("mime", type);
+          form.append("pdfUpload", {
+            uri: dest,
+            name,
+            type,
+          } as any);
+
+          const resUpload = await api.post("/channel/upload-resources", form, {
+            headers: { Accept: "application/json" },
+            transformRequest: (v) => v,
+          });
+
+          const channel =
+            (resUpload.data as any)?.channel ||
+            (resUpload.data as any)?.data?.channel ||
+            (resUpload.data as any)?.data;
+          const resources = (channel?.resources as any[]) || [];
+          const latest = resources[resources.length - 1];
+          const url = latest?.resourceUpload;
+
+          if (url) {
             dispatch({
               type: "chat/sendChannel",
               payload: {
@@ -548,6 +554,8 @@ export default function ChatScreen() {
               },
             });
             scrollToEnd();
+          } else {
+            showError("Upload succeeded but no file URL returned.");
           }
         }
       }
@@ -764,31 +772,32 @@ export default function ChatScreen() {
       if (!channelId) return;
       if (!voice.uri) return;
       try {
-        const uploadAction = await dispatch(
-          uploadSingle({
-            uri: voice.uri,
-            name: voice.name,
-            type: voice.type,
-          })
-        );
-        if (uploadSingle.fulfilled.match(uploadAction)) {
-          const { url, publicId } = uploadAction.payload;
+        const secs = Math.max(1, Math.round(voice.durationMs / 1000));
+        const form = new FormData();
+        form.append("channelId", channelId);
+        form.append("name", voice.name);
+        form.append("description", `Voice note • ${secs}s`);
+        form.append("mime", voice.type);
+        form.append("pdfUpload", {
+          uri: voice.uri,
+          name: voice.name,
+          type: voice.type,
+        } as any);
 
-          const secs = Math.max(1, Math.round(voice.durationMs / 1000));
-          await dispatch(
-            uploadChannelResources({
-              channelId,
-              resources: [
-                {
-                  name: voice.name,
-                  description: `Voice note • ${secs}s`,
-                  resourceUpload: url,
-                  publicId: publicId ?? voice.name,
-                },
-              ],
-            })
-          );
+        const res = await api.post("/channel/upload-resources", form, {
+          headers: { Accept: "application/json" },
+          transformRequest: (v) => v,
+        });
 
+        const channel =
+          (res.data as any)?.channel ||
+          (res.data as any)?.data?.channel ||
+          (res.data as any)?.data;
+        const resources = (channel?.resources as any[]) || [];
+        const latest = resources[resources.length - 1];
+        const url = latest?.resourceUpload;
+
+        if (url) {
           if (meId) {
             dispatch({
               type: "chat/sendChannel",
@@ -805,6 +814,8 @@ export default function ChatScreen() {
             });
           }
           scrollToEnd();
+        } else {
+          showError("Upload succeeded but no file URL returned.");
         }
       } catch (e) {
         console.warn(e);

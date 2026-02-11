@@ -9,9 +9,7 @@ import { showError, showSuccess } from "@/components/ui/toast";
 import { api } from "@/api/axios";
 import * as Sharing from "expo-sharing";
 import { selectChannelById } from "@/redux/channels/channels.slice";
-import {
-  fetchChannelById,
-} from "@/redux/channels/channels.thunks";
+import { fetchChannelById } from "@/redux/channels/channels.thunks";
 import type { ChannelResource } from "@/redux/channels/resources.types";
 import {
   CATEGORY_ORDER,
@@ -61,7 +59,13 @@ import {
   X,
   Maximize2,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -89,6 +93,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { TabView } from "react-native-tab-view";
 import { useWindowDimensions } from "react-native";
 import { Audio, Video } from "expo-av";
+import * as ImageManipulator from "expo-image-manipulator";
 
 function ensureHttpUrl(u?: string | null) {
   if (!u) return "";
@@ -109,6 +114,48 @@ const TABS = [
 
 type ChannelTab = (typeof TABS)[number]["id"];
 const SWIPE_THRESHOLD = 60;
+
+async function normalizeImageForUpload(asset: any) {
+  const origUri = asset.uri as string;
+
+  const lower = (asset.fileName || origUri).toLowerCase();
+  const mt = String(asset.mimeType || "").toLowerCase();
+
+  const isHeicOrHeif =
+    lower.endsWith(".heic") ||
+    lower.endsWith(".heif") ||
+    mt.includes("heic") ||
+    mt.includes("heif");
+
+  // shrink rules
+  const MAX_W = 1600; // adjust 1200–2000
+  const JPEG_QUALITY = 0.65; // adjust 0.5–0.8
+
+  // if picker gives width/height, use it to scale; otherwise just compress
+  const w = Number(asset.width || 0);
+  const h = Number(asset.height || 0);
+
+  const shouldResize = w > 0 && h > 0 && Math.max(w, h) > MAX_W;
+
+  const resizeAction = shouldResize
+    ? [{ resize: w >= h ? { width: MAX_W } : { height: MAX_W } }]
+    : [];
+
+  const out = await ImageManipulator.manipulateAsync(origUri, resizeAction, {
+    compress: JPEG_QUALITY,
+    format: ImageManipulator.SaveFormat.JPEG,
+  });
+
+  const baseName =
+    asset.fileName?.replace(/\.(heic|heif|png|jpg|jpeg)$/i, "") ||
+    `image_${Date.now()}`;
+
+  return {
+    uri: out.uri,
+    name: slugifyFilename(`${baseName}.jpg`),
+    mime: "image/jpeg",
+  };
+}
 
 export default function ChannelResourcesScreen() {
   const router = useRouter();
@@ -154,9 +201,8 @@ export default function ChannelResourcesScreen() {
   const [editingNote, setEditingNote] = useState<ChannelNote | null>(null);
   const [noteSubmitting, setNoteSubmitting] = useState(false);
   const [noteToDelete, setNoteToDelete] = useState<ChannelNote | null>(null);
-  const [resourceToDelete, setResourceToDelete] = useState<ChannelResource | null>(
-    null,
-  );
+  const [resourceToDelete, setResourceToDelete] =
+    useState<ChannelResource | null>(null);
   const [resourceDeleting, setResourceDeleting] = useState(false);
   const [previewNote, setPreviewNote] = useState<ChannelNote | null>(null);
   const [previewMedia, setPreviewMedia] = useState<{
@@ -245,11 +291,21 @@ export default function ChannelResourcesScreen() {
     })).filter((s) => s.data.length > 0);
   }, [channel?.resources, sortOrder.resources]);
 
+  async function ensureFileUri(uri: string, filename: string) {
+    // Already a file URI
+    if (uri.startsWith("file://")) return uri;
+
+    // content:// (common on Android) or ph:// (can happen on iOS)
+    // Copy into cache as a real file:// path
+    const dest = `${FileSystem.cacheDirectory}${filename}`;
+    await FileSystem.copyAsync({ from: uri, to: dest });
+    return dest;
+  }
+
   const uploadDirect = async (input: {
     uri: string;
     name: string;
     mime: string;
-    field: "pdfUpload" | "imageUpload" | "videoUpload" | "audioUpload" | "fileUpload";
     description?: string;
   }) => {
     if (!channelId) return;
@@ -261,7 +317,7 @@ export default function ChannelResourcesScreen() {
       input.description || makeDescriptionFromName(input.name),
     );
     form.append("mime", input.mime);
-    form.append(input.field, {
+    form.append("pdfUpload", {
       uri: input.uri,
       type: input.mime,
       name: input.name,
@@ -269,7 +325,6 @@ export default function ChannelResourcesScreen() {
     await api.post("/channel/upload-resources", form, {
       headers: {
         Accept: "application/json",
-        "Content-Type": "multipart/form-data",
       },
       onUploadProgress: (evt) => {
         if (!evt.total) return;
@@ -302,27 +357,46 @@ export default function ChannelResourcesScreen() {
       let uploaded = 0;
       setUploading(true);
       for (const a of assets) {
-        const origName = (a as any).fileName || "image.jpg";
-        const safeName = slugifyFilename(origName);
-        const mime =
-          (a as any).mimeType || getMimeFromName(origName) || "image/jpeg";
+        // 1) convert (if heic) and get final uri/name/mime
+        const normalized = await normalizeImageForUpload(a);
+
+        // 2) make sure it is a real file:// uri (usually already is)
+        const finalUri = await ensureFileUri(normalized.uri, normalized.name);
+
+        // 3) verify what you're about to send
+        const info = await FileSystem.getInfoAsync(finalUri);
+        console.log("UPLOAD FILE:", {
+          exists: info.exists,
+          size: info.size,
+          uri: finalUri,
+          name: normalized.name,
+          mime: normalized.mime,
+        });
+
         try {
           await uploadDirect({
-            uri: (a as any).uri,
-            name: safeName,
-            mime,
-            field: "pdfUpload",
+            uri: finalUri,
+            name: normalized.name,
+            mime: normalized.mime,
             description: "Image resource",
           });
           uploaded += 1;
-        } catch (error) {
-          console.log("Failed to upload image", error);
+        } catch (error: any) {
+          console.log("UPLOAD FAIL message:", error?.message);
+          console.log("UPLOAD FAIL status:", error?.response?.status);
+          console.log("UPLOAD FAIL data:", error?.response?.data);
         }
       }
+
       if (uploaded > 0) {
         showSuccess("Image uploaded");
         await dispatch(fetchChannelById(channelId!)).unwrap();
       }
+    } catch (error: any) {
+      console.log("UPLOAD ERROR message:", error?.message);
+      console.log("UPLOAD ERROR status:", error?.response?.status);
+      console.log("UPLOAD ERROR data:", error?.response?.data);
+      console.log("UPLOAD ERROR headers:", error?.response?.headers);
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -364,11 +438,6 @@ export default function ChannelResourcesScreen() {
         uri: string;
         name: string;
         mime: string;
-        field:
-          | "imageUpload"
-          | "videoUpload"
-          | "audioUpload"
-          | "fileUpload";
         description: string;
       }> = [];
 
@@ -391,7 +460,6 @@ export default function ChannelResourcesScreen() {
             uri: f.uri as string,
             name: safeName,
             mime,
-            field: "imageUpload",
             description: "Image resource",
           });
         } else if (mime.startsWith("audio/")) {
@@ -399,7 +467,6 @@ export default function ChannelResourcesScreen() {
             uri: f.uri as string,
             name: safeName,
             mime,
-            field: "audioUpload",
             description: "Audio resource",
           });
         } else if (mime.startsWith("video/")) {
@@ -407,7 +474,6 @@ export default function ChannelResourcesScreen() {
             uri: f.uri as string,
             name: safeName,
             mime,
-            field: "videoUpload",
             description: "Video resource",
           });
         } else {
@@ -415,7 +481,6 @@ export default function ChannelResourcesScreen() {
             uri: f.uri as string,
             name: safeName,
             mime,
-            field: "fileUpload",
             description: "Document resource",
           });
         }
@@ -430,7 +495,6 @@ export default function ChannelResourcesScreen() {
             uri: pdf.uri,
             name: pdf.name,
             mime: "application/pdf",
-            field: "pdfUpload",
             description: "PDF document",
           });
           pdfUploadOk += 1;
@@ -1433,7 +1497,9 @@ export default function ChannelResourcesScreen() {
           <View className="flex-1 bg-black/90">
             <View
               className="absolute top-0 left-0 right-0 flex-row items-center justify-between px-4"
-              style={{ paddingTop: Platform.OS === "ios" ? insets.top + 8 : 16 }}
+              style={{
+                paddingTop: Platform.OS === "ios" ? insets.top + 8 : 16,
+              }}
             >
               <Text className="text-white font-kumbhBold text-base">
                 {previewMedia?.name || "Preview"}
@@ -1644,10 +1710,7 @@ function AudioPreview({ uri }: { uri: string }) {
         />
       </Pressable>
       <View className="flex-row items-center justify-between">
-        <Pressable
-          onPress={toggle}
-          className="px-4 py-2 rounded-full bg-white"
-        >
+        <Pressable onPress={toggle} className="px-4 py-2 rounded-full bg-white">
           <Text className="font-kumbhBold text-gray-900">
             {isPlaying ? "Pause" : "Play"}
           </Text>

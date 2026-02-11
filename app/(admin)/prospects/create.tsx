@@ -137,7 +137,11 @@ export default function CreateClient() {
   const [showStaffSizeSheet, setShowStaffSizeSheet] = useState(false);
   const [showIndustrySheet, setShowIndustrySheet] = useState(false);
   const [documentName, setDocumentName] = useState("");
-  const [documentBinary, setDocumentBinary] = useState<string | null>(null);
+  const [documentFile, setDocumentFile] = useState<{
+    uri: string;
+    name: string;
+    type?: string;
+  } | null>(null);
   const [uploadingDocument, setUploadingDocument] = useState(false);
 
   const handleAttachDocument = useCallback(async () => {
@@ -152,14 +156,12 @@ export default function CreateClient() {
       const asset = res.assets?.[0];
       if (!asset) return;
 
-      const name = asset.name ?? `document_${Date.now()}`;
-      const base64 = await FileSystem.readAsStringAsync(asset.uri, {
-        encoding: FileSystem.EncodingType.Base64,
+      const name = asset.name ?? `document_${Date.now()}.pdf`;
+      setDocumentFile({
+        uri: asset.uri,
+        name,
+        type: asset.mimeType ?? "application/pdf",
       });
-      if (!base64) {
-        throw new Error("Selected document is empty.");
-      }
-      setDocumentBinary(base64);
       setDocumentName(name);
     } catch (err) {
       console.warn("[prospect/create] document upload failed", err);
@@ -169,7 +171,7 @@ export default function CreateClient() {
   }, [uploadingDocument]);
 
   const handleRemoveDocument = useCallback(() => {
-    setDocumentBinary(null);
+    setDocumentFile(null);
     setDocumentName("");
   }, []);
 
@@ -224,7 +226,7 @@ export default function CreateClient() {
       opportunities: values.opportunities?.trim() || undefined,
       threats: values.threats?.trim() || undefined,
       deliverables: values.deliverables?.trim() || undefined,
-      document: documentBinary ?? undefined,
+      documentFile: documentFile ?? undefined,
       payableAmount: values.payableAmount
         ? Number(values.payableAmount)
         : undefined,
@@ -625,11 +627,11 @@ export default function CreateClient() {
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
                     <Text className="text-white font-kumbh">
-                      {documentBinary ? "Replace document" : "Upload document"}
+                      {documentFile ? "Replace document" : "Upload document"}
                     </Text>
                   )}
                 </Pressable>
-                {documentBinary ? (
+                {documentFile ? (
                   <Pressable
                     onPress={handleRemoveDocument}
                     className="rounded-full border border-gray-200 px-3 py-2"

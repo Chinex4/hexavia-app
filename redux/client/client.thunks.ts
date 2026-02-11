@@ -104,11 +104,38 @@ export const createClient = createAsyncThunk<Client, ClientCreateInput>(
   "client/createClient",
   async (payload, { rejectWithValue }) => {
     try {
-      const { data } = await api.post<{
-        success: boolean;
-        message: string;
-        client: Client;
-      }>("/admin/clients", payload);
+      const documentFile = (payload as any)?.documentFile as
+        | { uri: string; name: string; type?: string }
+        | undefined;
+
+      let data: { success: boolean; message: string; client: Client };
+      if (documentFile?.uri) {
+        const form = new FormData();
+        Object.entries(payload as any).forEach(([key, value]) => {
+          if (key === "documentFile" || value === undefined || value === null) {
+            return;
+          }
+          form.append(key, String(value));
+        });
+        form.append("document", {
+          uri: documentFile.uri,
+          name: documentFile.name,
+          type: documentFile.type ?? "application/pdf",
+        } as any);
+
+        const res = await api.post("/admin/clients", form, {
+          headers: { Accept: "application/json" },
+          transformRequest: (v) => v,
+        });
+        data = res.data;
+      } else {
+        const res = await api.post<{
+          success: boolean;
+          message: string;
+          client: Client;
+        }>("/admin/clients", payload);
+        data = res.data;
+      }
       return data.client;
     } catch (err: any) {
       const status = err?.response?.status;
@@ -134,12 +161,37 @@ export const updateClient = createAsyncThunk<
   { id: string; body: ClientUpdateInput }
 >("client/updateClient", async ({ id, body }, { rejectWithValue }) => {
   try {
+    const documentFile = (body as any)?.documentFile as
+      | { uri: string; name: string; type?: string }
+      | undefined;
+
+    const req = documentFile?.uri
+      ? (() => {
+          const form = new FormData();
+          Object.entries(body as any).forEach(([key, value]) => {
+            if (key === "documentFile" || value === undefined || value === null) {
+              return;
+            }
+            form.append(key, String(value));
+          });
+          form.append("document", {
+            uri: documentFile.uri,
+            name: documentFile.name,
+            type: documentFile.type ?? "application/pdf",
+          } as any);
+          return api.put(`/admin/clients/${id}`, form, {
+            headers: { Accept: "application/json" },
+            transformRequest: (v) => v,
+          });
+        })()
+      : api.put<{
+          success: boolean;
+          message: string;
+          client: Client;
+        }>(`/admin/clients/${id}`, body);
+
     const { data } = await showPromise(
-      api.put<{
-        success: boolean;
-        message: string;
-        client: Client;
-      }>(`/admin/clients/${id}`, body),
+      req,
       "Updating Client Details",
       "Client details updated"
     );
