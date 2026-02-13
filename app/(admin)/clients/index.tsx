@@ -504,6 +504,8 @@ function ClientRow({
   onPress: (id: string) => void;
 }) {
   const name = item.name || "Unknown";
+  const createdAt = (item as any).createdAt ?? (item as any).created_at;
+  const updatedAt = (item as any).updatedAt ?? (item as any).updated_at;
   const badgeText = item.status ? capitalize(item.status) : "—";
   const badgeStyle =
     item.status === "completed"
@@ -559,6 +561,8 @@ function ClientRow({
       <Row label="Industry" value={item.industry ?? "—"} />
       <Row label="Engagement" value={item.engagement ?? "—"} />
       <Row label="Receivable" value={formatMoney(item.payableAmount)} />
+      <Row label="Created At" value={formatDateTime(createdAt)} />
+      <Row label="Updated At" value={formatDateTime(updatedAt)} />
 
       <Row
         label="Status"
@@ -858,6 +862,13 @@ function formatMoney(n?: number) {
   } catch {
     return String(n);
   }
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "—";
+  const dt = new Date(value);
+  if (isNaN(dt.getTime())) return "—";
+  return dt.toLocaleString();
 }
 
 function RangeTabs({
