@@ -1,35 +1,43 @@
 // app/(admin)/team/sanctions/[staffId].tsx
-import clsx from "clsx";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-    ArrowLeft,
-    Calendar,
-    Pencil,
-    ShieldAlert,
+  ArrowLeft,
+  Calendar,
+  Pencil,
+  Plus,
+  ShieldAlert,
+  Trash2,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    FlatList,
-    Modal,
-    Pressable,
-    RefreshControl,
-    Switch,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Switch,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { showError, showSuccess } from "@/components/ui/toast";
 import {
-    selectSanctions,
-    selectSanctionsError,
-    selectSanctionsLoading,
-    selectSanctionsUpdating,
+  selectSanctions,
+  selectSanctionsError,
+  selectSanctionsLoading,
+  selectSanctionsUpdating,
 } from "@/redux/sanctions/sanctions.slice";
 import {
-    fetchSanctions,
-    updateSanction,
+  createSanction,
+  deleteSanction,
+  fetchSanctions,
+  updateSanction,
 } from "@/redux/sanctions/sanctions.thunks";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 
@@ -38,42 +46,61 @@ type RowStatus = "Active" | "Resolved";
 export default function StaffSanctions() {
   const router = useRouter();
   const { staffId, name } = useLocalSearchParams();
+  const staffIdValue = Array.isArray(staffId) ? staffId[0] : staffId;
+  const staffName = Array.isArray(name) ? name[0] : name;
   const dispatch = useAppDispatch();
 
   const rawRows = useAppSelector(selectSanctions);
-  const rows = Array.isArray(rawRows) ? rawRows : [];
   const loading = useAppSelector(selectSanctionsLoading);
   const updating = useAppSelector(selectSanctionsUpdating);
   const error = useAppSelector(selectSanctionsError) ?? null;
 
   const [filter, setFilter] = useState<RowStatus | "All">("All");
   const [refreshing, setRefreshing] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // modal state
+  // edit modal state
   const [editOpen, setEditOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editReason, setEditReason] = useState<string>("");
   const [editActive, setEditActive] = useState<boolean>(true);
 
+  // create modal state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createReason, setCreateReason] = useState("");
+  const createReasonRef = useRef("");
+  const [creating, setCreating] = useState(false);
+
   useEffect(() => {
-    dispatch(fetchSanctions() as any);
-  }, [dispatch]);
+    if (!staffIdValue) {
+      dispatch(fetchSanctions() as any);
+      return;
+    }
+    dispatch(fetchSanctions({ userId: String(staffIdValue) }) as any);
+  }, [dispatch, staffIdValue]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchSanctions() as any).unwrap();
+      if (!staffIdValue) {
+        await dispatch(fetchSanctions() as any).unwrap();
+      } else {
+        await dispatch(
+          fetchSanctions({ userId: String(staffIdValue) }) as any
+        ).unwrap();
+      }
     } finally {
       setRefreshing(false);
     }
-  }, [dispatch]);
+  }, [dispatch, staffIdValue]);
 
   const userSanctions = useMemo(() => {
-    return rows.filter((r: any) => {
-      const uid = r?.sanctionUser?._id || r?.user?._id;
-      return uid === staffId;
+    const sourceRows = Array.isArray(rawRows) ? rawRows : [];
+    return sourceRows.filter((r: any) => {
+      const uid = r?.sanctionUser?._id || r?.user?._id || r?.userId;
+      return String(uid ?? "") === String(staffIdValue ?? "");
     });
-  }, [rows, staffId]);
+  }, [rawRows, staffIdValue]);
 
   const data = useMemo(() => {
     return userSanctions
@@ -105,15 +132,88 @@ export default function StaffSanctions() {
 
   const handleSave = useCallback(async () => {
     if (!editId) return;
-    await dispatch(
-      updateSanction({
-        sanctionId: editId,
-        reason: editReason?.trim() || undefined,
-        isActive: editActive,
-      }) as any
-    ).unwrap();
-    setEditOpen(false);
+
+    try {
+      await dispatch(
+        updateSanction({
+          sanctionId: editId,
+          reason: editReason?.trim() || undefined,
+          isActive: editActive,
+        }) as any
+      ).unwrap();
+      setEditOpen(false);
+    } catch (err: any) {
+      showError(String(err ?? "Failed to update sanction"));
+    }
   }, [dispatch, editId, editReason, editActive]);
+
+  const handleCreate = useCallback(async () => {
+    if (!staffIdValue) {
+      showError("Missing staff id");
+      return;
+    }
+
+    const reason = createReasonRef.current.trim();
+    if (!reason) {
+      showError("Enter a reason");
+      return;
+    }
+
+    try {
+      setCreating(true);
+      await dispatch(
+        createSanction({
+          userId: String(staffIdValue),
+          reason,
+          type: "warning",
+          silent: true,
+        }) as any
+      ).unwrap();
+
+      showSuccess("Sanction created");
+      setCreateReason("");
+      createReasonRef.current = "";
+      setCreateOpen(false);
+    } catch (err: any) {
+      showError(String(err ?? "Failed to create sanction"));
+    } finally {
+      setCreating(false);
+    }
+  }, [dispatch, staffIdValue]);
+
+  const handleDelete = useCallback(
+    async (sanctionId: string) => {
+      try {
+        setDeletingId(sanctionId);
+        await dispatch(deleteSanction({ sanctionId }) as any).unwrap();
+      } catch (err: any) {
+        showError(String(err ?? "Failed to delete sanction"));
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [dispatch]
+  );
+
+  const confirmDelete = useCallback(
+    (sanctionId: string) => {
+      Alert.alert(
+        "Delete sanction",
+        "This sanction will be permanently removed.",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              void handleDelete(sanctionId);
+            },
+          },
+        ]
+      );
+    },
+    [handleDelete]
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-[#F8FAFC]">
@@ -125,7 +225,9 @@ export default function StaffSanctions() {
         >
           <ArrowLeft size={22} color="#1F2937" />
         </Pressable>
-        <Text className="text-2xl font-kumbhBold text-gray-900">{name ? `${name}'s Sanctions` : 'Sanctions'}</Text>
+        <Text className="text-2xl font-kumbhBold text-gray-900">
+          {staffName ? `${staffName}'s Sanctions` : "Sanctions"}
+        </Text>
         <View className="w-10" />
       </View>
 
@@ -135,23 +237,37 @@ export default function StaffSanctions() {
           <Pressable
             key={tab}
             onPress={() => setFilter(tab)}
-            className={clsx(
-              "px-4 py-2 rounded-full border",
+            className={`px-4 py-2 rounded-full border ${
               filter === tab
                 ? "bg-primary border-primary"
                 : "bg-white border-gray-200"
-            )}
+            }`}
           >
             <Text
-              className={clsx(
-                "text-sm font-kumbhBold",
+              className={`text-sm font-kumbhBold ${
                 filter === tab ? "text-white" : "text-gray-700"
-              )}
+              }`}
             >
               {tab}
             </Text>
           </Pressable>
         ))}
+      </View>
+
+      <View className="px-5 pt-3">
+        <Pressable
+          onPress={() => {
+            setCreateReason("");
+            createReasonRef.current = "";
+            setCreateOpen(true);
+          }}
+          className="rounded-xl bg-primary px-4 py-3 flex-row items-center justify-center gap-2 active:opacity-90"
+        >
+          <Plus size={16} color="#FFFFFF" />
+          <Text className="text-white font-kumbhBold text-sm">
+            Create Sanction
+          </Text>
+        </Pressable>
       </View>
 
       {/* List */}
@@ -177,17 +293,33 @@ export default function StaffSanctions() {
                 <View className="flex-row items-center gap-2">
                   <ShieldBadge status={item.status} />
                 </View>
-                <Pressable
-                  onPress={() => openEdit(item)}
-                  className="px-3 py-2 rounded-xl bg-gray-100 active:bg-gray-200"
-                >
-                  <View className="flex-row items-center gap-1">
-                    <Pencil size={16} color="#374151" />
-                    <Text className="text-gray-800 font-kumbhBold text-xs">
-                      Edit
-                    </Text>
-                  </View>
-                </Pressable>
+                <View className="flex-row items-center gap-2">
+                  <Pressable
+                    onPress={() => openEdit(item)}
+                    className="px-3 py-2 rounded-xl bg-gray-100 active:bg-gray-200"
+                  >
+                    <View className="flex-row items-center gap-1">
+                      <Pencil size={16} color="#374151" />
+                      <Text className="text-gray-800 font-kumbhBold text-xs">
+                        Edit
+                      </Text>
+                    </View>
+                  </Pressable>
+                  <Pressable
+                    disabled={deletingId === item.id}
+                    onPress={() => confirmDelete(item.id)}
+                    className={`px-3 py-2 rounded-xl active:bg-red-100 ${
+                      deletingId === item.id ? "bg-red-100/60" : "bg-red-50"
+                    }`}
+                  >
+                    <View className="flex-row items-center gap-1">
+                      <Trash2 size={16} color="#B91C1C" />
+                      <Text className="text-red-700 font-kumbhBold text-xs">
+                        {deletingId === item.id ? "Deleting…" : "Delete"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </View>
               </View>
 
               <Divider />
@@ -213,12 +345,12 @@ export default function StaffSanctions() {
         />
       )}
 
-      {/* Edit Modal */}
+      {/* Create Modal */}
       <Modal
         transparent
-        visible={editOpen}
+        visible={createOpen}
         animationType="slide"
-        onRequestClose={closeEdit}
+        onRequestClose={() => setCreateOpen(false)}
       >
         <View className="flex-1 bg-black/40 items-center justify-end">
           <View className="w-full rounded-t-3xl bg-white p-5">
@@ -227,50 +359,118 @@ export default function StaffSanctions() {
             </View>
 
             <Text className="text-gray-900 font-kumbhBold text-lg mb-3">
-              Update Sanction
+              Create Sanction
             </Text>
 
             <Text className="text-gray-700 font-kumbh mb-2">Reason</Text>
             <TextInput
               placeholder="Enter reason"
               placeholderTextColor="#9CA3AF"
-              value={editReason}
-              onChangeText={setEditReason}
-              className="bg-gray-50 text-gray-900 rounded-xl px-4 py-3 font-kumbh mb-4 border border-gray-200"
+              value={createReason}
+              onChangeText={(text) => {
+                createReasonRef.current = text;
+                setCreateReason(text);
+              }}
+              onEndEditing={(e) => {
+                createReasonRef.current = e.nativeEvent.text;
+                setCreateReason(e.nativeEvent.text);
+              }}
+              className="bg-gray-50 text-gray-900 rounded-xl px-4 py-3 font-kumbh mb-6 border border-gray-200"
               multiline
             />
 
-            <View className="flex-row items-center justify-between mb-6">
-              <Text className="text-gray-700 font-kumbh">Active</Text>
-              <Switch
-                value={editActive}
-                onValueChange={setEditActive}
-                trackColor={{ true: "#7C3AED", false: "#D1D5DB" }}
-              />
-            </View>
-
             <View className="flex-row gap-3">
               <Pressable
-                onPress={closeEdit}
+                onPress={() => {
+                  setCreateOpen(false);
+                }}
                 className="flex-1 rounded-2xl bg-gray-100 py-3 items-center"
               >
                 <Text className="text-gray-800 font-kumbhBold">Cancel</Text>
               </Pressable>
               <Pressable
-                disabled={updating}
-                onPress={handleSave}
-                className={clsx(
-                  "flex-1 rounded-2xl py-3 items-center",
-                  updating ? "bg-[#7C3AED]/60" : "bg-[#7C3AED]"
-                )}
+                disabled={creating}
+                onPress={handleCreate}
+                className={`flex-1 rounded-2xl py-3 items-center ${
+                  creating ? "bg-[#7C3AED]/60" : "bg-[#7C3AED]"
+                }`}
               >
                 <Text className="text-white font-kumbhBold">
-                  {updating ? "Saving…" : "Save"}
+                  {creating ? "Creating…" : "Create"}
                 </Text>
               </Pressable>
             </View>
           </View>
         </View>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        transparent
+        visible={editOpen}
+        animationType="slide"
+        onRequestClose={closeEdit}
+      >
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.select({ ios: "padding", android: "height" })}
+        >
+          <View className="flex-1 bg-black/40">
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ flexGrow: 1, justifyContent: "flex-end" }}
+            >
+              <View className="w-full rounded-t-3xl bg-white p-5 pb-8">
+                <View className="items-center mb-3">
+                  <View className="w-12 h-1.5 rounded-full bg-gray-300" />
+                </View>
+
+                <Text className="text-gray-900 font-kumbhBold text-lg mb-3">
+                  Update Sanction
+                </Text>
+
+                <Text className="text-gray-700 font-kumbh mb-2">Reason</Text>
+                <TextInput
+                  placeholder="Enter reason"
+                  placeholderTextColor="#9CA3AF"
+                  value={editReason}
+                  onChangeText={setEditReason}
+                  className="bg-gray-50 text-gray-900 rounded-xl px-4 py-3 font-kumbh mb-4 border border-gray-200"
+                  multiline
+                />
+
+                <View className="flex-row items-center justify-between mb-6">
+                  <Text className="text-gray-700 font-kumbh">Active</Text>
+                  <Switch
+                    value={editActive}
+                    onValueChange={setEditActive}
+                    trackColor={{ true: "#7C3AED", false: "#D1D5DB" }}
+                  />
+                </View>
+
+                <View className="flex-row gap-3">
+                  <Pressable
+                    onPress={closeEdit}
+                    className="flex-1 rounded-2xl bg-gray-100 py-3 items-center"
+                  >
+                    <Text className="text-gray-800 font-kumbhBold">Cancel</Text>
+                  </Pressable>
+                  <Pressable
+                    disabled={updating}
+                    onPress={handleSave}
+                    className={`flex-1 rounded-2xl py-3 items-center ${
+                      updating ? "bg-[#7C3AED]/60" : "bg-[#7C3AED]"
+                    }`}
+                  >
+                    <Text className="text-white font-kumbhBold">
+                      {updating ? "Saving…" : "Save"}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -335,11 +535,9 @@ function ShieldBadge({ status }: { status: RowStatus }) {
   } as const;
   const s = map[status];
   return (
-    <View
-      className={clsx("px-2 py-1 rounded-lg flex-row items-center gap-1", s.bg)}
-    >
-      <View className={clsx("w-2 h-2 rounded-full", s.dot)} />
-      <Text className={clsx("text-xs font-kumbhBold", s.text)}>{status}</Text>
+    <View className={`px-2 py-1 rounded-lg flex-row items-center gap-1 ${s.bg}`}>
+      <View className={`w-2 h-2 rounded-full ${s.dot}`} />
+      <Text className={`text-xs font-kumbhBold ${s.text}`}>{status}</Text>
     </View>
   );
 }

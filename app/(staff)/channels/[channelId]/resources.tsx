@@ -609,8 +609,14 @@ export default function ChannelResourcesScreen() {
           return;
         }
 
-        // ✅ iOS: use Quick Look via Sharing (most reliable)
+        // iOS: prefer direct open first (share sheet can leave a stuck dim overlay on some devices)
         if (Platform.OS === "ios") {
+          try {
+            await Linking.openURL(toFileUrl(dest));
+            return;
+          } catch {}
+
+          // Fallback to share sheet only if direct open fails.
           if (await Sharing.isAvailableAsync()) {
             await Sharing.shareAsync(dest, {
               mimeType: "application/pdf",
@@ -618,10 +624,6 @@ export default function ChannelResourcesScreen() {
             });
             return;
           }
-
-          // fallback if Sharing isn't available
-          await Linking.openURL(toFileUrl(dest));
-          return;
         }
 
         // ✅ Android: content:// then open
@@ -1534,8 +1536,10 @@ export default function ChannelResourcesScreen() {
             </Text>
             <Pressable
               onPress={() => {
-                previewResource(actionFor);
                 setActionFor(null);
+                InteractionManager.runAfterInteractions(() => {
+                  previewResource(actionFor);
+                });
               }}
               className="py-3"
             >

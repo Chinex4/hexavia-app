@@ -4,6 +4,7 @@ import { ApiSanction, SanctionsState } from "./sanctions.type";
 import {
   fetchSanctions,
   createSanction,
+  deleteSanction,
   updateSanction,
 } from "./sanctions.thunks";
 
@@ -67,6 +68,17 @@ const sanctionsSlice = createSlice({
     builder.addCase(createSanction.rejected, (state, action) => {
       state.creating = false;
       state.error = action.payload || "Failed to create sanction";
+    });
+
+    // delete
+    builder.addCase(deleteSanction.pending, (state) => {
+      state.error = null;
+    });
+    builder.addCase(deleteSanction.fulfilled, (state, action) => {
+      state.items = state.items.filter((s) => s._id !== action.payload);
+    });
+    builder.addCase(deleteSanction.rejected, (state, action) => {
+      state.error = action.payload || "Failed to delete sanction";
     });
 
     // update

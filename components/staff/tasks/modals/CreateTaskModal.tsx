@@ -20,7 +20,7 @@ import {
 import { selectUser } from "@/redux/user/user.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import OptionSheet from "@/components/common/OptionSheet";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -98,6 +98,8 @@ export default function CreateTaskModal({
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
     null,
   );
+  const creatingLockRef = useRef(false);
+  const [creatingTask, setCreatingTask] = useState(false);
 
   // if user isn't allowed personal, force channel mode on open/role change
   useEffect(() => {
@@ -178,11 +180,16 @@ export default function CreateTaskModal({
   };
 
   const create = async () => {
+    if (creatingLockRef.current) return;
+
     const name = title.trim();
-    const description = desc.trim() || null;
     if (!name) return;
 
+    const description = desc.trim() || null;
     try {
+      creatingLockRef.current = true;
+      setCreatingTask(true);
+
       if (forcePersonalForUserId || mode === "personal") {
         // Personal task flow
         if (isAdminish && forcePersonalForUserId) {
@@ -243,6 +250,9 @@ export default function CreateTaskModal({
       onClose();
     } catch {
       // errors are already surfaced by thunks/toasts in your app
+    } finally {
+      creatingLockRef.current = false;
+      setCreatingTask(false);
     }
   };
 
@@ -401,11 +411,16 @@ export default function CreateTaskModal({
                       <Text className="font-kumbh text-[#6B7280]">Cancel</Text>
                     </Pressable>
                     <Pressable
+                      disabled={creatingTask}
                       onPress={create}
                       className="rounded-xl px-5 py-3"
-                      style={{ backgroundColor: "#4C5FAB" }}
+                      style={{
+                        backgroundColor: creatingTask ? "#4C5FAB99" : "#4C5FAB",
+                      }}
                     >
-                      <Text className="font-kumbh text-white">Create</Text>
+                      <Text className="font-kumbh text-white">
+                        {creatingTask ? "Creating..." : "Create"}
+                      </Text>
                     </Pressable>
                   </View>
                 </ScrollView>

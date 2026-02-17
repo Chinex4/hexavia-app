@@ -295,7 +295,7 @@ export default function ChannelsIndex() {
             }}
           >
             <Text className="text-center font-kumbhBold text-base mb-3">
-              Channel Actions
+              Project Actions
             </Text>
             <Pressable
               onPress={() => {
@@ -308,7 +308,7 @@ export default function ChannelsIndex() {
               className="py-3"
             >
               <Text className="text-center font-kumbh text-gray-700">
-                Edit channel
+                Edit Project
               </Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />
@@ -321,7 +321,7 @@ export default function ChannelsIndex() {
               className="py-3"
             >
               <Text className="text-center font-kumbh text-red-600">
-                {deletingId === actionTarget?._id ? "Deleting..." : "Delete channel"}
+                {deletingId === actionTarget?._id ? "Deleting..." : "Delete Project"}
               </Text>
             </Pressable>
             <View className="h-[1px] bg-gray-200" />

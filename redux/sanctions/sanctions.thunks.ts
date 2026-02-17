@@ -4,6 +4,7 @@ import { api } from "@/api/axios";
 import {
   ApiSanction,
   CreateSanctionBody,
+  DeleteSanctionBody,
   UpdateSanctionBody,
   SanctionsQuery,
 } from "./sanctions.type";
@@ -49,21 +50,54 @@ export const fetchSanctions = createAsyncThunk<
 
 export const createSanction = createAsyncThunk<
   ApiSanction,
-  CreateSanctionBody,
+  CreateSanctionBody & { silent?: boolean },
   { rejectValue: string }
 >("sanctions/create", async (body, { rejectWithValue }) => {
   try {
-    const { data } = await showPromise(
-      api.post("/sanction/create", body),
-      "Creating Sanction...",
-      "Sanction given"
-    );
+    const { silent = false, ...payload } = body;
+
+    const request = api.post("/sanction/create", payload);
+    const { data } = silent
+      ? await request
+      : await showPromise(request, "Creating Sanction...", "Sanction given");
+
     const created = (data as any)?.sanction ?? data;
     return {
       ...created,
       createdAt: created.date ?? undefined,
       user: created.sanctionUser ?? undefined,
     } as ApiSanction;
+  } catch (err) {
+    const e = err as AxiosError<any>;
+    return rejectWithValue(e.response?.data?.message || e.message);
+  }
+});
+
+export const deleteSanction = createAsyncThunk<
+  string,
+  DeleteSanctionBody,
+  { rejectValue: string }
+>("sanctions/delete", async (body, { rejectWithValue }) => {
+  try {
+    const request = (async () => {
+      try {
+        return await api.delete("/sanction/delete", { data: body });
+      } catch (firstErr) {
+        const e = firstErr as AxiosError<any>;
+        const status = e.response?.status;
+        if (status === 404 || status === 405) {
+          return await api.delete("/sanction", { data: body });
+        }
+        throw firstErr;
+      }
+    })();
+
+    await showPromise(
+      request,
+      "Deleting Sanction...",
+      "Sanction deleted"
+    );
+    return body.sanctionId;
   } catch (err) {
     const e = err as AxiosError<any>;
     return rejectWithValue(e.response?.data?.message || e.message);

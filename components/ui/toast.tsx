@@ -4,7 +4,7 @@ import Toast, {
   ToastConfigParams,
 } from "react-native-toast-message";
 
-const TOAST_BOTTOM_OFFSET = Platform.select({ ios: 70, android: 50 }) ?? 60;
+const TOAST_TOP_OFFSET = Platform.select({ ios: 70, android: 50 }) ?? 60;
 
 const BrandToastColors = {
   success: { background: "#4c5fab", text: "#fff" },
@@ -51,8 +51,8 @@ const createToastRenderer =
   };
 
 const toastDefaults = {
-  position: "bottom" as const,
-  bottomOffset: TOAST_BOTTOM_OFFSET,
+  position: "top" as const,
+  topOffset: TOAST_TOP_OFFSET,
 };
 
 export const toastConfig: ToastConfig = {
@@ -114,7 +114,6 @@ export async function showPromise<T>(
     return res;
   } catch (e: any) {
     // 🔎 noisy console logging so you can see what's going on
-    // eslint-disable-next-line no-console
     console.log("[showPromise] error", {
       message: e?.message,
       status: e?.response?.status,
@@ -142,4 +141,4 @@ export async function showPromise<T>(
   }
 }
 
-export { TOAST_BOTTOM_OFFSET };
+export { TOAST_TOP_OFFSET };

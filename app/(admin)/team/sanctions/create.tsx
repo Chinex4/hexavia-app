@@ -11,12 +11,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft, ChevronDown } from "lucide-react-native";
 
 import Field from "@/components/admin/Field";
-import Dropdown from "@/components/admin/Dropdown";
-import Menu from "@/components/admin/Menu";
-import MenuItem from "@/components/admin/MenuItem";
+import OptionSheet from "@/components/common/OptionSheet";
 
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { fetchAdminUsers } from "@/redux/admin/admin.thunks";
@@ -25,16 +23,13 @@ import { selectAdminUsers } from "@/redux/admin/admin.slice";
 import { createSanction } from "@/redux/sanctions/sanctions.thunks";
 import { showError, showSuccess } from "@/components/ui/toast";
 
-type StatusOpt = "Active" | "Resolved" | "Pending";
-type ApiType = "warning";
-
 export default function CreateSanction() {
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const [type, setType] = useState<ApiType>("warning"); // <- server enum
-  const [duration, setDuration] = useState<string>("1");
+  const [showRecipientSheet, setShowRecipientSheet] = useState(false);
+  const [recipientIds, setRecipientIds] = useState<string[]>([]);
 
-  // load staff to select recipient
+  // load staff to select recipients
   const allUsers = useAppSelector(selectAdminUsers);
   const staff = useMemo(
     () => allUsers.filter((u) => u.role === "staff"),
@@ -45,33 +40,75 @@ export default function CreateSanction() {
     if (staff.length === 0) dispatch(fetchAdminUsers({ role: "staff" }));
   }, [dispatch, staff.length]);
 
-  const [recipientId, setRecipientId] = useState<string>("");
-  const [recipientLabel, setRecipientLabel] = useState<string>("Select staff");
   const [reason, setReason] = useState("");
-  const [status, setStatus] = useState<StatusOpt>("Active");
-  const [show, setShow] = useState(false);
+  const recipientOptions = useMemo(
+    () =>
+      staff.map((u) => ({
+        value: u._id,
+        label: u.fullname || u.username || u.email || u._id,
+      })),
+    [staff]
+  );
+
+  const selectedRecipientOptions = useMemo(
+    () =>
+      recipientOptions.filter((option) =>
+        recipientIds.includes(String(option.value))
+      ),
+    [recipientIds, recipientOptions]
+  );
+
+  const recipientLabel = useMemo(() => {
+    if (recipientIds.length === 0) return "Select staff members";
+    if (recipientIds.length === 1) {
+      return selectedRecipientOptions[0]?.label ?? "1 staff selected";
+    }
+    return `${recipientIds.length} staff selected`;
+  }, [recipientIds.length, selectedRecipientOptions]);
 
   const handleSave = async () => {
-    if (!recipientId) return showError("Select a staff to sanction");
+    if (recipientIds.length === 0) {
+      return showError("Select at least one staff member to sanction");
+    }
     if (!reason.trim()) return showError("Enter a reason");
 
-    const dur = Number.parseInt(duration, 10);
-    if (!Number.isFinite(dur) || dur < 1)
-      return showError("Duration must be a positive number");
+    const uniqueRecipientIds = Array.from(new Set(recipientIds));
+    const payload = { reason: reason.trim(), type: "warning", silent: true as const };
 
-    const res = await dispatch(
-      createSanction({
-        userId: recipientId,
-        reason: reason.trim(),
-        type,
-        // duration: dur,
-      })
+    const results = await Promise.all(
+      uniqueRecipientIds.map((userId) =>
+        dispatch(
+          createSanction({
+            userId,
+            ...payload,
+          })
+        )
+      )
     );
 
-    if ((res as any)?.meta?.requestStatus === "fulfilled") {
-      showSuccess("Sanction created");
-      router.back();
+    const successCount = results.filter(
+      (res) => (res as any)?.meta?.requestStatus === "fulfilled"
+    ).length;
+    const failureCount = uniqueRecipientIds.length - successCount;
+
+    if (failureCount === 0) {
+      showSuccess(
+        successCount === 1
+          ? "Sanction created"
+          : `Sanctions created for ${successCount} staff members`
+      );
+      router.replace("/(admin)/team/sanctions");
+      return;
     }
+
+    if (successCount > 0) {
+      showError(
+        `Created ${successCount} sanction(s), failed for ${failureCount}. Please retry.`
+      );
+      return;
+    }
+
+    showError("Failed to create sanction");
   };
 
   return (
@@ -98,30 +135,27 @@ export default function CreateSanction() {
         >
           <Field label="Recipient">
             <View>
-              <Dropdown
-                value={recipientLabel}
-                open={show}
-                onToggle={() => setShow((s) => !s)}
-              />
-              {show && (
-                <Menu>
-                  {staff.map((u) => {
-                    const label = u.fullname || u.username || u.email || u._id;
-                    return (
-                      <MenuItem
-                        key={u._id}
-                        active={u._id === recipientId}
-                        onPress={() => {
-                          setRecipientId(u._id);
-                          setRecipientLabel(label);
-                          setShow(false);
-                        }}
-                      >
-                        {label}
-                      </MenuItem>
-                    );
-                  })}
-                </Menu>
+              <Pressable
+                onPress={() => setShowRecipientSheet(true)}
+                className="flex-row items-center justify-between rounded-2xl px-4 py-4 bg-gray-200"
+              >
+                <Text className="text-gray-700 font-kumbh">{recipientLabel}</Text>
+                <ChevronDown size={18} color="#111827" />
+              </Pressable>
+
+              {selectedRecipientOptions.length > 0 && (
+                <View className="flex-row flex-wrap gap-2 mt-2">
+                  {selectedRecipientOptions.map((option) => (
+                    <View
+                      key={String(option.value)}
+                      className="bg-primary-50 rounded-full px-3 py-1"
+                    >
+                      <Text className="text-primary-700 text-xs font-kumbh">
+                        {option.label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               )}
             </View>
           </Field>
@@ -137,44 +171,6 @@ export default function CreateSanction() {
             />
           </Field>
 
-          <Field label="Type">
-            <View>
-              <Dropdown
-                value={type}
-                open={show}
-                onToggle={() => setShow((s) => !s)}
-              />
-              {show && (
-                <Menu>
-                  {(["warning"] as const).map((opt) => (
-                    <MenuItem
-                      key={opt}
-                      active={opt === type}
-                      onPress={() => {
-                        setType(opt);
-                        setShow(false);
-                      }}
-                    >
-                      {opt}
-                    </MenuItem>
-                  ))}
-                </Menu>
-              )}
-            </View>
-          </Field>
-
-          {/* Duration */}
-          {/* <Field label="Duration">
-            <TextInput
-              placeholder="Enter duration (days/hours, per server)"
-              placeholderTextColor="#9CA3AF"
-              value={duration}
-              onChangeText={setDuration}
-              keyboardType="numeric"
-              className="bg-gray-200 rounded-2xl px-4 py-4 font-kumbh text-text"
-            />
-          </Field> */}
-
           <Pressable
             onPress={handleSave}
             className="mt-6 rounded-2xl bg-primary-500 py-4 items-center active:opacity-90"
@@ -183,6 +179,22 @@ export default function CreateSanction() {
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <OptionSheet
+        visible={showRecipientSheet}
+        onClose={() => setShowRecipientSheet(false)}
+        title="Select staff members"
+        options={recipientOptions}
+        multiSelect
+        searchable
+        searchPlaceholder="Search staff by name or email"
+        selectedValues={recipientIds}
+        onSelectMultiple={(values) =>
+          setRecipientIds(values.map((value) => String(value)))
+        }
+        applyText="Done"
+      />
+
     </SafeAreaView>
   );
 }

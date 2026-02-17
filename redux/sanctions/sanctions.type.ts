@@ -28,6 +28,10 @@ export interface UpdateSanctionBody {
   isActive?: boolean;
 }
 
+export interface DeleteSanctionBody {
+  sanctionId: string;
+}
+
 export type SanctionsQuery = { userId?: string };
 
 export interface SanctionsState {

@@ -13,7 +13,7 @@ import { TasksProvider } from "@/features/staff/tasksStore";
 import Toast from "react-native-toast-message";
 import "../global.css";
 
-import { TOAST_BOTTOM_OFFSET, toastConfig } from "@/components/ui/toast";
+import { TOAST_TOP_OFFSET, toastConfig } from "@/components/ui/toast";
 import { setPushToken } from "@/redux/auth/auth.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { getExpoPushToken } from "@/utils/pushToken";
@@ -80,7 +80,7 @@ export default function RootLayout() {
       <Toast
         config={toastConfig}
         position="top"
-        bottomOffset={TOAST_BOTTOM_OFFSET}
+        topOffset={TOAST_TOP_OFFSET}
         visibilityTime={4000}
       />
     </>

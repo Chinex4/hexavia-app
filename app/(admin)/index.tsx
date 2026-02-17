@@ -114,7 +114,7 @@ export default function AdminDashboard() {
         </SectionCard> */}
 
         {/* Team performance (unchanged) */}
-        <SectionCard title="Team Performance" className="mx-5 mt-6">
+        {/* <SectionCard title="Team Performance" className="mx-5 mt-6">
           <View className="flex-row gap-4 items-center">
             <View className="w-24 h-24 rounded-2xl items-center justify-center">
               <Image source={require("@/assets/images/team-performance.png")} className="w-24 h-24" />
@@ -125,7 +125,7 @@ export default function AdminDashboard() {
               <ProgressRow label="Pending Task" percent={perf.pending} />
             </View>
           </View>
-        </SectionCard>
+        </SectionCard> */}
 
         {/* Deleted clients access */}
         <SectionCard
