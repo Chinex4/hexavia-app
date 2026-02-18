@@ -9,6 +9,11 @@
     "userInterfaceStyle": "automatic",
     "jsEngine": "hermes",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/logo2.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.chinexx.hexavia",
@@ -43,6 +48,15 @@
       "favicon": "./assets/images/logo-icon.png"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/logo2.png",
+          "backgroundColor": "#FFFFFF",
+          "resizeMode": "contain",
+          "imageWidth": 200
+        }
+      ],
       "expo-router",
       [
         "expo-build-properties",
