@@ -1,6 +1,6 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import { api } from "@/api/axios";
-import { showError, showPromise } from "@/components/ui/toast";
+import { showPromise } from "@/components/ui/toast";
 import type {
   Client,
   ClientCreateInput,
@@ -269,6 +269,38 @@ export const deleteClient = createAsyncThunk<string, string>(
     }
   }
 );
+
+export const restoreClient = createAsyncThunk<
+  { id: string; client?: Client; message?: string },
+  string
+>("client/restoreClient", async (id, { rejectWithValue }) => {
+  try {
+    const { data } = await api.put<{
+      success: boolean;
+      message?: string;
+      client?: Client;
+    }>("/admin/clients/restore", { id });
+
+    return {
+      id,
+      client: data?.client,
+      message: data?.message,
+    };
+  } catch (err: any) {
+    const status = err?.response?.status;
+    const retryAfter = err?.response?.headers?.["retry-after"] ?? null;
+
+    return rejectWithValue({
+      code: status ?? 0,
+      message:
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to restore client",
+      retryAfter,
+      gaveUpAfterRetries: err?.__gaveUp429 === true,
+    });
+  }
+});
 
 export const fetchClientStats = createAsyncThunk<ClientStats>(
   "client/fetchClientStats",

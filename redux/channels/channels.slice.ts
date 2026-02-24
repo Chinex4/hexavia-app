@@ -6,6 +6,7 @@ import {
     createChannelTask,
     deleteChannelById,
     deleteChannelTask,
+    restoreChannelById,
     fetchChannelByCode,
     fetchChannelById,
     fetchChannelTasks,
@@ -300,6 +301,22 @@ const channelsSlice = createSlice({
         if (id) removeOne(state, id);
       })
       .addCase(deleteChannelById.rejected, (state, action) => {
+        state.status = "failed";
+        state.error =
+          (action.payload as string) ?? action.error.message ?? null;
+      });
+
+    builder
+      .addCase(restoreChannelById.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(restoreChannelById.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        const channel = action.payload?.channel;
+        if (channel?._id) upsertOne(state, channel);
+      })
+      .addCase(restoreChannelById.rejected, (state, action) => {
         state.status = "failed";
         state.error =
           (action.payload as string) ?? action.error.message ?? null;

@@ -17,6 +17,7 @@ import type {
   DeleteTaskBody,
   DeleteTaskResponse,
   GenerateCodeResponse,
+  GetDeletedChannelsResponse,
   GetChannelByCodeResponse,
   GetChannelByIdResponse,
   GetChannelsResponse,
@@ -33,6 +34,8 @@ import type {
   UpdateTaskBody,
   UpdateTaskResponse,
   UploadResourcesBody,
+  RestoreChannelBody,
+  RestoreChannelResponse,
 } from "./channels.types";
 
 export const fetchChannels = createAsyncThunk<
@@ -44,6 +47,27 @@ export const fetchChannels = createAsyncThunk<
     const res = await api.get<GetChannelsResponse>("/channel");
     // console.log(res.data);
     return res.data.channels;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const fetchDeletedChannels = createAsyncThunk<
+  Channel[],
+  void,
+  { rejectValue: string }
+>("channels/fetchDeleted", async (_: void, { rejectWithValue }) => {
+  try {
+    const res = await api.get<GetDeletedChannelsResponse>("/channel/deleted");
+    const channels =
+      res.data?.channels ??
+      (res.data as any)?.deletedChannels ??
+      res.data?.data?.channels ??
+      ((res.data as any)?.data as Channel[]) ??
+      [];
+    return Array.isArray(channels) ? channels : [];
   } catch (err) {
     const msg = extractErrorMessage(err);
     showError(msg);
@@ -217,6 +241,28 @@ export const deleteChannelById = createAsyncThunk<
     );
 
     return res.data?.channelId ?? body.channelId;
+  } catch (err) {
+    const msg = extractErrorMessage(err);
+    showError(msg);
+    return rejectWithValue(msg);
+  }
+});
+
+export const restoreChannelById = createAsyncThunk<
+  { channelId: string; channel?: Channel; message?: string },
+  RestoreChannelBody,
+  { rejectValue: string }
+>("channels/restoreChannel", async (body, { rejectWithValue }) => {
+  try {
+    const res = await api.post<RestoreChannelResponse>("/channel/restore", body);
+    return {
+      channelId:
+        res.data?.channelId ??
+        res.data?.channel?._id ??
+        body.channelId,
+      channel: res.data?.channel,
+      message: res.data?.message,
+    };
   } catch (err) {
     const msg = extractErrorMessage(err);
     showError(msg);

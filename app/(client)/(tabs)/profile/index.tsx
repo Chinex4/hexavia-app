@@ -10,6 +10,8 @@ import {
   Modal,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -293,53 +295,71 @@ export default function Profile() {
         animationType="fade"
         onRequestClose={closeDeleteModal}
       >
-        <View className="flex-1 bg-black/40 items-center justify-center px-6">
-          <View className="w-full rounded-3xl bg-white p-5">
-            <Text className="text-lg font-kumbhBold text-gray-900 mb-1">
-              Delete account
-            </Text>
-            <Text className="text-sm font-kumbh text-gray-600 mb-4">
-              This action is permanent. Please enter your password to confirm.
-            </Text>
-
-            <Text className="text-xs font-kumbh text-gray-500 mb-1">
-              Password
-            </Text>
-            <TextInput
-              value={deletePassword}
-              onChangeText={setDeletePassword}
-              secureTextEntry
-              placeholder="Enter your password"
-              className="w-full rounded-2xl border border-gray-200 px-3 py-2 font-kumbh text-sm text-gray-900"
-            />
-
-            {deleteError ? (
-              <Text className="mt-2 text-xs font-kumbh text-red-500">
-                {deleteError}
+        <KeyboardAvoidingView
+          className="flex-1"
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={24}
+        >
+          <ScrollView
+            className="flex-1 bg-black/40"
+            contentContainerStyle={{
+              flexGrow: 1,
+              justifyContent: "center",
+              paddingHorizontal: 24,
+            }}
+            keyboardShouldPersistTaps="handled"
+          >
+            <View className="w-full rounded-3xl bg-white p-5">
+              <Text className="text-lg font-kumbhBold text-gray-900 mb-1">
+                Delete account
               </Text>
-            ) : null}
+              <Text className="text-sm font-kumbh text-gray-600 mb-4">
+                This action is permanent. Please enter your password to confirm.
+              </Text>
 
-            <View className="mt-5 flex-row justify-end">
-              <Pressable
-                onPress={closeDeleteModal}
-                disabled={deleting}
-                className="mr-3 px-4 py-2 rounded-2xl bg-gray-100"
-              >
-                <Text className="text-sm font-kumbh text-gray-700">Cancel</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleConfirmDelete}
-                disabled={deleting}
-                className="px-4 py-2 rounded-2xl bg-red-500 flex-row items-center justify-center"
-              >
-                {deleting && <ActivityIndicator size="small" color="#ffffff" />}
-                <Text className="ml-2 text-sm font-kumbhBold text-white">
-                  {deleting ? "Deleting..." : "Confirm delete"}
+              <Text className="text-xs font-kumbh text-gray-500 mb-1">
+                Password
+              </Text>
+              <TextInput
+                value={deletePassword}
+                onChangeText={setDeletePassword}
+                secureTextEntry
+                placeholder="Enter your password"
+                className="w-full rounded-2xl border border-gray-200 px-3 py-2 font-kumbh text-sm text-gray-900"
+              />
+
+              {deleteError ? (
+                <Text className="mt-2 text-xs font-kumbh text-red-500">
+                  {deleteError}
                 </Text>
-              </Pressable>
+              ) : null}
+
+              <View className="mt-5 flex-row justify-end">
+                <Pressable
+                  onPress={closeDeleteModal}
+                  disabled={deleting}
+                  className="mr-3 px-4 py-2 rounded-2xl bg-gray-100"
+                >
+                  <Text className="text-sm font-kumbh text-gray-700">
+                    Cancel
+                  </Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleConfirmDelete}
+                  disabled={deleting}
+                  className="px-4 py-2 rounded-2xl bg-red-500 flex-row items-center justify-center"
+                >
+                  {deleting && (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  )}
+                  <Text className="ml-2 text-sm font-kumbhBold text-white">
+                    {deleting ? "Deleting..." : "Confirm delete"}
+                  </Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
-        </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );

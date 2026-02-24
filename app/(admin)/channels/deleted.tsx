@@ -5,37 +5,23 @@ import {
   Alert,
   FlatList,
   Pressable,
+  RefreshControl,
   Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ArrowLeft } from "lucide-react-native";
 
-import { useAppDispatch } from "@/store/hooks";
 import { showSuccess } from "@/components/ui/toast";
 import {
-  fetchDeletedClients,
-  restoreClient,
-} from "@/redux/client/client.thunks";
-import type { Client } from "@/redux/client/client.types";
+  fetchDeletedChannels,
+  restoreChannelById,
+} from "@/redux/channels/channels.thunks";
+import type { Channel } from "@/redux/channels/channels.types";
+import { useAppDispatch } from "@/store/hooks";
 
-type DeletedClient = Client & {
+type DeletedChannel = Channel & {
   deletedAt?: string;
-};
-
-const formatMoney = (value?: number) => {
-  if (typeof value !== "number" || !isFinite(value)) return "₦ 0.00";
-  try {
-    return (
-      "₦ " +
-      new Intl.NumberFormat("en-NG", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(value)
-    );
-  } catch {
-    return `₦ ${value.toFixed(2)}`;
-  }
 };
 
 const formatDate = (value?: string) => {
@@ -51,50 +37,63 @@ const formatDate = (value?: string) => {
   }
 };
 
-export default function DeletedClientsScreen() {
+export default function DeletedChannelsScreen() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  const [clients, setClients] = useState<DeletedClient[]>([]);
+  const [channels, setChannels] = useState<DeletedChannel[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [restoringId, setRestoringId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const loadDeletedChannels = useCallback(async () => {
+    const data = await dispatch(fetchDeletedChannels()).unwrap();
+    setChannels(data as DeletedChannel[]);
+    setError(null);
+  }, [dispatch]);
+
   useEffect(() => {
     setLoading(true);
-    dispatch(fetchDeletedClients())
-      .unwrap()
-      .then((data) => {
-        setClients(data.clients ?? []);
-        setError(null);
-      })
+    loadDeletedChannels()
       .catch((err: any) => {
-        const message =
-          err?.message || err?.payload?.message || "Could not load clients";
+        const message = err?.message || err?.payload || "Could not load projects";
         setError(message);
       })
       .finally(() => setLoading(false));
-  }, [dispatch]);
+  }, [loadDeletedChannels]);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await loadDeletedChannels();
+    } catch (err: any) {
+      const message = err?.message || err?.payload || "Could not refresh projects";
+      setError(message);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadDeletedChannels]);
 
   const handleRestore = useCallback(
-    (item: DeletedClient) => {
-      const clientName = item.name?.trim() || "this client";
-      Alert.alert("Restore client", `Restore ${clientName}?`, [
+    (item: DeletedChannel) => {
+      const projectName = item.name?.trim() || "this project";
+      Alert.alert("Restore project", `Restore ${projectName}?`, [
         { text: "Cancel", style: "cancel" },
         {
           text: "Restore",
           onPress: async () => {
             setRestoringId(item._id);
             try {
-              const res = await dispatch(restoreClient(item._id)).unwrap();
-              setClients((prev) => prev.filter((c) => c._id !== item._id));
+              const res = await dispatch(
+                restoreChannelById({ channelId: item._id })
+              ).unwrap();
+              setChannels((prev) => prev.filter((c) => c._id !== item._id));
               setError(null);
-              showSuccess(res?.message || "Client restored successfully");
+              showSuccess(res?.message || "Project restored successfully");
             } catch (err: any) {
               const message =
-                err?.message ||
-                err?.payload?.message ||
-                "Could not restore client";
+                err?.message || err?.payload || "Could not restore project";
               setError(message);
             } finally {
               setRestoringId((current) =>
@@ -108,59 +107,31 @@ export default function DeletedClientsScreen() {
     [dispatch]
   );
 
-  const renderClient = useCallback(
-    ({ item }: { item: DeletedClient }) => {
+  const renderProject = useCallback(
+    ({ item }: { item: DeletedChannel }) => {
       const isRestoring = restoringId === item._id;
-      const subtitleParts = [
-        item.projectName,
-        item.industry,
-        item.engagement,
-      ].filter(Boolean);
       return (
-        <Pressable
-          disabled={isRestoring}
-          onPress={() =>
-            router.push(
-              `/(admin)/clients/deleted/${item._id}?data=${encodeURIComponent(
-                JSON.stringify(item)
-              )}`
-            )
-          }
-          className="bg-white rounded-3xl px-5 py-4 mb-4 border border-gray-100 shadow-[0_10px_20px_rgba(15,23,42,0.08)]"
-        >
+        <View className="bg-white rounded-3xl px-5 py-4 mb-4 border border-gray-100 shadow-[0_10px_20px_rgba(15,23,42,0.08)]">
           <Text className="text-lg font-semibold text-gray-900 font-kumbh">
-            {item.name ?? "Client"}
+            {item.name ?? "Project"}
           </Text>
-          {subtitleParts.length > 0 ? (
+          {item.code ? (
             <Text className="text-sm text-gray-500 mt-1 font-kumbh">
-              {subtitleParts.join(" • ")}
+              Code: {item.code}
             </Text>
           ) : null}
-          <View className="flex-row items-center justify-between gap-3 mt-3">
-            <Text className="text-xs uppercase tracking-wide text-gray-400 font-semibold font-kumbh">
-              Status: {item.status ?? "deleted"}
+          {item.description ? (
+            <Text className="text-sm text-gray-500 mt-1 font-kumbh">
+              {item.description}
             </Text>
-            {item.payableAmount != null ? (
-              <Text className="text-sm font-semibold text-primary font-kumbh">
-                {formatMoney(item.payableAmount)}
-              </Text>
-            ) : null}
-          </View>
+          ) : null}
           <Text className="text-xs text-gray-400 mt-2 font-kumbh">
             Deleted {formatDate(item.deletedAt ?? item.updatedAt)}
           </Text>
-          {item.email ? (
-            <Text className="text-xs text-gray-500 mt-1 font-kumbh">
-              {item.email}
-            </Text>
-          ) : null}
           <View className="mt-4 flex-row items-center justify-end">
             <Pressable
               disabled={isRestoring}
-              onPress={(event) => {
-                event.stopPropagation();
-                handleRestore(item);
-              }}
+              onPress={() => handleRestore(item)}
               className="bg-[#4c5fab] rounded-full px-4 py-2 min-w-[88px] items-center"
               style={{ opacity: isRestoring ? 0.7 : 1 }}
             >
@@ -173,10 +144,10 @@ export default function DeletedClientsScreen() {
               )}
             </Pressable>
           </View>
-        </Pressable>
+        </View>
       );
     },
-    [handleRestore, restoringId, router]
+    [handleRestore, restoringId]
   );
 
   const emptyComponent = useMemo(() => {
@@ -184,7 +155,7 @@ export default function DeletedClientsScreen() {
     return (
       <View className="px-5 mt-10">
         <Text className="text-center text-gray-500 font-kumbh">
-          No deleted clients available right now.
+          No deleted projects available right now.
         </Text>
       </View>
     );
@@ -201,10 +172,10 @@ export default function DeletedClientsScreen() {
         </Pressable>
         <View className="flex-1">
           <Text className="text-2xl font-semibold text-gray-900 font-kumbh">
-            Deleted Clients
+            Deleted Projects
           </Text>
           <Text className="text-sm text-gray-500 mt-1 font-kumbh">
-            Tap a card to view details or restore a removed client.
+            Review deleted projects and restore when needed.
           </Text>
         </View>
       </View>
@@ -215,14 +186,18 @@ export default function DeletedClientsScreen() {
         </View>
       ) : (
         <FlatList
-          data={clients}
+          data={channels}
           keyExtractor={(item) => item._id}
-          renderItem={renderClient}
+          renderItem={renderProject}
           className="flex-1 px-5 mt-5"
           contentContainerStyle={{ paddingBottom: 24 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
           ListEmptyComponent={emptyComponent}
         />
       )}
+
       {error ? (
         <View className="px-5 py-3">
           <Text className="text-sm text-red-500 font-kumbh">{error}</Text>

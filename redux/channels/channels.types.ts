@@ -69,6 +69,15 @@ export interface GetChannelsResponse {
   channels: Channel[];
 }
 
+export interface GetDeletedChannelsResponse {
+  success?: boolean;
+  message?: string;
+  channels?: Channel[];
+  data?: {
+    channels?: Channel[];
+  };
+}
+
 export interface GenerateCodeResponse {
   code: string;
 }
@@ -105,6 +114,17 @@ export interface DeleteChannelBody {
 export interface DeleteChannelResponse {
   message?: string;
   success?: boolean;
+  channelId?: string;
+}
+
+export interface RestoreChannelBody {
+  channelId: string;
+}
+
+export interface RestoreChannelResponse {
+  success?: boolean;
+  message?: string;
+  channel?: Channel;
   channelId?: string;
 }
 export interface RemoveMemberResponse {

@@ -145,6 +145,24 @@ export default function AdminDashboard() {
             <ChevronRight size={20} color="#111827" />
           </View>
         </SectionCard>
+
+        <SectionCard
+          title="Deleted Projects"
+          className="mx-5 mt-4"
+          onPress={() => router.push("/(admin)/channels/deleted")}
+        >
+          <View className="flex-row items-center gap-3">
+            <View className="flex-1">
+              <Text className="text-sm text-gray-600 font-kumbh">
+                Review channels/projects that were removed from the workspace.
+              </Text>
+              <Text className="text-sm text-gray-500 mt-1 font-kumbh">
+                Tap to open the deleted project log.
+              </Text>
+            </View>
+            <ChevronRight size={20} color="#111827" />
+          </View>
+        </SectionCard>
       </ScrollView>
       <BotpressFab title="Hexavia Assistant" />
     </SafeAreaView>

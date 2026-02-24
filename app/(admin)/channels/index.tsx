@@ -170,6 +170,16 @@ export default function ChannelsIndex() {
           </Text>
         </Pressable>
 
+        <Pressable
+          onPress={() => router.push("/(admin)/channels/deleted")}
+          className="mt-3 flex-row items-center justify-center gap-3 rounded-2xl bg-white px-6 py-4 border border-gray-200"
+        >
+          <View className="w-2 h-2 rounded-full bg-[#4c5fab]" />
+          <Text className="text-base font-kumbh text-text">
+            View Deleted Projects
+          </Text>
+        </Pressable>
+
         {/* Search */}
         <View className="mt-4 flex-row items-center rounded-full bg-gray-200 py-2 px-4">
           <Search size={18} color="#6B7280" />
