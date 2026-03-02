@@ -38,6 +38,7 @@ import { StatusBar } from "expo-status-bar";
 import OptionSheet from "@/components/common/OptionSheet";
 import type { ChannelResource } from "@/redux/channels/resources.types";
 import { slugifyFilename } from "@/utils/slugAndCloudinary";
+import { api } from "@/api/axios";
 
 type MemberItem = {
   id: string;
@@ -45,6 +46,13 @@ type MemberItem = {
   avatar?: string | null;
   role?: string | null;
   channelType?: string | null;
+};
+
+type SummaryPdfResponse = {
+  success?: boolean;
+  pdfUrl?: string;
+  summaryText?: string;
+  message?: string;
 };
 
 function initialsFrom(value?: string | null) {
@@ -113,6 +121,13 @@ function detectResourceCategory(resource: ChannelResource) {
   if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt)$/.test(name + url))
     return "document";
   return "other";
+}
+
+function resolvePdfUrl(pathOrUrl: string) {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  const base = (api.defaults.baseURL ?? "").replace(/\/+$/, "");
+  const path = pathOrUrl.startsWith("/") ? pathOrUrl : `/${pathOrUrl}`;
+  return `${base}${path}`;
 }
 
 function htmlForSingleChannelReport(payload: {
@@ -1000,70 +1015,116 @@ export default function ChannelInfoScreen() {
 
     setIsGeneratingReport(true);
     try {
-      const latestChannel = await dispatch(fetchChannelById(channelId)).unwrap();
-      const [links, notes] = await Promise.all([
-        dispatch(fetchChannelLinks(channelId))
-          .unwrap()
-          .catch(() => [] as ChannelLink[]),
-        dispatch(fetchChannelNotes(channelId))
-          .unwrap()
-          .catch(() => [] as ChannelNote[]),
-      ]);
+      const endpointResponse = await api.post<SummaryPdfResponse>(
+        `/channel/${channelId}/summary-pdf`
+      );
+      const rawPdfUrl = endpointResponse.data?.pdfUrl;
+      if (!rawPdfUrl) {
+        throw new Error(
+          endpointResponse.data?.message || "Summary PDF URL was not returned."
+        );
+      }
 
-      const ownerName =
-        typeof (latestChannel as any)?.createdBy === "string"
-          ? String((latestChannel as any).createdBy)
-          : (latestChannel as any)?.createdBy?.username ||
-            (latestChannel as any)?.createdBy?.name ||
-            (latestChannel as any)?.createdBy?.email ||
-            "Unknown";
-
-      const html = htmlForSingleChannelReport({
-        channelName: latestChannel.name || "Channel",
-        channelCode: (latestChannel as any)?.code,
-        generatedAt: new Date(),
-        createdAt: (latestChannel as any)?.createdAt,
-        createdBy: ownerName,
-        members,
-        tasks: Array.isArray((latestChannel as any)?.tasks)
-          ? ((latestChannel as any).tasks as any[])
-          : [],
-        resources: Array.isArray((latestChannel as any)?.resources)
-          ? ((latestChannel as any).resources as ChannelResource[])
-          : [],
-        links: Array.isArray(links) ? links : [],
-        notes: Array.isArray(notes) ? notes : [],
-      });
-
+      const pdfUrl = resolvePdfUrl(rawPdfUrl);
       if (Platform.OS === "web") {
-        await Print.printAsync({ html });
+        if (typeof window !== "undefined") {
+          window.open(pdfUrl, "_blank", "noopener,noreferrer");
+        }
         return;
       }
 
-      const file = await Print.printToFileAsync({ html });
-      const safeName = slugifyFilename(latestChannel.name || "Project");
+      const safeName = slugifyFilename(channel.name || "Project");
       const stamp = new Date().toISOString().slice(0, 10);
-      const namedUri = `${FileSystem.cacheDirectory}${safeName}_${stamp}.pdf`;
-      try {
-        await FileSystem.moveAsync({ from: file.uri, to: namedUri });
-      } catch {
-        // keep original uri if rename fails
-      }
+      const namedUri = `${FileSystem.cacheDirectory}summary_${safeName}_${stamp}.pdf`;
+      await FileSystem.downloadAsync(pdfUrl, namedUri);
+
       const canShare = await Sharing.isAvailableAsync();
       if (!canShare) {
-        Alert.alert("Share unavailable", "Sharing is not available on this device.");
+        Alert.alert(
+          "Share unavailable",
+          "Sharing is not available on this device."
+        );
         return;
       }
-      await Sharing.shareAsync(
-        (await FileSystem.getInfoAsync(namedUri)).exists ? namedUri : file.uri,
-        {
+      await Sharing.shareAsync(namedUri, {
         UTI: "com.adobe.pdf",
         mimeType: "application/pdf",
-        dialogTitle: `Export Report - ${latestChannel.name || "Channel"}`,
+        dialogTitle: `Export Report - ${channel.name || "Channel"}`,
+      });
+    } catch (endpointErr: any) {
+      // fallback: keep existing local generation if summary endpoint fails
+      try {
+        const latestChannel = await dispatch(fetchChannelById(channelId)).unwrap();
+        const [links, notes] = await Promise.all([
+          dispatch(fetchChannelLinks(channelId))
+            .unwrap()
+            .catch(() => [] as ChannelLink[]),
+          dispatch(fetchChannelNotes(channelId))
+            .unwrap()
+            .catch(() => [] as ChannelNote[]),
+        ]);
+
+        const ownerName =
+          typeof (latestChannel as any)?.createdBy === "string"
+            ? String((latestChannel as any).createdBy)
+            : (latestChannel as any)?.createdBy?.username ||
+              (latestChannel as any)?.createdBy?.name ||
+              (latestChannel as any)?.createdBy?.email ||
+              "Unknown";
+
+        const html = htmlForSingleChannelReport({
+          channelName: latestChannel.name || "Channel",
+          channelCode: (latestChannel as any)?.code,
+          generatedAt: new Date(),
+          createdAt: (latestChannel as any)?.createdAt,
+          createdBy: ownerName,
+          members,
+          tasks: Array.isArray((latestChannel as any)?.tasks)
+            ? ((latestChannel as any).tasks as any[])
+            : [],
+          resources: Array.isArray((latestChannel as any)?.resources)
+            ? ((latestChannel as any).resources as ChannelResource[])
+            : [],
+          links: Array.isArray(links) ? links : [],
+          notes: Array.isArray(notes) ? notes : [],
+        });
+
+        if (Platform.OS === "web") {
+          await Print.printAsync({ html });
+          return;
         }
-      );
-    } catch (err: any) {
-      Alert.alert("Generate report failed", err?.message || "Please try again.");
+
+        const file = await Print.printToFileAsync({ html });
+        const safeName = slugifyFilename(latestChannel.name || "Project");
+        const stamp = new Date().toISOString().slice(0, 10);
+        const namedUri = `${FileSystem.cacheDirectory}${safeName}_${stamp}.pdf`;
+        try {
+          await FileSystem.moveAsync({ from: file.uri, to: namedUri });
+        } catch {
+          // keep original uri if rename fails
+        }
+        const canShare = await Sharing.isAvailableAsync();
+        if (!canShare) {
+          Alert.alert(
+            "Share unavailable",
+            "Sharing is not available on this device."
+          );
+          return;
+        }
+        await Sharing.shareAsync(
+          (await FileSystem.getInfoAsync(namedUri)).exists ? namedUri : file.uri,
+          {
+            UTI: "com.adobe.pdf",
+            mimeType: "application/pdf",
+            dialogTitle: `Export Report - ${latestChannel.name || "Channel"}`,
+          }
+        );
+      } catch (fallbackErr: any) {
+        Alert.alert(
+          "Generate report failed",
+          endpointErr?.message || fallbackErr?.message || "Please try again."
+        );
+      }
     } finally {
       setIsGeneratingReport(false);
     }
@@ -1164,7 +1225,7 @@ export default function ChannelInfoScreen() {
       </View>
       <View className="mt-3">
         <Pressable
-          className="bg-gray-900 px-4 py-3 rounded-2xl flex-row items-center justify-center"
+          className="bg-primary px-4 py-3 rounded-2xl flex-row items-center justify-center"
           disabled={isGeneratingReport}
           onPress={handleGenerateReport}
           style={{ opacity: isGeneratingReport ? 0.7 : 1 }}

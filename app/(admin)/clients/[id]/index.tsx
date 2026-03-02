@@ -151,17 +151,23 @@ function Input({
   placeholder = "—",
   multiline = false,
   keyboardType,
+  onBlur,
+  onFocus,
 }: {
   value?: string | number | null;
   onChangeText: (t: string) => void;
   placeholder?: string;
   multiline?: boolean;
-  keyboardType?: "default" | "numeric" | "phone-pad" | "email-address";
+  keyboardType?: React.ComponentProps<typeof TextInput>["keyboardType"];
+  onBlur?: () => void;
+  onFocus?: () => void;
 }) {
   return (
     <TextInput
       value={value == null ? "" : String(value)}
       onChangeText={onChangeText}
+      onBlur={onBlur}
+      onFocus={onFocus}
       placeholder={placeholder}
       placeholderTextColor="#9CA3AF"
       multiline={multiline}
@@ -243,8 +249,33 @@ function formatMoneyNaira(v?: number) {
     return `₦ ${v.toFixed(2)}`;
   }
 }
+
+function moneyToInput(v?: number) {
+  if (typeof v !== "number" || !isFinite(v)) return "0.00";
+  return v.toFixed(2);
+}
+
+function formatGroupedMoneyInput(input: string) {
+  const n = parseMoney(input);
+  try {
+    return new Intl.NumberFormat("en-NG", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(n);
+  } catch {
+    return n.toFixed(2);
+  }
+}
+
+function sanitizeMoneyInput(input: string) {
+  const cleaned = input.replace(/[^\d.]/g, "");
+  const [whole = "", ...rest] = cleaned.split(".");
+  if (rest.length === 0) return whole;
+  return `${whole}.${rest.join("").slice(0, 2)}`;
+}
+
 function parseMoney(input: string): number {
-  const cleaned = input.replace(/[₦,\s]/g, "");
+  const cleaned = input.replace(/[^\d.]/g, "");
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : 0;
 }
@@ -395,9 +426,8 @@ export default function ClientDetails() {
   const [threats, setThreats] = useState(baseUser.threats ?? "");
   const [engagement, setEngagement] = useState(baseUser.engagement ?? "");
   const [deliverables, setDeliverables] = useState(baseUser.deliverables ?? "");
-  const [payable, setPayable] = useState(
-    formatMoneyNaira(baseUser.payableAmount)
-  );
+  const [payable, setPayable] = useState(moneyToInput(baseUser.payableAmount));
+  const [payableFocused, setPayableFocused] = useState(false);
   const [statusApi, setStatusApi] = useState<ApiStatus>(baseUser.statusApi);
   const [statusOpen, setStatusOpen] = useState(false);
   const [showIndustrySheet, setShowIndustrySheet] = useState(false);
@@ -791,7 +821,7 @@ export default function ClientDetails() {
   ]);
 
   const dirty = useMemo(() => {
-    const basePay = formatMoneyNaira(baseUser.payableAmount);
+    const basePay = moneyToInput(baseUser.payableAmount);
     const baseName =
       baseUser.fullname || baseUser.username || baseUser.email || "";
     const baseEmail = baseUser.email ?? "";
@@ -856,7 +886,8 @@ export default function ClientDetails() {
     setThreats(baseUser.threats ?? "");
     setEngagement(baseUser.engagement ?? "");
     setDeliverables(baseUser.deliverables ?? "");
-    setPayable(formatMoneyNaira(baseUser.payableAmount));
+    setPayable(moneyToInput(baseUser.payableAmount));
+    setPayableFocused(false);
     setStatusApi(baseUser.statusApi);
     setDocumentFile(null);
     setDocumentName("");
@@ -1125,12 +1156,20 @@ export default function ClientDetails() {
                     <View style={{ flex: 1 }}>
                       <FieldLabel>Payable Amount</FieldLabel>
                       <Input
-                        value={payable}
-                        onChangeText={(t) => {
-                          const n = parseMoney(t);
-                          setPayable(formatMoneyNaira(n));
+                        value={
+                          payableFocused
+                            ? payable
+                            : formatGroupedMoneyInput(payable)
+                        }
+                        onChangeText={(t) => setPayable(sanitizeMoneyInput(t))}
+                        onFocus={() => setPayableFocused(true)}
+                        onBlur={() => {
+                          setPayable(moneyToInput(parseMoney(payable)));
+                          setPayableFocused(false);
                         }}
-                        keyboardType="numeric"
+                        keyboardType={
+                          Platform.OS === "ios" ? "decimal-pad" : "numeric"
+                        }
                       />
                     </View>
 

@@ -33,7 +33,10 @@ export default function Composer({
   onCancelRecording,
   mentionables,
 }: Props) {
+  const MIN_INPUT_HEIGHT = 22;
+  const MAX_INPUT_HEIGHT = 120;
   const [text, setText] = useState(value ?? "");
+  const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const [query, setQuery] = useState(""); // after "@"
   const [open, setOpen] = useState(false); // show typeahead
   const inputRef = useRef<TextInput>(null);
@@ -46,6 +49,10 @@ export default function Composer({
     if (value === undefined) return;
     if (value !== text) setText(value);
   }, [value, text]);
+
+  useEffect(() => {
+    if (!text) setInputHeight(MIN_INPUT_HEIGHT);
+  }, [text]);
 
   // Filter mention suggestions by query
   const results = useMemo(() => {
@@ -97,6 +104,7 @@ export default function Composer({
     if (!val) return;
     onSend(val); // no backend change; we send plain text containing @handles
     setText("");
+    setInputHeight(MIN_INPUT_HEIGHT);
     onChangeText?.("");
     setOpen(false);
     setQuery("");
@@ -182,7 +190,7 @@ export default function Composer({
 
       <View className="flex-row items-end">
         {/* Input */}
-        <View className="flex-1 bg-gray-100 rounded-full flex-row items-center pl-4 pr-2 min-h-12">
+        <View className="flex-1 bg-gray-100 rounded-3xl flex-row items-end pl-4 pr-2 min-h-12 py-1">
           {!isRecording && (
             <Pressable onPress={onToggleTray} className="mr-2">
               <Paperclip size={20} color="#111827" />
@@ -195,11 +203,28 @@ export default function Composer({
             onChangeText={onChange}
             placeholder="Send Message — try @ to mention"
             placeholderTextColor="#9CA3AF"
-            className="flex-1 text-gray-900 py-2"
-            style={{ fontFamily: "KumbhSans-Regular" }}
+            className="flex-1 text-gray-900"
+            style={{
+              fontFamily: "KumbhSans-Regular",
+              minHeight: MIN_INPUT_HEIGHT,
+              maxHeight: MAX_INPUT_HEIGHT,
+              height: inputHeight,
+              paddingVertical: 8,
+            }}
             multiline
+            scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
+            textAlignVertical="top"
             blurOnSubmit={false}
             returnKeyType="default"
+            onContentSizeChange={(e) => {
+              const next = Math.max(
+                MIN_INPUT_HEIGHT,
+                Math.min(MAX_INPUT_HEIGHT, e.nativeEvent.contentSize.height)
+              );
+              if (Math.abs(next - inputHeight) > 1) {
+                setInputHeight(next);
+              }
+            }}
           />
         </View>
 

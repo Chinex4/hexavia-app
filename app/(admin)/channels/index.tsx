@@ -23,14 +23,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import ChannelCard from "@/components/admin/ChannelCard";
 import EditChannelModal from "@/components/admin/EditChannelModal";
+import { api } from "@/api/axios";
 import { showSuccess } from "@/components/ui/toast";
-import {
-  selectAllChannels,
-  selectChannelsState,
-} from "@/redux/channels/channels.slice";
-import { deleteChannelById, fetchChannels } from "@/redux/channels/channels.thunks";
+import { deleteChannelById } from "@/redux/channels/channels.thunks";
 import type { Channel } from "@/redux/channels/channels.types";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppDispatch } from "@/store/hooks";
 
 const TINTS = [
   "#707fbc",
@@ -40,6 +37,12 @@ const TINTS = [
   "#9B7BF3",
   "#29C57A",
 ];
+
+type AdminChannelsResponse = {
+  message?: string;
+  data?: Channel[];
+  channels?: Channel[];
+};
 
 function hashToIndex(input: string, mod: number) {
   let h = 5381;
@@ -56,9 +59,11 @@ export default function ChannelsIndex() {
   const router = useRouter();
   const dispatch = useAppDispatch();
 
-  const channels = useAppSelector(selectAllChannels);
-  // console.log(channels.filter(ch => ch.name == "TEST")[0].members)
-  const { status, error } = useAppSelector(selectChannelsState);
+  const [channels, setChannels] = useState<Channel[]>([]);
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "succeeded" | "failed"
+  >("idle");
+  const [error, setError] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
   const [refreshing, setRefreshing] = useState(false);
@@ -68,18 +73,41 @@ export default function ChannelsIndex() {
   const [editChannel, setEditChannel] = useState<Channel | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
+  const loadChannels = useCallback(async () => {
+    setStatus("loading");
+    setError(null);
+    try {
+      const { data } = await api.get<AdminChannelsResponse>("/channel");
+      const list = Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.channels)
+          ? data.channels
+          : [];
+      setChannels(list);
+      setStatus("succeeded");
+    } catch (err: any) {
+      setChannels([]);
+      setStatus("failed");
+      setError(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Failed to load projects."
+      );
+    }
+  }, []);
+
   useEffect(() => {
-    dispatch(fetchChannels());
-  }, [dispatch]);
+    loadChannels();
+  }, [loadChannels]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await dispatch(fetchChannels()).unwrap();
+      await loadChannels();
     } finally {
       setRefreshing(false);
     }
-  }, [dispatch]);
+  }, [loadChannels]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -130,7 +158,7 @@ export default function ChannelsIndex() {
             setDeletingId(channelId);
             try {
               await dispatch(deleteChannelById({ channelId })).unwrap();
-              // showSuccess("Project deleted");
+              await loadChannels();
             } catch (err) {
               // errors already toasted in thunk
             } finally {
@@ -212,10 +240,7 @@ export default function ChannelsIndex() {
           columnWrapperStyle={{ gap: 5, paddingHorizontal: 20 }}
           contentContainerStyle={{ paddingBottom: 24, gap: 5 }}
           refreshControl={
-            <RefreshControl
-              refreshing={status === "loading" && channels.length > 0}
-              onRefresh={onRefresh}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           renderItem={({ item, index }) => (
             <View style={{ flex: 1, position: "relative" }}>
@@ -349,6 +374,7 @@ export default function ChannelsIndex() {
         onClose={() => {
           setEditOpen(false);
           setEditChannel(null);
+          loadChannels();
         }}
       />
     </SafeAreaView>

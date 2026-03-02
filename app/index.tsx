@@ -78,8 +78,8 @@ export default function Splash() {
         const role = user?.role;
         if (role === "client") router.replace("/(client)/(tabs)");
         else if (role === "staff") router.replace("/(staff)/(tabs)");
-        else if (role === "admin") router.replace("/(admin)");
-        else if (role === "super-admin") router.replace("/(admin)");
+        else if (role === "admin") router.replace("/(admin)/(tabs)");
+        else if (role === "super-admin") router.replace("/(admin)/(tabs)");
         else router.replace("/(client)/(tabs)"); // default to client
       }
     }, 3000);
