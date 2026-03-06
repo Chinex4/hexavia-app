@@ -33,8 +33,10 @@ export default function Composer({
   onCancelRecording,
   mentionables,
 }: Props) {
-  const MIN_INPUT_HEIGHT = 22;
-  const MAX_INPUT_HEIGHT = 120;
+  const LINE_HEIGHT = 20;
+  const INPUT_VERTICAL_PADDING = 10;
+  const MIN_INPUT_HEIGHT = LINE_HEIGHT + INPUT_VERTICAL_PADDING * 2;
+  const MAX_INPUT_HEIGHT = 132;
   const [text, setText] = useState(value ?? "");
   const [inputHeight, setInputHeight] = useState(MIN_INPUT_HEIGHT);
   const [query, setQuery] = useState(""); // after "@"
@@ -52,7 +54,17 @@ export default function Composer({
 
   useEffect(() => {
     if (!text) setInputHeight(MIN_INPUT_HEIGHT);
-  }, [text]);
+  }, [text, MIN_INPUT_HEIGHT]);
+
+  const clampInputHeight = (next: number) =>
+    Math.max(MIN_INPUT_HEIGHT, Math.min(MAX_INPUT_HEIGHT, next));
+
+  const estimateInputHeight = (val: string) => {
+    const lineCount = Math.max(1, val.split(/\r\n|\r|\n/).length);
+    return clampInputHeight(
+      lineCount * LINE_HEIGHT + INPUT_VERTICAL_PADDING * 2
+    );
+  };
 
   // Filter mention suggestions by query
   const results = useMemo(() => {
@@ -81,6 +93,10 @@ export default function Composer({
 
   const onChange = (val: string) => {
     setText(val);
+    setInputHeight((current) => {
+      const estimated = estimateInputHeight(val);
+      return estimated === current ? current : estimated;
+    });
     onChangeText?.(val);
     if (!isRecording) detectMention(val);
   };
@@ -94,6 +110,7 @@ export default function Composer({
     const after = text.slice(idx).replace(/^@[^\s@]*/, "@" + m.handle) + " ";
     const combined = before + after;
     setText(combined);
+    setInputHeight(estimateInputHeight(combined));
     setOpen(false);
     setQuery("");
     requestAnimationFrame(() => inputRef.current?.focus());
@@ -190,9 +207,15 @@ export default function Composer({
 
       <View className="flex-row items-end">
         {/* Input */}
-        <View className="flex-1 bg-gray-100 rounded-3xl flex-row items-end pl-4 pr-2 min-h-12 py-1">
+        <View
+          className="flex-1 rounded-[28px] border border-gray-200 bg-gray-100 flex-row items-end pl-4 pr-3"
+          style={{ minHeight: 52 }}
+        >
           {!isRecording && (
-            <Pressable onPress={onToggleTray} className="mr-2">
+            <Pressable
+              onPress={onToggleTray}
+              className="mr-2 h-10 w-10 items-center justify-center"
+            >
               <Paperclip size={20} color="#111827" />
             </Pressable>
           )}
@@ -201,15 +224,18 @@ export default function Composer({
             ref={inputRef}
             value={text}
             onChangeText={onChange}
-            placeholder="Send Message — try @ to mention"
+            placeholder="Write a message"
             placeholderTextColor="#9CA3AF"
             className="flex-1 text-gray-900"
             style={{
               fontFamily: "KumbhSans-Regular",
+              lineHeight: LINE_HEIGHT,
               minHeight: MIN_INPUT_HEIGHT,
               maxHeight: MAX_INPUT_HEIGHT,
               height: inputHeight,
-              paddingVertical: 8,
+              paddingTop: INPUT_VERTICAL_PADDING,
+              paddingBottom: INPUT_VERTICAL_PADDING,
+              paddingRight: 4,
             }}
             multiline
             scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
@@ -217,20 +243,17 @@ export default function Composer({
             blurOnSubmit={false}
             returnKeyType="default"
             onContentSizeChange={(e) => {
-              const next = Math.max(
-                MIN_INPUT_HEIGHT,
-                Math.min(MAX_INPUT_HEIGHT, e.nativeEvent.contentSize.height)
+              const next = clampInputHeight(e.nativeEvent.contentSize.height);
+              setInputHeight((current) =>
+                Math.abs(next - current) > 1 ? next : current
               );
-              if (Math.abs(next - inputHeight) > 1) {
-                setInputHeight(next);
-              }
             }}
           />
         </View>
 
         <Pressable
           onPress={text.trim() ? commit : onMicPress}
-          className="ml-3 h-12 w-12 rounded-full items-center justify-center"
+          className="ml-3 h-12 w-12 rounded-full items-center justify-center self-end"
           style={{ backgroundColor: "#4C5FAB" }}
         >
           {isRecording || text.trim() ? (
