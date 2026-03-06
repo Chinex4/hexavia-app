@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View, TextInput, Pressable, Text, FlatList } from "react-native";
+import {
+  View,
+  TextInput,
+  Pressable,
+  Text,
+  FlatList,
+  Platform,
+} from "react-native";
 import { Paperclip, Mic, Send, X } from "lucide-react-native";
 import type { ReplyMeta } from "@/types/chat";
 import type { Mentionable } from "@/utils/handles";
@@ -42,6 +49,7 @@ export default function Composer({
   const [query, setQuery] = useState(""); // after "@"
   const [open, setOpen] = useState(false); // show typeahead
   const inputRef = useRef<TextInput>(null);
+  const hasText = text.trim().length > 0;
 
   const mm = Math.floor(recordDurationMs / 60000);
   const ss = Math.floor((recordDurationMs % 60000) / 1000);
@@ -208,15 +216,27 @@ export default function Composer({
       <View className="flex-row items-end">
         {/* Input */}
         <View
-          className="flex-1 rounded-[28px] border border-gray-200 bg-gray-100 flex-row items-end pl-4 pr-3"
-          style={{ minHeight: 52 }}
+          className="flex-1 rounded-[28px] border border-[#E7EAF3] bg-white flex-row items-end pl-3 pr-3"
+          style={{
+            minHeight: 56,
+            shadowColor: "#1F2A44",
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: Platform.OS === "ios" ? 0.08 : 0,
+            shadowRadius: 24,
+            elevation: 3,
+          }}
         >
           {!isRecording && (
             <Pressable
               onPress={onToggleTray}
-              className="mr-2 h-10 w-10 items-center justify-center"
+              className="mr-2 h-10 w-10 items-center justify-center rounded-full"
+              style={{
+                backgroundColor: trayOpen ? "#EEF2FF" : "#F5F7FB",
+                borderWidth: 1,
+                borderColor: trayOpen ? "#C7D2FE" : "#E7EAF3",
+              }}
             >
-              <Paperclip size={20} color="#111827" />
+              <Paperclip size={18} color={trayOpen ? "#4C5FAB" : "#52607A"} />
             </Pressable>
           )}
 
@@ -229,13 +249,15 @@ export default function Composer({
             className="flex-1 text-gray-900"
             style={{
               fontFamily: "KumbhSans-Regular",
+              fontSize: 14,
               lineHeight: LINE_HEIGHT,
               minHeight: MIN_INPUT_HEIGHT,
               maxHeight: MAX_INPUT_HEIGHT,
               height: inputHeight,
               paddingTop: INPUT_VERTICAL_PADDING,
               paddingBottom: INPUT_VERTICAL_PADDING,
-              paddingRight: 4,
+              paddingLeft: 2,
+              paddingRight: 8,
             }}
             multiline
             scrollEnabled={inputHeight >= MAX_INPUT_HEIGHT}
@@ -252,14 +274,25 @@ export default function Composer({
         </View>
 
         <Pressable
-          onPress={text.trim() ? commit : onMicPress}
-          className="ml-3 h-12 w-12 rounded-full items-center justify-center self-end"
-          style={{ backgroundColor: "#4C5FAB" }}
+          onPress={hasText ? commit : onMicPress}
+          className="ml-3 items-center justify-center self-end rounded-full"
+          style={{
+            width: hasText ? 52 : 48,
+            height: hasText ? 52 : 48,
+            backgroundColor: hasText ? "#4C5FAB" : "#1E8E6A",
+            borderWidth: 1,
+            borderColor: hasText ? "#4456A0" : "#187356",
+            shadowColor: hasText ? "#4C5FAB" : "#1E8E6A",
+            shadowOffset: { width: 0, height: 10 },
+            shadowOpacity: Platform.OS === "ios" ? 0.18 : 0,
+            shadowRadius: 18,
+            elevation: 4,
+          }}
         >
-          {isRecording || text.trim() ? (
-            <Send size={20} color="#fff" />
+          {isRecording || hasText ? (
+            <Send size={18} color="#fff" />
           ) : (
-            <Mic size={20} color="#fff" />
+            <Mic size={18} color="#fff" />
           )}
         </Pressable>
       </View>
