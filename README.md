@@ -1,50 +1,76 @@
-# Welcome to your Expo app 👋
+# Hexavia
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Hexavia is a cross-platform mobile application built with React Native and Expo. It was created to provide users with a simple and reliable way to [briefly explain the main problem Hexavia solves].
 
-## Get started
+The application runs on Android and iOS and uses Expo Router for file-based navigation.
 
-1. Install dependencies
+## Code Sample Overview
 
-   ```bash
-   npm install
-   ```
+This repository is being submitted as a code sample for the Major League Hacking Fellowship.
 
-2. Start the app
+The sample demonstrates my ability to:
 
-   ```bash
-   npx expo start
-   ```
+- Build structured mobile applications with React Native and Expo
+- Create reusable and maintainable UI components
+- Implement multi-screen navigation with Expo Router
+- Integrate external APIs and backend services
+- Handle asynchronous operations, loading states, and errors
+- Validate user input and manage application forms
+- Organize a growing mobile application into maintainable modules
+- Debug and test features across Android and iOS
 
-In the output, you'll find options to open the app in a
+## Main Features
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+Hexavia includes features such as:
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+- User registration and authentication
+- [Main feature one]
+- [Main feature two]
+- [Main feature three]
+- User profile and account management
+- API-driven data and real-time interface updates
+- Form validation and error handling
+- Responsive layouts for different mobile screen sizes
 
-## Get a fresh project
+## My Contribution
 
-When you're ready, run:
+I was responsible for a substantial part of the mobile application development.
 
-```bash
-npm run reset-project
-```
+My contributions included:
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- Building screens and reusable React Native components
+- Implementing application navigation and user flows
+- Connecting the mobile application to backend APIs
+- Handling authentication and protected application routes
+- Managing loading, success, empty, and error states
+- Implementing form validation and user feedback
+- Debugging platform-specific issues on Android and iOS
+- Improving the structure and maintainability of the codebase
 
-## Learn more
+The code in this repository represents work I completed as part of building the actual application and was not created specifically for the MLH application.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Technologies Used
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- React Native
+- Expo
+- Expo Router
+- JavaScript / TypeScript
+- REST APIs
+- Git and GitHub
+- Android Studio
+- Xcode
 
-## Join the community
+## Project Structure
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```text
+hexavia/
+├── app/                  # Application routes and screens
+├── assets/               # Images, fonts, and other static files
+├── components/           # Reusable interface components
+├── constants/            # Shared constants and configuration
+├── hooks/                # Custom React hooks
+├── services/             # API requests and external services
+├── utils/                # Helper functions and validation
+├── app.json              # Expo application configuration
+├── package.json          # Dependencies and project scripts
+└── README.md
